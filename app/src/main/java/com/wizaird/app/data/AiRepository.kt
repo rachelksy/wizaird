@@ -20,7 +20,8 @@ data class AiSettings(
     val provider: String = "openai",
     val apiKey: String = "",
     val model: String = "gpt-4o-mini",
-    val temperature: Float = 0.7f
+    val temperature: Float = 0.7f,
+    val darkMode: Boolean = false
 )
 
 private val KEY_SETTINGS = stringPreferencesKey("ai_settings")

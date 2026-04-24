@@ -34,6 +34,7 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settings by settingsFlow(context).collectAsState(initial = AiSettings())
+    val colors = LocalWizairdColors.current
 
     var bubbleText by remember { mutableStateOf("Artificial Intelligence experience, or AI UX, is the practice of designing interactions between humans and intelligent systems in ways that feel natural, trustworthy, and useful.\n\nUnlike traditional software, AI systems are probabilistic — they don't always produce the same output for the same input. This introduces a new design challenge: how do you build trust with a system that is inherently unpredictable? The answer lies in transparency. Users need to understand what the AI can and cannot do, when it is confident versus uncertain, and how to correct it when it goes wrong.\n\nGood AI experience design starts with setting the right expectations. Onboarding flows should communicate the AI's capabilities honestly, without overpromising. In-product cues — like confidence indicators, source citations, or simple disclaimers — help users calibrate their trust appropriately.\n\nFeedback loops are equally important. When a user can rate a response, flag an error, or regenerate an answer, they feel in control. This sense of agency is critical: AI should feel like a powerful tool the user wields, not an opaque oracle they must blindly trust.\n\nLatency is another unique challenge. AI responses often take longer than traditional software actions. Thoughtful loading states — like streaming text, animated indicators, or progress cues — transform waiting from frustration into anticipation.\n\nFinally, the best AI experiences are deeply contextual. They remember who the user is, adapt to their preferences over time, and surface the right information at the right moment. The goal is not to replace human judgment, but to augment it — making people feel smarter, faster, and more capable than they would be alone.") }
     var isLoading by remember { mutableStateOf(false) }
@@ -68,19 +69,10 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
         }
     }
 
-    // Auto-refresh every 20s — disabled for testing
-//    LaunchedEffect(Unit) {
-//        askQuestion("")
-//        while (true) {
-//            delay(20_000)
-//            askQuestion("")
-//        }
-//    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Paper)
+            .background(colors.background)
     ) {
 
         Column(
@@ -138,32 +130,33 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
 // ── Status bar ───────────────────────────────────────────────────
 @Composable
 fun PixelStatusBar() {
+    val colors = LocalWizairdColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(28.dp)
-            .background(Paper)
-            .drawBehind { drawPixelBorder(bottom = true) }
+            .background(colors.background)
+            .drawBehind { drawPixelBorder(bottom = true, color = colors.border) }
             .padding(horizontal = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("9:30", style = pixelStyle(8))
+        Text("9:30", style = pixelStyle(8, colors.ink))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             // signal bars
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                 listOf(4.dp, 6.dp, 8.dp, 10.dp).forEach { h ->
-                    Box(modifier = Modifier.width(2.dp).height(h).background(Ink))
+                    Box(modifier = Modifier.width(2.dp).height(h).background(colors.ink))
                 }
             }
             // battery
             Box(
                 modifier = Modifier
                     .width(16.dp).height(8.dp)
-                    .border(2.dp, Ink)
+                    .border(2.dp, colors.border)
                     .padding(1.dp)
             ) {
-                Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(0.7f).background(Forest))
+                Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(0.7f).background(colors.forest))
             }
         }
     }
@@ -172,11 +165,12 @@ fun PixelStatusBar() {
 // ── App header ───────────────────────────────────────────────────
 @Composable
 fun AppHeader(onSettingsClick: () -> Unit) {
+    val colors = LocalWizairdColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Paper)
-            .drawBehind { drawPixelBorder(bottom = true) }
+            .background(colors.background)
+            .drawBehind { drawPixelBorder(bottom = true, color = colors.border) }
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -186,15 +180,15 @@ fun AppHeader(onSettingsClick: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(28.dp)
-                    .background(Coral)
-                    .drawBehind { drawPixelBorder() },
+                    .background(colors.coral)
+                    .drawBehind { drawPixelBorder(color = colors.border) },
                 contentAlignment = Alignment.Center
             ) {
                 Text("W", style = pixelStyle(12, Color.White))
             }
             Column {
-                Text("WIZAIRD", style = pixelStyle(13))
-                Text("LV.3 APPRENTICE", style = pixelStyle(6, InkSoft))
+                Text("WIZAIRD", style = pixelStyle(13, colors.ink))
+                Text("LV.3 APPRENTICE", style = pixelStyle(6, colors.inkSoft))
             }
         }
         // Gear icon button
@@ -204,7 +198,7 @@ fun AppHeader(onSettingsClick: () -> Unit) {
                 .clickable { onSettingsClick() },
             contentAlignment = Alignment.Center
         ) {
-            Text("⚙", style = pixelStyle(20, Ink))
+            Text("⚙", style = pixelStyle(20, colors.ink))
         }
     }
 }
@@ -225,24 +219,26 @@ fun StatStrip() {
 
 @Composable
 fun StatBar(label: String, value: Int, max: Int, color: Color) {
+    val colors = LocalWizairdColors.current
     val filled = (value.toFloat() / max * 10).toInt()
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = pixelStyle(7), modifier = Modifier.width(22.dp))
+        Text(label, style = pixelStyle(7, colors.ink), modifier = Modifier.width(22.dp))
         Row(
-            modifier = Modifier.background(Ink).padding(2.dp),
+            modifier = Modifier.background(colors.ink).padding(2.dp),
             horizontalArrangement = Arrangement.spacedBy(1.dp)
         ) {
             repeat(10) { i ->
-                Box(modifier = Modifier.size(8.dp).background(if (i < filled) color else Color(0x332A1F14)))
+                Box(modifier = Modifier.size(8.dp).background(if (i < filled) color else colors.backgroundDark))
             }
         }
-        Text("$value/$max", style = pixelStyle(6, InkSoft))
+        Text("$value/$max", style = pixelStyle(6, colors.inkSoft))
     }
 }
 
 // ── Chat bubble ──────────────────────────────────────────────────
 @Composable
 fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
+    val colors = LocalWizairdColors.current
     var dotCount by remember { mutableIntStateOf(1) }
     LaunchedEffect(loading) {
         if (loading) {
@@ -255,12 +251,12 @@ fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
 
     PixelBox(
         modifier = modifier,
-        fillColor = Bubble
+        fillColor = colors.bubble
     ) {
         Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             Text(
                 text = if (loading) "thinking${".".repeat(dotCount)}" else text,
-                style = pixelStyle(12, Ink),
+                style = pixelStyle(12, colors.ink),
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 overflow = TextOverflow.Clip
             )
@@ -285,7 +281,7 @@ fun WizardCharacter(bobOffsetY: Float, modifier: Modifier = Modifier) {
         contentDescription = "Wizard",
         contentScale = ContentScale.Fit,
         modifier = modifier
-            .height(80.dp)
+            .height(120.dp)
             .wrapContentWidth()
             .offset(y = bobOffsetY.dp)
     )
@@ -299,9 +295,10 @@ fun PixelInputBar(
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors = LocalWizairdColors.current
     PixelBox(
         modifier = modifier.heightIn(min = 52.dp, max = 200.dp),
-        fillColor = Bubble
+        fillColor = colors.bubble
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -310,8 +307,8 @@ fun PixelInputBar(
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
-                textStyle = pixelStyle(12, Ink),
-                cursorBrush = SolidColor(Ink),
+                textStyle = pixelStyle(12, colors.ink),
+                cursorBrush = SolidColor(colors.ink),
                 singleLine = false,
                 maxLines = 10,
                 modifier = Modifier
@@ -320,13 +317,15 @@ fun PixelInputBar(
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty()) {
-                            Text("ASK THE WIZARD...", style = pixelStyle(12, InkSoft))
+                            Text("ASK THE WIZARD...", style = pixelStyle(12, colors.inkSoft))
                         }
                         inner()
                     }
                 }
             )
             // Send button — pixel-rounded, floating with padding, arrow icon
+            val bubbleColor = colors.bubble
+            val inkColor = colors.ink
             Box(
                 modifier = Modifier
                     .padding(end = 6.dp, bottom = 6.dp)
@@ -337,8 +336,8 @@ fun PixelInputBar(
                         val h = size.height
                         // Fill with Coral
                         drawRect(Coral)
-                        // Cut corners — 3-step staircase, cut with Bubble color
-                        val cut = Bubble
+                        // Cut corners — 3-step staircase, cut with bubble color
+                        val cut = bubbleColor
                         // Top-left
                         drawRect(cut, Offset(0f, 0f), Size(p * 3, p))
                         drawRect(cut, Offset(0f, p), Size(p * 2, p))
@@ -356,7 +355,7 @@ fun PixelInputBar(
                         drawRect(cut, Offset(w - p * 2, h - p * 2), Size(p * 2, p))
                         drawRect(cut, Offset(w - p, h - p * 3), Size(p, p))
                         // Arrow like -> : shaft + V-shaped head, pixel squares, dark color
-                        val arrowColor = Ink
+                        val arrowColor = inkColor
                         val cx = w / 2f + p - 1.dp.toPx()
                         val cy = h / 2f
                         // Shaft — horizontal line left of center (4 blocks now)
@@ -375,5 +374,3 @@ fun PixelInputBar(
         }
     }
 }
-
-

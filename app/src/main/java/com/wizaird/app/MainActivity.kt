@@ -5,36 +5,47 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.wizaird.app.data.AiSettings
+import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.ui.HomeScreen
 import com.wizaird.app.ui.SettingsScreen
+import com.wizaird.app.ui.theme.WizairdTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).apply {
-            isAppearanceLightStatusBars = true   // black icons on status bar
-            isAppearanceLightNavigationBars = true // black icons on nav bar
-        }
+        val insetsController = WindowInsetsControllerCompat(window, window.decorView)
         setContent {
-            val nav = rememberNavController()
-            NavHost(
-                navController = nav,
-                startDestination = "home",
-                modifier = Modifier.fillMaxSize()
-            ) {
-                composable("home") {
-                    HomeScreen(onSettingsClick = { nav.navigate("settings") })
-                }
-                composable("settings") {
-                    SettingsScreen(onBack = { nav.popBackStack() })
+            val settings by settingsFlow(this).collectAsState(initial = AiSettings())
+            val darkMode = settings.darkMode
+
+            // Light icons on dark bg, dark icons on light bg
+            insetsController.isAppearanceLightStatusBars = !darkMode
+            insetsController.isAppearanceLightNavigationBars = !darkMode
+
+            WizairdTheme(darkMode = darkMode) {
+                val nav = rememberNavController()
+                NavHost(
+                    navController = nav,
+                    startDestination = "home",
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    composable("home") {
+                        HomeScreen(onSettingsClick = { nav.navigate("settings") })
+                    }
+                    composable("settings") {
+                        SettingsScreen(onBack = { nav.popBackStack() })
+                    }
                 }
             }
         }

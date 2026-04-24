@@ -68,7 +68,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                             )
                             .clickable { onBack() }
                     )
-                    Text("SETTINGS", style = pixelStyle(12, colors.ink))
+                    Text("SETTINGS", style = pixelStyle(12, colors.ink), modifier = Modifier.offset(y = (-2).dp))
                 }
 
                 Column(
@@ -92,7 +92,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                     Text(
                                         p.uppercase(),
                                         style = pixelStyle(12, if (active) Ink else colors.ink),
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp).offset(y = (-2).dp)
                                     )
                                 }
                             }
@@ -147,7 +147,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                     Text(
                                         label,
                                         style = pixelStyle(12, if (active) Ink else colors.ink),
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp).offset(y = (-2).dp)
                                     )
                                 }
                             }
@@ -189,7 +189,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 fun SettingsField(label: String, content: @Composable () -> Unit) {
     val colors = LocalWizairdColors.current
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = pixelStyle(12, colors.inkSoft))
+        Text(label, style = pixelStyle(12, colors.inkSoft), modifier = Modifier.offset(y = (-2).dp))
         content()
     }
 }
@@ -219,10 +219,13 @@ fun PixelTextInput(
                 VisualTransformation.None,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .offset(y = (-2).dp),
             decorationBox = { inner ->
-                if (value.isEmpty()) Text(placeholder, style = pixelStyle(12, colors.inkSoft))
-                inner()
+                Box(contentAlignment = Alignment.CenterStart) {
+                    if (value.isEmpty()) Text(placeholder, style = pixelStyle(12, colors.inkSoft), modifier = Modifier.offset(y = (-2).dp))
+                    inner()
+                }
             }
         )
     }
@@ -248,7 +251,7 @@ fun PixelActionButton(
                 .padding(vertical = 10.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(label, style = pixelStyle(12, textColor))
+            Text(label, style = pixelStyle(12, textColor), modifier = Modifier.offset(y = (-2).dp))
         }
     }
 }

@@ -140,7 +140,7 @@ fun PixelStatusBar() {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("9:30", style = pixelStyle(8, colors.ink))
+        Text("9:30", style = pixelStyle(8, colors.ink), modifier = Modifier.offset(y = (-2).dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             // signal bars
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -229,7 +229,7 @@ fun StatBar(label: String, value: Int, max: Int, color: Color) {
     val colors = LocalWizairdColors.current
     val filled = (value.toFloat() / max * 10).toInt()
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = pixelStyle(7, colors.ink), modifier = Modifier.width(22.dp))
+        Text(label, style = pixelStyle(7, colors.ink), modifier = Modifier.width(22.dp).offset(y = (-2).dp))
         Row(
             modifier = Modifier.background(colors.ink).padding(2.dp),
             horizontalArrangement = Arrangement.spacedBy(1.dp)
@@ -238,7 +238,7 @@ fun StatBar(label: String, value: Int, max: Int, color: Color) {
                 Box(modifier = Modifier.size(8.dp).background(if (i < filled) color else colors.backgroundDark))
             }
         }
-        Text("$value/$max", style = pixelStyle(6, colors.inkSoft))
+        Text("$value/$max", style = pixelStyle(6, colors.inkSoft), modifier = Modifier.offset(y = (-2).dp))
     }
 }
 

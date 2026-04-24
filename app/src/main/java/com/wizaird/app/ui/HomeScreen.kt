@@ -1,9 +1,7 @@
 package com.wizaird.app.ui
 
-import android.content.Context
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.*import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -11,11 +9,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
@@ -182,9 +183,12 @@ fun AppHeader(onSettingsClick: () -> Unit) {
                     .drawBehind { drawPixelBorder(all = true, color = colors.border) },
                 contentAlignment = Alignment.Center
             ) {
-                Text("W", style = pixelStyle(12, Color.White))
+                Text("W", style = pixelStyle(12, Color.White), modifier = Modifier.offset(y = (-2).dp))
             }
-            Column {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(0.dp),
+                modifier = Modifier.offset(y = (-2).dp)
+            ) {
                 Text("WIZAIRD", style = pixelStyle(13, colors.ink))
                 Text("LV.3 APPRENTICE", style = pixelStyle(6, colors.inkSoft))
             }
@@ -196,7 +200,12 @@ fun AppHeader(onSettingsClick: () -> Unit) {
                 .clickable { onSettingsClick() },
             contentAlignment = Alignment.Center
         ) {
-            Text("⚙", style = pixelStyle(20, colors.ink))
+            Image(
+                painter = painterResource(id = com.wizaird.app.R.drawable.ic_settings_cog),
+                contentDescription = "Settings",
+                colorFilter = ColorFilter.tint(colors.ink),
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }
@@ -251,13 +260,43 @@ fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
         modifier = modifier,
         fillColor = colors.bubble
     ) {
-        Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-            Text(
-                text = if (loading) "thinking${".".repeat(dotCount)}" else text,
-                style = minecraftStyle(14, colors.ink),
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                overflow = TextOverflow.Clip
-            )
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // ── Bubble header (mirrors AppHeader style) ──
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // W badge
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(colors.coral)
+                        .drawBehind { drawPixelBorder(all = true, color = colors.border) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("W", style = pixelStyle(12, Color.White), modifier = Modifier.offset(y = (-2).dp))
+                }
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
+                    modifier = Modifier.offset(y = (-2).dp)
+                ) {
+                    Text("WIZAIRD", style = pixelStyle(13, colors.ink))
+                    Text("LV.3 APPRENTICE", style = pixelStyle(6, colors.inkSoft))
+                }
+            }
+
+            // Bubble text content
+            Box(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)) {
+                Text(
+                    text = if (loading) "thinking${".".repeat(dotCount)}" else text,
+                    style = minecraftStyle(14, colors.ink),
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    overflow = TextOverflow.Clip
+                )
+            }
         }
     }
 }
@@ -323,7 +362,6 @@ fun PixelInputBar(
             )
             // Send button — pixel-rounded, centered, arrow icon
             val bubbleColor = colors.bubble
-            val inkColor = colors.ink
             Box(
                 modifier = Modifier
                     .align(Alignment.Bottom)

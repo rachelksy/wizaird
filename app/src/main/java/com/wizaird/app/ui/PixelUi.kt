@@ -13,7 +13,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -27,10 +26,9 @@ import com.wizaird.app.ui.theme.PixeloidFont
 fun pixelStyle(size: Int, color: Color = Ink) = TextStyle(
     fontFamily = PixelFont,
     fontSize = size.sp,
-    lineHeight = (size * 1.8f).sp,
+    lineHeight = (size * 1f).sp,
     color = color,
     letterSpacing = 0.sp,
-    baselineShift = BaselineShift(0.2f),
     platformStyle = PlatformTextStyle(
         includeFontPadding = false
     ),

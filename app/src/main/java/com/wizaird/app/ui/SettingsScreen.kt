@@ -68,7 +68,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                             )
                             .clickable { onBack() }
                     )
-                    Text("⚙ SETTINGS", style = pixelStyle(12, colors.ink))
+                    Text("SETTINGS", style = pixelStyle(12, colors.ink))
                 }
 
                 Column(

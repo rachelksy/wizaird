@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -256,7 +254,7 @@ fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
         Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             Text(
                 text = if (loading) "thinking${".".repeat(dotCount)}" else text,
-                style = minecraftStyle(12, colors.ink),
+                style = minecraftStyle(14, colors.ink),
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 overflow = TextOverflow.Clip
             )
@@ -307,7 +305,7 @@ fun PixelInputBar(
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
-                textStyle = minecraftStyle(12, colors.ink),
+                textStyle = minecraftStyle(14, colors.ink),
                 cursorBrush = SolidColor(colors.ink),
                 singleLine = false,
                 maxLines = 10,
@@ -317,7 +315,7 @@ fun PixelInputBar(
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty()) {
-                            Text("ASK THE WIZARD...", style = minecraftStyle(12, colors.inkSoft))
+                            Text("ASK THE WIZARD...", style = minecraftStyle(14, colors.inkSoft))
                         }
                         inner()
                     }
@@ -331,45 +329,12 @@ fun PixelInputBar(
                     .align(Alignment.Bottom)
                     .padding(all = 3.dp)
                     .size(32.dp)
-                    .drawBehind {
-                        val p = 3.dp.toPx()  // one pixel block
-                        val w = size.width
-                        val h = size.height
-                        // Fill with Coral
-                        drawRect(Coral)
-                        // Cut corners — 3-step staircase, cut with bubble color
-                        val cut = bubbleColor
-                        // Top-left
-                        drawRect(cut, Offset(0f, 0f), Size(p * 3, p))
-                        drawRect(cut, Offset(0f, p), Size(p * 2, p))
-                        drawRect(cut, Offset(0f, p * 2), Size(p, p))
-                        // Top-right
-                        drawRect(cut, Offset(w - p * 3, 0f), Size(p * 3, p))
-                        drawRect(cut, Offset(w - p * 2, p), Size(p * 2, p))
-                        drawRect(cut, Offset(w - p, p * 2), Size(p, p))
-                        // Bottom-left
-                        drawRect(cut, Offset(0f, h - p), Size(p * 3, p))
-                        drawRect(cut, Offset(0f, h - p * 2), Size(p * 2, p))
-                        drawRect(cut, Offset(0f, h - p * 3), Size(p, p))
-                        // Bottom-right
-                        drawRect(cut, Offset(w - p * 3, h - p), Size(p * 3, p))
-                        drawRect(cut, Offset(w - p * 2, h - p * 2), Size(p * 2, p))
-                        drawRect(cut, Offset(w - p, h - p * 3), Size(p, p))
-                        // Arrow like -> : shaft + V-shaped head, pixel squares, dark color
-                        val arrowColor = inkColor
-                        val cx = w / 2f + p - 1.dp.toPx()
-                        val cy = h / 2f
-                        // Shaft — horizontal line left of center (4 blocks now)
-                        drawRect(arrowColor, Offset(cx - p * 3, cy - p / 2f), Size(p * 4, p))
-                        // Arrowhead > : top-right diagonal
-                        drawRect(arrowColor, Offset(cx - p, cy - p * 2), Size(p, p))
-                        drawRect(arrowColor, Offset(cx, cy - p), Size(p, p))
-                        drawRect(arrowColor, Offset(cx + p, cy - p / 2f), Size(p, p))
-                        // Arrowhead > : bottom-right diagonal
-                        drawRect(arrowColor, Offset(cx - p, cy + p), Size(p, p))
-                        drawRect(arrowColor, Offset(cx, cy), Size(p, p))
-                        drawRect(arrowColor, Offset(cx + p, cy - p / 2f), Size(p, p))
-                    }
+                    .drawPixelArrowButton(
+                        fillColor  = Coral,
+                        cutColor   = bubbleColor,
+                        arrowColor = Ink,
+                        direction  = 1f
+                    )
                     .clickable { onSubmit() }
             )
         }

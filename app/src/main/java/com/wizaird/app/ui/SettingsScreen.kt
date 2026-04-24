@@ -44,28 +44,30 @@ fun SettingsScreen(onBack: () -> Unit) {
                 .background(colors.background)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                PixelStatusBar()
+                Spacer(modifier = Modifier.height(40.dp))
 
                 // Header
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(colors.background)
-                        .drawBehind { drawPixelBorder(bottom = true, color = colors.border) }
+                        .drawBehind { drawPixelBorder(top = true, bottom = true, color = colors.border) }
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    val backCutColor = colors.background
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
-                            .background(colors.forest)
-                            .drawBehind { drawPixelBorder(color = colors.border) }
-                            .clickable { onBack() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("←", style = pixelStyle(12, Color.White))
-                    }
+                            .size(32.dp)
+                            .drawPixelArrowButton(
+                                fillColor  = Coral,
+                                cutColor   = backCutColor,
+                                arrowColor = Ink,
+                                direction  = -1f
+                            )
+                            .clickable { onBack() }
+                    )
                     Text("⚙ SETTINGS", style = pixelStyle(12, colors.ink))
                 }
 
@@ -80,17 +82,16 @@ fun SettingsScreen(onBack: () -> Unit) {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             providers.forEach { p ->
                                 val active = provider == p
-                                Box(
-                                    modifier = Modifier
-                                        .background(if (active) colors.forest else colors.background)
-                                        .drawBehind { drawPixelBorder(color = colors.border) }
-                                        .clickable { provider = p }
-                                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
+                                val chipColor = if (active) Coral else colors.backgroundDark
+                                PixelBox(
+                                    fillColor = chipColor,
+                                    borderColor = chipColor,
+                                    modifier = Modifier.clickable { provider = p }
                                 ) {
                                     Text(
                                         p.uppercase(),
-                                        style = pixelStyle(12, if (active) Color.White else colors.ink)
+                                        style = pixelStyle(12, if (active) Ink else colors.ink),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
                                     )
                                 }
                             }
@@ -119,11 +120,11 @@ fun SettingsScreen(onBack: () -> Unit) {
                         Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                             repeat(steps) { i ->
                                 val filled = i < (temperature * steps).toInt()
+                                val cellColor = if (filled) Coral else colors.backgroundDark
                                 Box(
                                     modifier = Modifier
                                         .size(24.dp, 16.dp)
-                                        .background(if (filled) colors.forest else colors.backgroundDark)
-                                        .drawBehind { drawPixelBorder(color = colors.border) }
+                                        .background(cellColor)
                                         .clickable { temperature = (i + 1).toFloat() / steps }
                                 )
                             }
@@ -135,17 +136,16 @@ fun SettingsScreen(onBack: () -> Unit) {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf(false to "LIGHT", true to "DARK").forEach { (value, label) ->
                                 val active = darkMode == value
-                                Box(
-                                    modifier = Modifier
-                                        .background(if (active) colors.forest else colors.background)
-                                        .drawBehind { drawPixelBorder(color = colors.border) }
-                                        .clickable { darkMode = value }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
+                                val chipColor = if (active) Coral else colors.backgroundDark
+                                PixelBox(
+                                    fillColor = chipColor,
+                                    borderColor = chipColor,
+                                    modifier = Modifier.clickable { darkMode = value }
                                 ) {
                                     Text(
                                         label,
-                                        style = pixelStyle(12, if (active) Color.White else colors.ink)
+                                        style = pixelStyle(12, if (active) Ink else colors.ink),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                     )
                                 }
                             }
@@ -166,8 +166,8 @@ fun SettingsScreen(onBack: () -> Unit) {
                         )
                         PixelActionButton(
                             label = "SAVE",
-                            color = colors.forest,
-                            textColor = Color.White,
+                            color = Coral,
+                            textColor = Ink,
                             modifier = Modifier.weight(1f),
                             onClick = {
                                 scope.launch {
@@ -200,26 +200,29 @@ fun PixelTextInput(
     isPassword: Boolean = false
 ) {
     val colors = LocalWizairdColors.current
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        textStyle = pixelStyle(12, colors.ink),
-        cursorBrush = SolidColor(colors.ink),
-        singleLine = true,
-        visualTransformation = if (isPassword)
-            PasswordVisualTransformation()
-        else
-            VisualTransformation.None,
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(colors.bubble)
-            .drawBehind { drawPixelBorder(color = colors.border) }
-            .padding(horizontal = 10.dp, vertical = 10.dp),
-        decorationBox = { inner ->
-            if (value.isEmpty()) Text(placeholder, style = pixelStyle(12, colors.inkSoft))
-            inner()
-        }
-    )
+    PixelBox(
+        modifier = Modifier.fillMaxWidth(),
+        fillColor = colors.bubble
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            textStyle = pixelStyle(12, colors.ink),
+            cursorBrush = SolidColor(colors.ink),
+            singleLine = true,
+            visualTransformation = if (isPassword)
+                PasswordVisualTransformation()
+            else
+                VisualTransformation.None,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            decorationBox = { inner ->
+                if (value.isEmpty()) Text(placeholder, style = pixelStyle(12, colors.inkSoft))
+                inner()
+            }
+        )
+    }
 }
 
 @Composable
@@ -230,15 +233,18 @@ fun PixelActionButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val colors = LocalWizairdColors.current
-    Box(
-        modifier = modifier
-            .background(color)
-            .drawBehind { drawPixelBorder(color = colors.border) }
-            .clickable { onClick() }
-            .padding(vertical = 12.dp),
-        contentAlignment = Alignment.Center
+    PixelBox(
+        modifier = modifier.clickable { onClick() },
+        fillColor = color,
+        borderColor = color  // no visible border — corners only
     ) {
-        Text(label, style = pixelStyle(12, textColor))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(label, style = pixelStyle(12, textColor))
+        }
     }
 }

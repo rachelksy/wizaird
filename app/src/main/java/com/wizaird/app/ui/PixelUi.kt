@@ -63,14 +63,68 @@ fun DrawScope.drawPixelBorder(
     all: Boolean = false,
     color: Color = Ink
 ) {
-    val stroke = 3f
+    val stroke = PixelSize.toPx()
     if (all || top)    drawLine(color, Offset(0f, 0f), Offset(size.width, 0f), stroke)
     if (all || bottom) drawLine(color, Offset(0f, size.height), Offset(size.width, size.height), stroke)
     if (all || left)   drawLine(color, Offset(0f, 0f), Offset(0f, size.height), stroke)
     if (all || right)  drawLine(color, Offset(size.width, 0f), Offset(size.width, size.height), stroke)
 }
 
-val PixelSize = 3.dp  // one pixel block — controls border thickness and corner cut size
+val PixelSize = 2.dp  // one pixel block — controls border thickness and corner cut size
+
+// Draws a pixel-art button (corner-cut, no border) with a pixel arrow icon.
+// direction: 1f = right arrow (send), -1f = left arrow (back)
+fun Modifier.drawPixelArrowButton(
+    fillColor: Color,
+    cutColor: Color,
+    arrowColor: Color,
+    direction: Float = 1f
+): Modifier = this.drawBehind {
+    val p = PixelSize.toPx()
+    val w = size.width
+    val h = size.height
+
+    // Fill
+    drawRect(fillColor)
+
+    // Cut corners — 3-step staircase
+    drawRect(cutColor, Offset(0f,         0f),         Size(p * 3, p))
+    drawRect(cutColor, Offset(0f,         p),          Size(p * 2, p))
+    drawRect(cutColor, Offset(0f,         p * 2),      Size(p,     p))
+    drawRect(cutColor, Offset(w - p * 3,  0f),         Size(p * 3, p))
+    drawRect(cutColor, Offset(w - p * 2,  p),          Size(p * 2, p))
+    drawRect(cutColor, Offset(w - p,      p * 2),      Size(p,     p))
+    drawRect(cutColor, Offset(0f,         h - p),      Size(p * 3, p))
+    drawRect(cutColor, Offset(0f,         h - p * 2),  Size(p * 2, p))
+    drawRect(cutColor, Offset(0f,         h - p * 3),  Size(p,     p))
+    drawRect(cutColor, Offset(w - p * 3,  h - p),      Size(p * 3, p))
+    drawRect(cutColor, Offset(w - p * 2,  h - p * 2),  Size(p * 2, p))
+    drawRect(cutColor, Offset(w - p,      h - p * 3),  Size(p,     p))
+
+    // Arrow — tip points in `direction` (right = 1f, left = -1f)
+    val cy = h / 2f
+    if (direction > 0f) {
+        // Right-pointing arrow (send)
+        val cx = w / 2f + p - 1.dp.toPx()
+        drawRect(arrowColor, Offset(cx - p * 3, cy - p / 2f), Size(p * 4, p))  // shaft
+        drawRect(arrowColor, Offset(cx - p,     cy - p * 2),  Size(p, p))
+        drawRect(arrowColor, Offset(cx,         cy - p),       Size(p, p))
+        drawRect(arrowColor, Offset(cx + p,     cy - p / 2f),  Size(p, p))
+        drawRect(arrowColor, Offset(cx - p,     cy + p),       Size(p, p))
+        drawRect(arrowColor, Offset(cx,         cy),           Size(p, p))
+        drawRect(arrowColor, Offset(cx + p,     cy - p / 2f),  Size(p, p))
+    } else {
+        // Left-pointing arrow (back)
+        val cx = w / 2f - p + 1.dp.toPx()
+        drawRect(arrowColor, Offset(cx - p,     cy - p / 2f), Size(p * 4, p))  // shaft
+        drawRect(arrowColor, Offset(cx,         cy - p * 2),  Size(p, p))
+        drawRect(arrowColor, Offset(cx - p,     cy - p),       Size(p, p))
+        drawRect(arrowColor, Offset(cx - p * 2, cy - p / 2f),  Size(p, p))
+        drawRect(arrowColor, Offset(cx,         cy + p),       Size(p, p))
+        drawRect(arrowColor, Offset(cx - p,     cy),           Size(p, p))
+        drawRect(arrowColor, Offset(cx - p * 2, cy - p / 2f),  Size(p, p))
+    }
+}
 
 // Pixel-art box with square-cut corners.
 // Fill drawn behind content; border + corners drawn ON TOP of content

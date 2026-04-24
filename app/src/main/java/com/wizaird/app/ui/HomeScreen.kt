@@ -84,7 +84,9 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
     ) {
 
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
         ) {
             Spacer(modifier = Modifier.height(40.dp))
             AppHeader(onSettingsClick = onSettingsClick)
@@ -298,39 +300,78 @@ fun PixelInputBar(
     modifier: Modifier = Modifier
 ) {
     PixelBox(
-        modifier = modifier.height(52.dp),
+        modifier = modifier.heightIn(min = 52.dp, max = 200.dp),
         fillColor = Bubble
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom
         ) {
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
                 textStyle = pixelStyle(12, Ink),
                 cursorBrush = SolidColor(Ink),
-                singleLine = true,
+                singleLine = false,
+                maxLines = 10,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 8.dp),
+                    .padding(start = 8.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
                 decorationBox = { inner ->
-                    if (value.isEmpty()) {
-                        Text("ASK THE WIZARD...", style = pixelStyle(12, InkSoft))
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (value.isEmpty()) {
+                            Text("ASK THE WIZARD...", style = pixelStyle(12, InkSoft))
+                        }
+                        inner()
                     }
-                    inner()
                 }
             )
+            // Send button — pixel-rounded, floating with padding, arrow icon
             Box(
                 modifier = Modifier
-                    .width(50.dp)
-                    .fillMaxHeight()
-                    .background(Coral)
-                    .clickable { onSubmit() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text("SEND", style = pixelStyle(12, Color.White))
-            }
+                    .padding(end = 6.dp, bottom = 6.dp)
+                    .size(32.dp)
+                    .drawBehind {
+                        val p = 3.dp.toPx()  // one pixel block
+                        val w = size.width
+                        val h = size.height
+                        // Fill with Coral
+                        drawRect(Coral)
+                        // Cut corners — 3-step staircase, cut with Bubble color
+                        val cut = Bubble
+                        // Top-left
+                        drawRect(cut, Offset(0f, 0f), Size(p * 3, p))
+                        drawRect(cut, Offset(0f, p), Size(p * 2, p))
+                        drawRect(cut, Offset(0f, p * 2), Size(p, p))
+                        // Top-right
+                        drawRect(cut, Offset(w - p * 3, 0f), Size(p * 3, p))
+                        drawRect(cut, Offset(w - p * 2, p), Size(p * 2, p))
+                        drawRect(cut, Offset(w - p, p * 2), Size(p, p))
+                        // Bottom-left
+                        drawRect(cut, Offset(0f, h - p), Size(p * 3, p))
+                        drawRect(cut, Offset(0f, h - p * 2), Size(p * 2, p))
+                        drawRect(cut, Offset(0f, h - p * 3), Size(p, p))
+                        // Bottom-right
+                        drawRect(cut, Offset(w - p * 3, h - p), Size(p * 3, p))
+                        drawRect(cut, Offset(w - p * 2, h - p * 2), Size(p * 2, p))
+                        drawRect(cut, Offset(w - p, h - p * 3), Size(p, p))
+                        // Arrow like -> : shaft + V-shaped head, pixel squares, dark color
+                        val arrowColor = Ink
+                        val cx = w / 2f + p - 1.dp.toPx()
+                        val cy = h / 2f
+                        // Shaft — horizontal line left of center (4 blocks now)
+                        drawRect(arrowColor, Offset(cx - p * 3, cy - p / 2f), Size(p * 4, p))
+                        // Arrowhead > : top-right diagonal
+                        drawRect(arrowColor, Offset(cx - p, cy - p * 2), Size(p, p))
+                        drawRect(arrowColor, Offset(cx, cy - p), Size(p, p))
+                        drawRect(arrowColor, Offset(cx + p, cy - p / 2f), Size(p, p))
+                        // Arrowhead > : bottom-right diagonal
+                        drawRect(arrowColor, Offset(cx - p, cy + p), Size(p, p))
+                        drawRect(arrowColor, Offset(cx, cy), Size(p, p))
+                        drawRect(arrowColor, Offset(cx + p, cy - p / 2f), Size(p, p))
+                    }
+                    .clickable { onSubmit() }
+            )
         }
     }
 }

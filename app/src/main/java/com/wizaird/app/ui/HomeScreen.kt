@@ -170,7 +170,7 @@ fun AppHeader(onSettingsClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .background(colors.background)
-            .drawBehind { drawPixelBorder(bottom = true, color = colors.border) }
+            .drawBehind { drawPixelBorder(top = true, bottom = true, color = colors.border) }
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -181,7 +181,7 @@ fun AppHeader(onSettingsClick: () -> Unit) {
                 modifier = Modifier
                     .size(28.dp)
                     .background(colors.coral)
-                    .drawBehind { drawPixelBorder(color = colors.border) },
+                    .drawBehind { drawPixelBorder(all = true, color = colors.border) },
                 contentAlignment = Alignment.Center
             ) {
                 Text("W", style = pixelStyle(12, Color.White))
@@ -256,7 +256,7 @@ fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
         Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             Text(
                 text = if (loading) "thinking${".".repeat(dotCount)}" else text,
-                style = pixelStyle(12, colors.ink),
+                style = minecraftStyle(12, colors.ink),
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 overflow = TextOverflow.Clip
             )
@@ -297,38 +297,39 @@ fun PixelInputBar(
 ) {
     val colors = LocalWizairdColors.current
     PixelBox(
-        modifier = modifier.heightIn(min = 52.dp, max = 200.dp),
+        modifier = modifier,
         fillColor = colors.bubble
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Bottom
+            verticalAlignment = Alignment.CenterVertically
         ) {
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
-                textStyle = pixelStyle(12, colors.ink),
+                textStyle = minecraftStyle(12, colors.ink),
                 cursorBrush = SolidColor(colors.ink),
                 singleLine = false,
                 maxLines = 10,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 8.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
+                    .padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty()) {
-                            Text("ASK THE WIZARD...", style = pixelStyle(12, colors.inkSoft))
+                            Text("ASK THE WIZARD...", style = minecraftStyle(12, colors.inkSoft))
                         }
                         inner()
                     }
                 }
             )
-            // Send button — pixel-rounded, floating with padding, arrow icon
+            // Send button — pixel-rounded, centered, arrow icon
             val bubbleColor = colors.bubble
             val inkColor = colors.ink
             Box(
                 modifier = Modifier
-                    .padding(end = 6.dp, bottom = 6.dp)
+                    .align(Alignment.Bottom)
+                    .padding(all = 3.dp)
                     .size(32.dp)
                     .drawBehind {
                         val p = 3.dp.toPx()  // one pixel block

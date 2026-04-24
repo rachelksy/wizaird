@@ -22,6 +22,7 @@ import com.wizaird.app.ui.theme.Ink
 import com.wizaird.app.ui.theme.LocalWizairdColors
 import com.wizaird.app.ui.theme.Paper
 import com.wizaird.app.ui.theme.PixelFont
+import com.wizaird.app.ui.theme.PixeloidFont
 
 fun pixelStyle(size: Int, color: Color = Ink) = TextStyle(
     fontFamily = PixelFont,
@@ -39,18 +40,34 @@ fun pixelStyle(size: Int, color: Color = Ink) = TextStyle(
     )
 )
 
+fun minecraftStyle(size: Int, color: Color = Ink) = TextStyle(
+    fontFamily = PixeloidFont,
+    fontSize = size.sp,
+    lineHeight = (size * 1.4f).sp,
+    color = color,
+    letterSpacing = 0.sp,
+    platformStyle = PlatformTextStyle(
+        includeFontPadding = false
+    ),
+    lineHeightStyle = LineHeightStyle(
+        alignment = LineHeightStyle.Alignment.Center,
+        trim = LineHeightStyle.Trim.Both
+    )
+)
+
 fun DrawScope.drawPixelBorder(
     top: Boolean = false,
     bottom: Boolean = false,
     left: Boolean = false,
-    all: Boolean = true,
+    right: Boolean = false,
+    all: Boolean = false,
     color: Color = Ink
 ) {
     val stroke = 3f
     if (all || top)    drawLine(color, Offset(0f, 0f), Offset(size.width, 0f), stroke)
     if (all || bottom) drawLine(color, Offset(0f, size.height), Offset(size.width, size.height), stroke)
     if (all || left)   drawLine(color, Offset(0f, 0f), Offset(0f, size.height), stroke)
-    if (all)           drawLine(color, Offset(size.width, 0f), Offset(size.width, size.height), stroke)
+    if (all || right)  drawLine(color, Offset(size.width, 0f), Offset(size.width, size.height), stroke)
 }
 
 val PixelSize = 3.dp  // one pixel block — controls border thickness and corner cut size

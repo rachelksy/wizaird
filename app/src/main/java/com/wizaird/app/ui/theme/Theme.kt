@@ -31,7 +31,9 @@ val NightBubble   = Color(0xFF1A1A1A)   // chat bubble / input background
 val NightForest   = Color(0xFF3A7A4A)   // accent green (slightly brighter for dark bg)
 val NightBorder   = Color(0xFF666666)   // line borders only
 
-val PixelFont = FontFamily(Font(R.font.vt323))
+val PixelFont      = FontFamily(Font(R.font.vt323))
+val MinecraftFont  = FontFamily(Font(R.font.macs_minecraft))
+val PixeloidFont   = FontFamily(Font(R.font.pixeloid_sans))
 
 // ── Theme tokens ─────────────────────────────────────────────────
 @Immutable

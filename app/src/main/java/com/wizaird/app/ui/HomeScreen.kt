@@ -82,25 +82,20 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
             .fillMaxSize()
             .background(Paper)
     ) {
-        // Sparkles
-        Sparkle(modifier = Modifier.offset(18.dp, 80.dp))
-        Sparkle(modifier = Modifier.align(Alignment.TopEnd).offset((-24).dp, 120.dp))
-        Sparkle(modifier = Modifier.align(Alignment.BottomStart).offset(30.dp, (-200).dp))
-        Sparkle(modifier = Modifier.align(Alignment.BottomEnd).offset((-32).dp, (-240).dp))
 
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            PixelStatusBar()
+            Spacer(modifier = Modifier.height(40.dp))
             AppHeader(onSettingsClick = onSettingsClick)
             StatStrip()
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .weight(1f)
                     .padding(horizontal = 16.dp)
             ) {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Bubble fills all remaining space
                 ChatBubble(
@@ -111,7 +106,7 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
                         .weight(1f)
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // Wizard
                 WizardCharacter(
@@ -132,13 +127,9 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(30.dp))
-
-
+                Spacer(modifier = Modifier.height(20.dp).navigationBarsPadding())
             }
         }
-
-        PixelNavBar(modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -292,7 +283,7 @@ fun WizardCharacter(bobOffsetY: Float, modifier: Modifier = Modifier) {
         contentDescription = "Wizard",
         contentScale = ContentScale.Fit,
         modifier = modifier
-            .height(100.dp)
+            .height(80.dp)
             .wrapContentWidth()
             .offset(y = bobOffsetY.dp)
     )
@@ -344,31 +335,4 @@ fun PixelInputBar(
     }
 }
 
-// ── Nav bar ──────────────────────────────────────────────────────
-@Composable
-fun PixelNavBar(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(22.dp)
-            .background(Paper)
-            .drawBehind { drawPixelBorder(top = true) },
-        contentAlignment = Alignment.Center
-    ) {
-        Box(modifier = Modifier.width(90.dp).height(4.dp).background(Ink))
-    }
-}
 
-// ── Sparkle decoration ───────────────────────────────────────────
-@Composable
-fun Sparkle(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.size(9.dp)) {
-        Box(modifier = Modifier.align(Alignment.Center).width(3.dp).fillMaxHeight().background(Gold))
-        Box(modifier = Modifier.align(Alignment.Center).fillMaxWidth().height(3.dp).background(Gold))
-    }
-}
-
-@Composable
-fun PixelLabel(text: String) {
-    Text(text, style = pixelStyle(14, InkSoft))
-}

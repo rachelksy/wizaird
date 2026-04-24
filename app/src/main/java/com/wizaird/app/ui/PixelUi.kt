@@ -124,7 +124,11 @@ fun Modifier.drawPixelArrowButton(
     }
 }
 
-// Pixel-art box with square-cut corners.
+enum class PixelCornerStyle { Cut, Rounded }
+
+// Pixel-art box with corner style:
+//   Cut     — uniform 3-step staircase (diagonal look, used for input bar / buttons)
+//   Rounded — non-uniform curve derived from a circle (5,3,2,1 block cuts), used for chat bubble
 // Fill drawn behind content; border + corners drawn ON TOP of content
 // so they always show regardless of what color children have.
 @Composable
@@ -134,6 +138,7 @@ fun PixelBox(
     borderColor: Color? = null,   // null = use theme ink
     cutColor: Color? = null,      // null = use theme background
     px: Dp = PixelSize,
+    cornerStyle: PixelCornerStyle = PixelCornerStyle.Cut,
     content: @Composable BoxScope.() -> Unit
 ) {
     val colors = LocalWizairdColors.current
@@ -142,54 +147,138 @@ fun PixelBox(
 
     Box(
         modifier = modifier
-            // Draw fill behind content
             .drawBehind {
                 drawRect(fillColor, Offset.Zero, size)
             }
-            // Draw border + corners ON TOP of content
             .drawWithContent {
-                drawContent()  // draw children first
-                val pxPx = px.toPx()
+                drawContent()
+                val p = px.toPx()
                 val w = size.width
                 val h = size.height
 
-                // Border edges (start at 3px from corners for 3-step staircase)
-                drawRect(resolvedBorder, Offset(pxPx * 3, 0f), Size(w - pxPx * 6, pxPx))           // top
-                drawRect(resolvedBorder, Offset(pxPx * 3, h - pxPx), Size(w - pxPx * 6, pxPx))     // bottom
-                drawRect(resolvedBorder, Offset(0f, pxPx * 3), Size(pxPx, h - pxPx * 6))           // left
-                drawRect(resolvedBorder, Offset(w - pxPx, pxPx * 3), Size(pxPx, h - pxPx * 6))    // right
+                if (cornerStyle == PixelCornerStyle.Cut) {
+                    // ── Uniform 3-step staircase corners ──────────────────────────
+                    // Border straight edges
+                    drawRect(resolvedBorder, Offset(p * 3, 0f),       Size(w - p * 6, p))
+                    drawRect(resolvedBorder, Offset(p * 3, h - p),    Size(w - p * 6, p))
+                    drawRect(resolvedBorder, Offset(0f,    p * 3),    Size(p, h - p * 6))
+                    drawRect(resolvedBorder, Offset(w - p, p * 3),    Size(p, h - p * 6))
+                    // Border corner steps
+                    drawRect(resolvedBorder, Offset(p * 2,     p),         Size(p, p)) // TL
+                    drawRect(resolvedBorder, Offset(p,         p * 2),     Size(p, p))
+                    drawRect(resolvedBorder, Offset(w - p * 3, p),         Size(p, p)) // TR
+                    drawRect(resolvedBorder, Offset(w - p * 2, p * 2),     Size(p, p))
+                    drawRect(resolvedBorder, Offset(p * 2,     h - p * 2), Size(p, p)) // BL
+                    drawRect(resolvedBorder, Offset(p,         h - p * 3), Size(p, p))
+                    drawRect(resolvedBorder, Offset(w - p * 3, h - p * 2), Size(p, p)) // BR
+                    drawRect(resolvedBorder, Offset(w - p * 2, h - p * 3), Size(p, p))
+                    // Corner cuts
+                    drawRect(resolvedCut, Offset(0f,       0f),       Size(p * 3, p))
+                    drawRect(resolvedCut, Offset(0f,       p),        Size(p * 2, p))
+                    drawRect(resolvedCut, Offset(0f,       p * 2),    Size(p,     p))
+                    drawRect(resolvedCut, Offset(w - p*3,  0f),       Size(p * 3, p))
+                    drawRect(resolvedCut, Offset(w - p*2,  p),        Size(p * 2, p))
+                    drawRect(resolvedCut, Offset(w - p,    p * 2),    Size(p,     p))
+                    drawRect(resolvedCut, Offset(0f,       h - p),    Size(p * 3, p))
+                    drawRect(resolvedCut, Offset(0f,       h - p*2),  Size(p * 2, p))
+                    drawRect(resolvedCut, Offset(0f,       h - p*3),  Size(p,     p))
+                    drawRect(resolvedCut, Offset(w - p*3,  h - p),    Size(p * 3, p))
+                    drawRect(resolvedCut, Offset(w - p*2,  h - p*2),  Size(p * 2, p))
+                    drawRect(resolvedCut, Offset(w - p,    h - p*3),  Size(p,     p))
 
-                // Staircase step border squares — 3-step corner (3 pixels per corner)
-                // Top-left
-                drawRect(resolvedBorder, Offset(pxPx * 2, pxPx), Size(pxPx, pxPx))
-                drawRect(resolvedBorder, Offset(pxPx, pxPx * 2), Size(pxPx, pxPx))
-                // Top-right
-                drawRect(resolvedBorder, Offset(w - pxPx * 3, pxPx), Size(pxPx, pxPx))
-                drawRect(resolvedBorder, Offset(w - pxPx * 2, pxPx * 2), Size(pxPx, pxPx))
-                // Bottom-left
-                drawRect(resolvedBorder, Offset(pxPx * 2, h - pxPx * 2), Size(pxPx, pxPx))
-                drawRect(resolvedBorder, Offset(pxPx, h - pxPx * 3), Size(pxPx, pxPx))
-                // Bottom-right
-                drawRect(resolvedBorder, Offset(w - pxPx * 3, h - pxPx * 2), Size(pxPx, pxPx))
-                drawRect(resolvedBorder, Offset(w - pxPx * 2, h - pxPx * 3), Size(pxPx, pxPx))
+                } else {
+                    // ── Rounded corners — pixel-circle curve, R=10 blocks ──────────
+                    // Cut widths per row (computed from circle equation, 1 block = px):
+                    //   row 0: cut=7  border at x=7
+                    //   row 1: cut=5  border at x=5
+                    //   row 2: cut=3  border at x=3
+                    //   row 3: cut=2  border at x=2
+                    //   row 4: cut=2  border at x=2
+                    //   row 5: cut=1  border at x=1
+                    //   row 6: cut=1  border at x=1
+                    //   row 7+: no cut → straight left/right edge
 
-                // Corner cut squares — 3-step staircase gaps
-                // Top-left
-                drawRect(resolvedCut, Offset(0f, 0f), Size(pxPx * 3, pxPx))                        // row 0: 3px wide
-                drawRect(resolvedCut, Offset(0f, pxPx), Size(pxPx * 2, pxPx))                      // row 1: 2px wide
-                drawRect(resolvedCut, Offset(0f, pxPx * 2), Size(pxPx, pxPx))                      // row 2: 1px wide
-                // Top-right
-                drawRect(resolvedCut, Offset(w - pxPx * 3, 0f), Size(pxPx * 3, pxPx))             // row 0: 3px wide
-                drawRect(resolvedCut, Offset(w - pxPx * 2, pxPx), Size(pxPx * 2, pxPx))           // row 1: 2px wide
-                drawRect(resolvedCut, Offset(w - pxPx, pxPx * 2), Size(pxPx, pxPx))               // row 2: 1px wide
-                // Bottom-left
-                drawRect(resolvedCut, Offset(0f, h - pxPx), Size(pxPx * 3, pxPx))                 // row 0: 3px wide
-                drawRect(resolvedCut, Offset(0f, h - pxPx * 2), Size(pxPx * 2, pxPx))             // row 1: 2px wide
-                drawRect(resolvedCut, Offset(0f, h - pxPx * 3), Size(pxPx, pxPx))                 // row 2: 1px wide
-                // Bottom-right
-                drawRect(resolvedCut, Offset(w - pxPx * 3, h - pxPx), Size(pxPx * 3, pxPx))      // row 0: 3px wide
-                drawRect(resolvedCut, Offset(w - pxPx * 2, h - pxPx * 2), Size(pxPx * 2, pxPx))  // row 1: 2px wide
-                drawRect(resolvedCut, Offset(w - pxPx, h - pxPx * 3), Size(pxPx, pxPx))          // row 2: 1px wide
+                    // Straight border edges
+                    drawRect(resolvedBorder, Offset(p*7,   0f),    Size(w - p*14, p))   // top
+                    drawRect(resolvedBorder, Offset(p*7,   h - p), Size(w - p*14, p))   // bottom
+                    drawRect(resolvedBorder, Offset(0f,    p*7),   Size(p, h - p*14))   // left
+                    drawRect(resolvedBorder, Offset(w - p, p*7),   Size(p, h - p*14))   // right
+
+                    // Corner border steps.
+                    // Each step = vertical block (right edge of cut) + horizontal span (top of next ledge).
+                    // cuts: [7,5,3,2,2,1,1,0] for rows 0-7
+                    //
+                    // Top-left
+                    drawRect(resolvedBorder, Offset(p*7, p*0), Size(p,   p  ))  // row0 vertical
+                    drawRect(resolvedBorder, Offset(p*5, p*1), Size(p*2, p  ))  // row0→1 horizontal + row1 vertical
+                    drawRect(resolvedBorder, Offset(p*3, p*2), Size(p*2, p  ))  // row1→2 horizontal + row2 vertical
+                    drawRect(resolvedBorder, Offset(p*2, p*3), Size(p,   p  ))  // row2→3 horizontal + row3 vertical
+                    drawRect(resolvedBorder, Offset(p*2, p*4), Size(p,   p  ))  // row4 vertical (cut unchanged)
+                    drawRect(resolvedBorder, Offset(p*1, p*5), Size(p,   p  ))  // row4→5 horizontal + row5 vertical
+                    drawRect(resolvedBorder, Offset(p*1, p*6), Size(p,   p  ))  // row6 vertical (cut unchanged)
+                    drawRect(resolvedBorder, Offset(p*0, p*7), Size(p,   p  ))  // row6→7 horizontal — connects to left edge
+                    // Top-right
+                    drawRect(resolvedBorder, Offset(w-p*8, p*0), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(w-p*7, p*1), Size(p*2, p))
+                    drawRect(resolvedBorder, Offset(w-p*5, p*2), Size(p*2, p))
+                    drawRect(resolvedBorder, Offset(w-p*3, p*3), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(w-p*3, p*4), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(w-p*2, p*5), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(w-p*2, p*6), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(w-p*1, p*7), Size(p,   p))
+                    // Bottom-left
+                    drawRect(resolvedBorder, Offset(p*7, h-p*1), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(p*5, h-p*2), Size(p*2, p))
+                    drawRect(resolvedBorder, Offset(p*3, h-p*3), Size(p*2, p))
+                    drawRect(resolvedBorder, Offset(p*2, h-p*4), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(p*2, h-p*5), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(p*1, h-p*6), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(p*1, h-p*7), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(p*0, h-p*8), Size(p,   p))
+                    // Bottom-right
+                    drawRect(resolvedBorder, Offset(w-p*8, h-p*1), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(w-p*7, h-p*2), Size(p*2, p))
+                    drawRect(resolvedBorder, Offset(w-p*5, h-p*3), Size(p*2, p))
+                    drawRect(resolvedBorder, Offset(w-p*3, h-p*4), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(w-p*3, h-p*5), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(w-p*2, h-p*6), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(w-p*2, h-p*7), Size(p,   p))
+                    drawRect(resolvedBorder, Offset(w-p*1, h-p*8), Size(p,   p))
+
+                    // Corner cuts — erase fill outside the curve
+                    // Top-left
+                    drawRect(resolvedCut, Offset(0f,  p*0), Size(p*7, p))
+                    drawRect(resolvedCut, Offset(0f,  p*1), Size(p*5, p))
+                    drawRect(resolvedCut, Offset(0f,  p*2), Size(p*3, p))
+                    drawRect(resolvedCut, Offset(0f,  p*3), Size(p*2, p))
+                    drawRect(resolvedCut, Offset(0f,  p*4), Size(p*2, p))
+                    drawRect(resolvedCut, Offset(0f,  p*5), Size(p*1, p))
+                    drawRect(resolvedCut, Offset(0f,  p*6), Size(p*1, p))
+                    // Top-right
+                    drawRect(resolvedCut, Offset(w - p*7, p*0), Size(p*7, p))
+                    drawRect(resolvedCut, Offset(w - p*5, p*1), Size(p*5, p))
+                    drawRect(resolvedCut, Offset(w - p*3, p*2), Size(p*3, p))
+                    drawRect(resolvedCut, Offset(w - p*2, p*3), Size(p*2, p))
+                    drawRect(resolvedCut, Offset(w - p*2, p*4), Size(p*2, p))
+                    drawRect(resolvedCut, Offset(w - p*1, p*5), Size(p*1, p))
+                    drawRect(resolvedCut, Offset(w - p*1, p*6), Size(p*1, p))
+                    // Bottom-left
+                    drawRect(resolvedCut, Offset(0f,  h - p*1), Size(p*7, p))
+                    drawRect(resolvedCut, Offset(0f,  h - p*2), Size(p*5, p))
+                    drawRect(resolvedCut, Offset(0f,  h - p*3), Size(p*3, p))
+                    drawRect(resolvedCut, Offset(0f,  h - p*4), Size(p*2, p))
+                    drawRect(resolvedCut, Offset(0f,  h - p*5), Size(p*2, p))
+                    drawRect(resolvedCut, Offset(0f,  h - p*6), Size(p*1, p))
+                    drawRect(resolvedCut, Offset(0f,  h - p*7), Size(p*1, p))
+                    // Bottom-right
+                    drawRect(resolvedCut, Offset(w - p*7, h - p*1), Size(p*7, p))
+                    drawRect(resolvedCut, Offset(w - p*5, h - p*2), Size(p*5, p))
+                    drawRect(resolvedCut, Offset(w - p*3, h - p*3), Size(p*3, p))
+                    drawRect(resolvedCut, Offset(w - p*2, h - p*4), Size(p*2, p))
+                    drawRect(resolvedCut, Offset(w - p*2, h - p*5), Size(p*2, p))
+                    drawRect(resolvedCut, Offset(w - p*1, h - p*6), Size(p*1, p))
+                    drawRect(resolvedCut, Offset(w - p*1, h - p*7), Size(p*1, p))
+                }
             }
             .padding(px * 2),
         content = content

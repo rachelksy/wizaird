@@ -258,7 +258,8 @@ fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
 
     PixelBox(
         modifier = modifier,
-        fillColor = colors.bubble
+        fillColor = colors.bubble,
+        cornerStyle = PixelCornerStyle.Rounded
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // ── Bubble header (mirrors AppHeader style) ──

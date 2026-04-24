@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -33,7 +35,7 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
     val scope = rememberCoroutineScope()
     val settings by settingsFlow(context).collectAsState(initial = AiSettings())
 
-    var bubbleText by remember { mutableStateOf("Hail, apprentice! Ask anything — I hoard strange facts.") }
+    var bubbleText by remember { mutableStateOf("Artificial Intelligence experience, or AI UX, is the practice of designing interactions between humans and intelligent systems in ways that feel natural, trustworthy, and useful.\n\nUnlike traditional software, AI systems are probabilistic — they don't always produce the same output for the same input. This introduces a new design challenge: how do you build trust with a system that is inherently unpredictable? The answer lies in transparency. Users need to understand what the AI can and cannot do, when it is confident versus uncertain, and how to correct it when it goes wrong.\n\nGood AI experience design starts with setting the right expectations. Onboarding flows should communicate the AI's capabilities honestly, without overpromising. In-product cues — like confidence indicators, source citations, or simple disclaimers — help users calibrate their trust appropriately.\n\nFeedback loops are equally important. When a user can rate a response, flag an error, or regenerate an answer, they feel in control. This sense of agency is critical: AI should feel like a powerful tool the user wields, not an opaque oracle they must blindly trust.\n\nLatency is another unique challenge. AI responses often take longer than traditional software actions. Thoughtful loading states — like streaming text, animated indicators, or progress cues — transform waiting from frustration into anticipation.\n\nFinally, the best AI experiences are deeply contextual. They remember who the user is, adapt to their preferences over time, and surface the right information at the right moment. The goal is not to replace human judgment, but to augment it — making people feel smarter, faster, and more capable than they would be alone.") }
     var isLoading by remember { mutableStateOf(false) }
     var inputText by remember { mutableStateOf("") }
 
@@ -66,14 +68,14 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
         }
     }
 
-    // Auto-refresh every 20s
-    LaunchedEffect(Unit) {
-        askQuestion("")
-        while (true) {
-            delay(20_000)
-            askQuestion("")
-        }
-    }
+    // Auto-refresh every 20s — disabled for testing
+//    LaunchedEffect(Unit) {
+//        askQuestion("")
+//        while (true) {
+//            delay(20_000)
+//            askQuestion("")
+//        }
+//    }
 
     Box(
         modifier = Modifier
@@ -86,51 +88,53 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
         Sparkle(modifier = Modifier.align(Alignment.BottomStart).offset(30.dp, (-200).dp))
         Sparkle(modifier = Modifier.align(Alignment.BottomEnd).offset((-32).dp, (-240).dp))
 
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
             PixelStatusBar()
             AppHeader(onSettingsClick = onSettingsClick)
             StatStrip()
-            Spacer(modifier = Modifier.weight(1f))
-        }
 
-        // Main stage: bubble + wizard + input pinned to bottom
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 30.dp)
-                .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(0.dp)
-        ) {
-            ChatBubble(text = bubbleText, loading = isLoading)
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Wizard sitting on top of input
-            WizardCharacter(
-                bobOffsetY = bobY,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-
-            PixelInputBar(
-                value = inputText,
-                onValueChange = { inputText = it },
-                onSubmit = {
-                    val q = inputText.trim()
-                    if (q.isNotEmpty()) {
-                        inputText = ""
-                        askQuestion(q)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
             ) {
-                PixelLabel("↵ SEND")
-                PixelLabel("AUTO-QUEST ON")
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Bubble fills all remaining space
+                ChatBubble(
+                    text = bubbleText,
+                    loading = isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Wizard
+                WizardCharacter(
+                    bobOffsetY = bobY,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+
+                PixelInputBar(
+                    value = inputText,
+                    onValueChange = { inputText = it },
+                    onSubmit = {
+                        val q = inputText.trim()
+                        if (q.isNotEmpty()) {
+                            inputText = ""
+                            askQuestion(q)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(30.dp))
+
+
             }
         }
 
@@ -245,7 +249,7 @@ fun StatBar(label: String, value: Int, max: Int, color: Color) {
 
 // ── Chat bubble ──────────────────────────────────────────────────
 @Composable
-fun ChatBubble(text: String, loading: Boolean) {
+fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
     var dotCount by remember { mutableIntStateOf(1) }
     LaunchedEffect(loading) {
         if (loading) {
@@ -256,42 +260,18 @@ fun ChatBubble(text: String, loading: Boolean) {
         }
     }
 
-    Box(
-        modifier = Modifier
-            .widthIn(max = 280.dp)
-            .drawBehind { drawPixelBorder() }
-            .background(Bubble)
-            .padding(14.dp)
+    PixelBox(
+        modifier = modifier,
+        fillColor = Bubble
     ) {
-        Text(
-            text = if (loading) "thinking${".".repeat(dotCount)}" else text,
-            style = pixelStyle(16, Ink),
-            minLines = 2,
-            maxLines = 5,
-            overflow = TextOverflow.Ellipsis
-        )
-        // Pixel tail pointing down (left side)
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .offset(x = 20.dp, y = 9.dp)
-                .size(9.dp, 9.dp)
-                .background(Ink)
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .offset(x = 23.dp, y = 12.dp)
-                .size(6.dp, 6.dp)
-                .background(Ink)
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .offset(x = 26.dp, y = 15.dp)
-                .size(3.dp, 3.dp)
-                .background(Ink)
-        )
+        Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Text(
+                text = if (loading) "thinking${".".repeat(dotCount)}" else text,
+                style = pixelStyle(12, Ink),
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                overflow = TextOverflow.Clip
+            )
+        }
     }
 }
 
@@ -312,7 +292,7 @@ fun WizardCharacter(bobOffsetY: Float, modifier: Modifier = Modifier) {
         contentDescription = "Wizard",
         contentScale = ContentScale.Fit,
         modifier = modifier
-            .height(200.dp)
+            .height(100.dp)
             .wrapContentWidth()
             .offset(y = bobOffsetY.dp)
     )
@@ -326,39 +306,40 @@ fun PixelInputBar(
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier
-            .height(52.dp)
-            .drawBehind { drawPixelBorder() }
-            .background(Bubble),
-        verticalAlignment = Alignment.CenterVertically
+    PixelBox(
+        modifier = modifier.height(52.dp),
+        fillColor = Bubble
     ) {
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            textStyle = pixelStyle(16, Ink),
-            cursorBrush = SolidColor(Ink),
-            singleLine = true,
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 12.dp, vertical = 14.dp),
-            decorationBox = { inner ->
-                if (value.isEmpty()) {
-                    Text("ASK THE WIZARD...", style = pixelStyle(16, InkSoft))
-                }
-                inner()
-            }
-        )
-        Box(
-            modifier = Modifier
-                .width(56.dp)
-                .fillMaxHeight()
-                .background(Coral)
-                .drawBehind { drawPixelBorder(left = true) }
-                .clickable { onSubmit() },
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("SEND", style = pixelStyle(11, Color.White))
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                textStyle = pixelStyle(12, Ink),
+                cursorBrush = SolidColor(Ink),
+                singleLine = true,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp),
+                decorationBox = { inner ->
+                    if (value.isEmpty()) {
+                        Text("ASK THE WIZARD...", style = pixelStyle(12, InkSoft))
+                    }
+                    inner()
+                }
+            )
+            Box(
+                modifier = Modifier
+                    .width(50.dp)
+                    .fillMaxHeight()
+                    .background(Coral)
+                    .clickable { onSubmit() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("SEND", style = pixelStyle(12, Color.White))
+            }
         }
     }
 }
@@ -389,5 +370,5 @@ fun Sparkle(modifier: Modifier = Modifier) {
 
 @Composable
 fun PixelLabel(text: String) {
-    Text(text, style = pixelStyle(6, InkSoft))
+    Text(text, style = pixelStyle(14, InkSoft))
 }

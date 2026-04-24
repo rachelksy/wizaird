@@ -60,9 +60,9 @@ fun SettingsScreen(onBack: () -> Unit) {
                         .clickable { onBack() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("←", style = pixelStyle(14, Color.White))
+                    Text("←", style = pixelStyle(22, Color.White))
                 }
-                Text("⚙ SETTINGS", style = pixelStyle(13))
+                Text("⚙ SETTINGS", style = pixelStyle(21))
             }
 
             Column(
@@ -86,7 +86,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                             ) {
                                 Text(
                                     p.uppercase(),
-                                    style = pixelStyle(9, if (active) Color.White else Ink)
+                                    style = pixelStyle(19, if (active) Color.White else Ink)
                                 )
                             }
                         }
@@ -160,7 +160,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 @Composable
 fun SettingsField(label: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = pixelStyle(8, InkSoft))
+        Text(label, style = pixelStyle(16, InkSoft))
         content()
     }
 }
@@ -175,7 +175,7 @@ fun PixelTextInput(
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
-        textStyle = pixelStyle(14, Ink),
+        textStyle = pixelStyle(22, Ink),
         cursorBrush = SolidColor(Ink),
         singleLine = true,
         visualTransformation = if (isPassword)
@@ -188,7 +188,7 @@ fun PixelTextInput(
             .drawBehind { drawPixelBorder() }
             .padding(horizontal = 10.dp, vertical = 10.dp),
         decorationBox = { inner ->
-            if (value.isEmpty()) Text(placeholder, style = pixelStyle(14, InkSoft))
+            if (value.isEmpty()) Text(placeholder, style = pixelStyle(22, InkSoft))
             inner()
         }
     )
@@ -210,6 +210,6 @@ fun PixelActionButton(
             .padding(vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, style = pixelStyle(11, textColor))
+        Text(label, style = pixelStyle(19, textColor))
     }
 }

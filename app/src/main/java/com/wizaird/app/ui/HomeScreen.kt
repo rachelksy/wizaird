@@ -336,7 +336,8 @@ fun PixelInputBar(
     val colors = LocalWizairdColors.current
     PixelBox(
         modifier = modifier,
-        fillColor = colors.bubble
+        fillColor = colors.bubble,
+        cornerStyle = PixelCornerStyle.Rounded8
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

@@ -86,6 +86,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 PixelBox(
                                     fillColor = chipColor,
                                     borderColor = chipColor,
+                                    cornerStyle = PixelCornerStyle.Rounded8,
                                     modifier = Modifier.clickable { provider = p }
                                 ) {
                                     Text(
@@ -140,6 +141,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 PixelBox(
                                     fillColor = chipColor,
                                     borderColor = chipColor,
+                                    cornerStyle = PixelCornerStyle.Rounded8,
                                     modifier = Modifier.clickable { darkMode = value }
                                 ) {
                                     Text(
@@ -202,7 +204,8 @@ fun PixelTextInput(
     val colors = LocalWizairdColors.current
     PixelBox(
         modifier = Modifier.fillMaxWidth(),
-        fillColor = colors.bubble
+        fillColor = colors.bubble,
+        cornerStyle = PixelCornerStyle.Rounded8
     ) {
         BasicTextField(
             value = value,
@@ -236,7 +239,8 @@ fun PixelActionButton(
     PixelBox(
         modifier = modifier.clickable { onClick() },
         fillColor = color,
-        borderColor = color  // no visible border — corners only
+        borderColor = color,
+        cornerStyle = PixelCornerStyle.Rounded8
     ) {
         Box(
             modifier = Modifier

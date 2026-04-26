@@ -1,15 +1,24 @@
 package com.wizaird.app.ui
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
@@ -17,13 +26,13 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.wizaird.app.ui.theme.Ink
+import com.wizaird.app.ui.theme.SecondaryIcon
 import com.wizaird.app.ui.theme.LocalWizairdColors
 import com.wizaird.app.ui.theme.Paper
 import com.wizaird.app.ui.theme.PixelFont
 import com.wizaird.app.ui.theme.PixeloidFont
 
-fun pixelStyle(size: Int, color: Color = Ink) = TextStyle(
+fun pixelStyle(size: Int, color: Color = SecondaryIcon) = TextStyle(
     fontFamily = PixelFont,
     fontSize = size.sp,
     lineHeight = (size * 1f).sp,
@@ -38,7 +47,7 @@ fun pixelStyle(size: Int, color: Color = Ink) = TextStyle(
     )
 )
 
-fun minecraftStyle(size: Int, color: Color = Ink) = TextStyle(
+fun minecraftStyle(size: Int, color: Color = SecondaryIcon) = TextStyle(
     fontFamily = PixeloidFont,
     fontSize = size.sp,
     lineHeight = (size * 1.4f).sp,
@@ -59,7 +68,7 @@ fun DrawScope.drawPixelBorder(
     left: Boolean = false,
     right: Boolean = false,
     all: Boolean = false,
-    color: Color = Ink
+    color: Color = SecondaryIcon
 ) {
     val stroke = PixelSize.toPx()
     if (all || top)    drawLine(color, Offset(0f, 0f), Offset(size.width, 0f), stroke)
@@ -239,7 +248,7 @@ enum class PixelCornerStyle { Cut, Rounded, Rounded8, Circle }
 fun PixelBox(
     modifier: Modifier = Modifier,
     fillColor: Color,
-    borderColor: Color? = null,   // null = use theme ink
+    borderColor: Color? = null,   // null = use theme secondaryIcon
     cutColor: Color? = null,      // null = use theme background
     px: Dp = PixelSize,
     cornerStyle: PixelCornerStyle = PixelCornerStyle.Cut,
@@ -604,4 +613,36 @@ fun PixelBox(
             .padding(px * 2),
         content = content
     )
+}
+
+// ── 40dp pixel-circle icon button ────────────────────────────────
+@Composable
+fun PixelCircleIconButton(
+    iconRes: Int,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    fillColor: Color = LocalWizairdColors.current.secondarySurface,
+    cutColor: Color = LocalWizairdColors.current.secondarySurface,
+    iconTint: Color = LocalWizairdColors.current.secondaryIcon
+) {
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .drawPixelCircle(
+                fillColor   = fillColor,
+                borderColor = Color.Transparent,
+                cutColor    = cutColor
+            )
+            .clip(CircleShape)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(id = iconRes),
+            contentDescription = contentDescription,
+            colorFilter = ColorFilter.tint(iconTint),
+            modifier = Modifier.size(20.dp)
+        )
+    }
 }

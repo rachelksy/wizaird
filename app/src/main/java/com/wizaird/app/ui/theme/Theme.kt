@@ -10,26 +10,16 @@ import androidx.compose.ui.text.font.FontFamily
 import com.wizaird.app.R
 
 // ── Raw palette ──────────────────────────────────────────────────
-val Paper     = Color(0xFFF2E6C7)
-val PaperDk   = Color(0xFFD9C59A)
-val Ink       = Color(0xFF2A1F14)
-val InkSoft   = Color(0xFF5B4326)
-val Forest    = Color(0xFF2F5D3A)
-val ForestDk  = Color(0xFF1A3A23)
-val Coral     = Color(0xFFE0563A)
-val CoralDk   = Color(0xFFA6361E)
-val Gold      = Color(0xFFE5B14A)
-val Bubble    = Color(0xFFFFFAED)
-val NightBg   = Color(0xFF1B1A2E)
-
-// Dark-mode raw values
-val NightSurface  = Color(0xFF111111)   // main background
-val NightSurfaceDk= Color(0xFF0A0A0A)   // darker variant (stat bar empty cells, etc.)
-val NightInk      = Color(0xFFE8DFC8)   // primary text
-val NightInkSoft  = Color(0xFF9A8F7A)   // secondary text
-val NightBubble   = Color(0xFF1A1A1A)   // chat bubble / input background
-val NightForest   = Color(0xFF3A7A4A)   // accent green (slightly brighter for dark bg)
-val NightBorder   = Color(0xFF666666)   // line borders only
+val Paper            = Color(0xFFF2E6C7)
+val PaperDk          = Color(0xFFD9C59A)
+val SecondaryIcon    = Color(0xFF2A1F14)
+val SecondaryIconSoft= Color(0xFF5B4326)
+val Forest           = Color(0xFF2F5D3A)
+val ForestDk         = Color(0xFF1A3A23)
+val Coral            = Color(0xFFE0563A)
+val CoralDk          = Color(0xFFA6361E)
+val Gold             = Color(0xFFE5B14A)
+val Bubble           = Color(0xFFFFFAED)
 
 val PixelFont      = FontFamily(Font(R.font.vt323))
 val MinecraftFont  = FontFamily(Font(R.font.macs_minecraft))
@@ -38,11 +28,12 @@ val PixeloidFont   = FontFamily(Font(R.font.pixeloid_sans))
 // ── Theme tokens ─────────────────────────────────────────────────
 @Immutable
 data class WizairdColors(
-    val background: Color,
-    val backgroundDark: Color,
-    val ink: Color,
-    val inkSoft: Color,
-    val bubble: Color,
+    val background: Color,        // main screen background
+    val backgroundDark: Color,    // darker variant (empty cells, etc.)
+    val secondarySurface: Color,  // bubble, input, header, inactive button surfaces
+    val secondaryButton: Color,   // muted/inactive button fill
+    val secondaryIcon: Color,     // primary icon and text color
+    val secondaryIconSoft: Color, // muted/secondary text color
     val forest: Color,
     val forestDk: Color,
     val coral: Color,
@@ -52,31 +43,33 @@ data class WizairdColors(
 )
 
 val LightColors = WizairdColors(
-    background  = Paper,
-    backgroundDark = PaperDk,
-    ink         = Ink,
-    inkSoft     = InkSoft,
-    bubble      = Bubble,
-    forest      = Forest,
-    forestDk    = ForestDk,
-    coral       = Coral,
-    gold        = Gold,
-    border      = Ink,
-    isDark      = false
+    background        = Color(0xFFF2E6C7),
+    backgroundDark    = Color(0xFFD9C59A),
+    secondarySurface  = Color(0xFFFFFAED),
+    secondaryButton   = Color(0xFFD9C59A),
+    secondaryIcon     = Color(0xFF2A1F14),
+    secondaryIconSoft = Color(0xFF5B4326),
+    forest            = Color(0xFF2F5D3A),
+    forestDk          = Color(0xFF1A3A23),
+    coral             = Color(0xFFE0563A),
+    gold              = Color(0xFFE5B14A),
+    border            = Color(0xFF2A1F14),
+    isDark            = false
 )
 
 val DarkColors = WizairdColors(
-    background  = NightSurface,
-    backgroundDark = NightSurfaceDk,
-    ink         = NightInk,
-    inkSoft     = NightInkSoft,
-    bubble      = NightBubble,
-    forest      = NightForest,
-    forestDk    = ForestDk,
-    coral       = Coral,
-    gold        = Gold,
-    border      = NightBorder,
-    isDark      = true
+    background        = Color(0xFF111111),
+    backgroundDark    = Color(0xFF0A0A0A),
+    secondarySurface  = Color(0xFF333333),
+    secondaryButton   = Color(0xFF555555),
+    secondaryIcon     = Color(0xFFE8DFC8),
+    secondaryIconSoft = Color(0xFF9A8F7A),
+    forest            = Color(0xFF3A7A4A),
+    forestDk          = Color(0xFF1A3A23),
+    coral             = Color(0xFFE0563A),
+    gold              = Color(0xFFE5B14A),
+    border            = Color(0xFF666666),
+    isDark            = true
 )
 
 val LocalWizairdColors = staticCompositionLocalOf { LightColors }

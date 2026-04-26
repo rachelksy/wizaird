@@ -63,12 +63,12 @@ fun SettingsScreen(onBack: () -> Unit) {
                             .drawPixelArrowButton(
                                 fillColor  = Coral,
                                 cutColor   = backCutColor,
-                                arrowColor = Ink,
+                                arrowColor = SecondaryIcon,
                                 direction  = -1f
                             )
                             .clickable { onBack() }
                     )
-                    Text("SETTINGS", style = pixelStyle(12, colors.ink), modifier = Modifier.offset(y = (-2).dp))
+                    Text("SETTINGS", style = pixelStyle(12, colors.secondaryIcon), modifier = Modifier.offset(y = (-2).dp))
                 }
 
                 Column(
@@ -82,7 +82,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             providers.forEach { p ->
                                 val active = provider == p
-                                val chipColor = if (active) Coral else colors.backgroundDark
+                                val chipColor = if (active) Coral else colors.secondaryButton
                                 PixelBox(
                                     fillColor = chipColor,
                                     borderColor = chipColor,
@@ -91,7 +91,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 ) {
                                     Text(
                                         p.uppercase(),
-                                        style = pixelStyle(12, if (active) Ink else colors.ink),
+                                        style = pixelStyle(12, if (active) SecondaryIcon else colors.secondaryIcon),
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp).offset(y = (-2).dp)
                                     )
                                 }
@@ -121,7 +121,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                         Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                             repeat(steps) { i ->
                                 val filled = i < (temperature * steps).toInt()
-                                val cellColor = if (filled) Coral else colors.backgroundDark
+                                val cellColor = if (filled) Coral else colors.secondaryButton
                                 Box(
                                     modifier = Modifier
                                         .size(24.dp, 16.dp)
@@ -137,7 +137,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf(false to "LIGHT", true to "DARK").forEach { (value, label) ->
                                 val active = darkMode == value
-                                val chipColor = if (active) Coral else colors.backgroundDark
+                                val chipColor = if (active) Coral else colors.secondaryButton
                                 PixelBox(
                                     fillColor = chipColor,
                                     borderColor = chipColor,
@@ -146,7 +146,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 ) {
                                     Text(
                                         label,
-                                        style = pixelStyle(12, if (active) Ink else colors.ink),
+                                        style = pixelStyle(12, if (active) SecondaryIcon else colors.secondaryIcon),
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp).offset(y = (-2).dp)
                                     )
                                 }
@@ -161,15 +161,15 @@ fun SettingsScreen(onBack: () -> Unit) {
                     ) {
                         PixelActionButton(
                             label = "CANCEL",
-                            color = colors.backgroundDark,
-                            textColor = colors.ink,
+                            color = colors.secondaryButton,
+                            textColor = colors.secondaryIcon,
                             modifier = Modifier.weight(1f),
                             onClick = onBack
                         )
                         PixelActionButton(
                             label = "SAVE",
                             color = Coral,
-                            textColor = Ink,
+                            textColor = SecondaryIcon,
                             modifier = Modifier.weight(1f),
                             onClick = {
                                 scope.launch {
@@ -189,7 +189,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 fun SettingsField(label: String, content: @Composable () -> Unit) {
     val colors = LocalWizairdColors.current
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = pixelStyle(12, colors.inkSoft), modifier = Modifier.offset(y = (-2).dp))
+        Text(label, style = pixelStyle(12, colors.secondaryIconSoft), modifier = Modifier.offset(y = (-2).dp))
         content()
     }
 }
@@ -204,14 +204,14 @@ fun PixelTextInput(
     val colors = LocalWizairdColors.current
     PixelBox(
         modifier = Modifier.fillMaxWidth(),
-        fillColor = colors.bubble,
+        fillColor = colors.secondarySurface,
         cornerStyle = PixelCornerStyle.Rounded8
     ) {
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            textStyle = pixelStyle(12, colors.ink),
-            cursorBrush = SolidColor(colors.ink),
+            textStyle = pixelStyle(12, colors.secondaryIcon),
+            cursorBrush = SolidColor(colors.secondaryIcon),
             singleLine = true,
             visualTransformation = if (isPassword)
                 PasswordVisualTransformation()
@@ -223,7 +223,7 @@ fun PixelTextInput(
                 .offset(y = (-2).dp),
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterStart) {
-                    if (value.isEmpty()) Text(placeholder, style = pixelStyle(12, colors.inkSoft), modifier = Modifier.offset(y = (-2).dp))
+                    if (value.isEmpty()) Text(placeholder, style = pixelStyle(12, colors.secondaryIconSoft), modifier = Modifier.offset(y = (-2).dp))
                     inner()
                 }
             }

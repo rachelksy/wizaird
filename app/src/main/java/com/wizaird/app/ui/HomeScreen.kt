@@ -1,7 +1,8 @@
 package com.wizaird.app.ui
 
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.*import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -141,12 +142,12 @@ fun PixelStatusBar() {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("9:30", style = pixelStyle(8, colors.ink), modifier = Modifier.offset(y = (-2).dp))
+        Text("9:30", style = pixelStyle(8, colors.secondaryIcon), modifier = Modifier.offset(y = (-2).dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             // signal bars
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                 listOf(4.dp, 6.dp, 8.dp, 10.dp).forEach { h ->
-                    Box(modifier = Modifier.width(2.dp).height(h).background(colors.ink))
+                    Box(modifier = Modifier.width(2.dp).height(h).background(colors.secondaryIcon))
                 }
             }
             // battery
@@ -176,7 +177,7 @@ fun AppHeader(onSettingsClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 12.dp, end = 12.dp, top = 0.dp, bottom = 0.dp),
-        fillColor = colors.bubble,
+        fillColor = colors.secondarySurface,
         cornerStyle = PixelCornerStyle.Rounded8
     ) {
         Row(
@@ -201,28 +202,26 @@ fun AppHeader(onSettingsClick: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                     modifier = Modifier.offset(y = (-2).dp)
                 ) {
-                    Text("RACHEL", style = pixelStyle(13, colors.ink))
-                    Text("LV.3 APPRENTICE", style = pixelStyle(6, colors.inkSoft))
+                    Text("RACHEL", style = pixelStyle(13, colors.secondaryIcon))
+                    Text("LV.3 APPRENTICE", style = pixelStyle(6, colors.secondaryIconSoft))
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                // Folder icon button
-                Image(
-                    painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Folder icon in 40dp pixel circle
+                PixelCircleIconButton(
+                    iconRes = com.wizaird.app.R.drawable.ic_folder,
                     contentDescription = "Projects",
-                    colorFilter = ColorFilter.tint(colors.ink),
-                    modifier = Modifier
-                        .size(22.dp)
-                        .clickable { /* TODO: open projects */ }
+                    fillColor = colors.secondaryButton,
+                    cutColor = colors.secondarySurface,
+                    onClick = { /* TODO: open projects */ }
                 )
-                // Gear icon button
-                Image(
-                    painter = painterResource(id = com.wizaird.app.R.drawable.ic_settings_cog),
+                // Settings icon in 40dp pixel circle
+                PixelCircleIconButton(
+                    iconRes = com.wizaird.app.R.drawable.ic_settings_cog,
                     contentDescription = "Settings",
-                    colorFilter = ColorFilter.tint(colors.ink),
-                    modifier = Modifier
-                        .size(22.dp)
-                        .clickable { onSettingsClick() }
+                    fillColor = colors.secondaryButton,
+                    cutColor = colors.secondarySurface,
+                    onClick = { onSettingsClick() }
                 )
             }
         }
@@ -253,7 +252,7 @@ fun AgentScrollBar() {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 PixelBox(
                     modifier = Modifier.size(64.dp),
-                    fillColor = if (isAddButton) Gold else colors.bubble,
+                    fillColor = if (isAddButton) colors.secondaryButton else colors.secondarySurface,
                     borderColor = if (isActive) colors.border else Color.Transparent,
                     cornerStyle = PixelCornerStyle.Circle
                 ) {
@@ -263,8 +262,8 @@ fun AgentScrollBar() {
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Box(modifier = Modifier.width(14.dp).height(2.dp).background(Ink))
-                            Box(modifier = Modifier.width(2.dp).height(14.dp).background(Ink))
+                            Box(modifier = Modifier.width(14.dp).height(2.dp).background(colors.secondaryIcon))
+                            Box(modifier = Modifier.width(2.dp).height(14.dp).background(colors.secondaryIcon))
                         }
                     }
                 }
@@ -305,16 +304,16 @@ fun StatBar(label: String, value: Int, max: Int, color: Color) {
     val colors = LocalWizairdColors.current
     val filled = (value.toFloat() / max * 10).toInt()
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = pixelStyle(7, colors.ink), modifier = Modifier.width(22.dp).offset(y = (-2).dp))
+        Text(label, style = pixelStyle(7, colors.secondaryIcon), modifier = Modifier.width(22.dp).offset(y = (-2).dp))
         Row(
-            modifier = Modifier.background(colors.ink).padding(2.dp),
+            modifier = Modifier.background(colors.secondaryIcon).padding(2.dp),
             horizontalArrangement = Arrangement.spacedBy(1.dp)
         ) {
             repeat(10) { i ->
                 Box(modifier = Modifier.size(8.dp).background(if (i < filled) color else colors.backgroundDark))
             }
         }
-        Text("$value/$max", style = pixelStyle(6, colors.inkSoft), modifier = Modifier.offset(y = (-2).dp))
+        Text("$value/$max", style = pixelStyle(6, colors.secondaryIconSoft), modifier = Modifier.offset(y = (-2).dp))
     }
 }
 
@@ -334,7 +333,7 @@ fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
 
     PixelBox(
         modifier = modifier,
-        fillColor = colors.bubble,
+        fillColor = colors.secondarySurface,
         cornerStyle = PixelCornerStyle.Rounded
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -360,8 +359,8 @@ fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                     modifier = Modifier.offset(y = (-2).dp)
                 ) {
-                    Text("WIZAIRD", style = pixelStyle(13, colors.ink))
-                    Text("LV.3 APPRENTICE", style = pixelStyle(6, colors.inkSoft))
+                    Text("WIZAIRD", style = pixelStyle(13, colors.secondaryIcon))
+                    Text("LV.3 APPRENTICE", style = pixelStyle(6, colors.secondaryIconSoft))
                 }
             }
 
@@ -369,7 +368,7 @@ fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
             Box(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)) {
                 Text(
                     text = if (loading) "thinking${".".repeat(dotCount)}" else text,
-                    style = minecraftStyle(14, colors.ink),
+                    style = minecraftStyle(14, colors.secondaryIcon),
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                     overflow = TextOverflow.Clip
                 )
@@ -412,7 +411,7 @@ fun PixelInputBar(
     val colors = LocalWizairdColors.current
     PixelBox(
         modifier = modifier,
-        fillColor = colors.bubble,
+        fillColor = colors.secondarySurface,
         cornerStyle = PixelCornerStyle.Rounded8
     ) {
         Row(
@@ -422,8 +421,8 @@ fun PixelInputBar(
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
-                textStyle = minecraftStyle(14, colors.ink),
-                cursorBrush = SolidColor(colors.ink),
+                textStyle = minecraftStyle(14, colors.secondaryIcon),
+                cursorBrush = SolidColor(colors.secondaryIcon),
                 singleLine = false,
                 maxLines = 10,
                 modifier = Modifier
@@ -432,14 +431,14 @@ fun PixelInputBar(
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty()) {
-                            Text("ASK THE WIZARD...", style = minecraftStyle(14, colors.inkSoft))
+                            Text("ASK THE WIZARD...", style = minecraftStyle(14, colors.secondaryIconSoft))
                         }
                         inner()
                     }
                 }
             )
             // Send button — pixel-rounded, centered, arrow icon
-            val bubbleColor = colors.bubble
+            val bubbleColor = colors.secondarySurface
             Box(
                 modifier = Modifier
                     .align(Alignment.Bottom)
@@ -448,7 +447,7 @@ fun PixelInputBar(
                     .drawPixelArrowButton(
                         fillColor  = Coral,
                         cutColor   = bubbleColor,
-                        arrowColor = Ink,
+                        arrowColor = SecondaryIcon,
                         direction  = 1f
                     )
                     .clickable { onSubmit() }

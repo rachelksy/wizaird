@@ -23,10 +23,10 @@ import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, initialDarkMode: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val saved by settingsFlow(context).collectAsState(initial = AiSettings())
+    val saved by settingsFlow(context).collectAsState(initial = AiSettings(darkMode = initialDarkMode))
 
     var provider    by remember(saved) { mutableStateOf(saved.provider) }
     var apiKey      by remember(saved) { mutableStateOf(saved.apiKey) }

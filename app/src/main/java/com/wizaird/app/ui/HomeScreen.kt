@@ -267,7 +267,7 @@ fun AgentScrollBar(
     // activeIndex in items = activeProjectIndex + 1 (offset by the add button at 0)
     val activeItemIndex = activeProjectIndex + 1
 
-    val inactiveBorder = Color(0xFF999999)
+    val inactiveBorder = if (colors.isDark) colors.border else Color(0xFF999999)
 
     Row(
         modifier = Modifier
@@ -293,7 +293,7 @@ fun AgentScrollBar(
                                 Modifier.pixelLargeCircleClickable(interactionSource = interaction) { onActiveProjectChange(index - 1) }
                         ),
                     fillColor = if (isAddButton) colors.secondaryButton else colors.secondarySurface,
-                    borderColor = if (isActive) colors.border else if (isAddButton) Color.Transparent else inactiveBorder,
+                    borderColor = if (isActive) colors.textHigh else if (isAddButton) Color.Transparent else inactiveBorder,
                     cornerStyle = PixelCornerStyle.Circle
                 ) {
                     if (isAddButton) {

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches LightColors.background — used as window background to prevent flash on navigation -->
+    <color name="background">#F2E6C7</color>
+</resources>

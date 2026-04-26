@@ -8,7 +8,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
@@ -44,31 +43,48 @@ fun SettingsScreen(onBack: () -> Unit) {
                 .background(colors.background)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                Spacer(modifier = Modifier.height(40.dp))
+                Spacer(modifier = Modifier.height(48.dp))
 
-                // Header
-                Row(
+                // Header — same size as AppHeader so the screen transition doesn't jump
+                PixelBox(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(colors.background)
-                        .drawBehind { drawPixelBorder(top = true, bottom = true, color = colors.border) }
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(start = 12.dp, end = 12.dp),
+                    fillColor = colors.secondarySurface,
+                    cornerStyle = PixelCornerStyle.Rounded8
                 ) {
-                    val backCutColor = colors.background
-                    Box(
+                    Row(
                         modifier = Modifier
-                            .size(32.dp)
-                            .drawPixelArrowButton(
-                                fillColor  = Coral,
-                                cutColor   = backCutColor,
-                                arrowColor = SecondaryIcon,
-                                direction  = -1f
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .padding(start = 12.dp, end = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .drawPixelCircle(
+                                    fillColor   = colors.secondaryButton,
+                                    borderColor = androidx.compose.ui.graphics.Color.Transparent,
+                                    cutColor    = colors.secondarySurface
+                                )
+                                .clickable { onBack() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .drawPixelArrowButton(
+                                        fillColor  = colors.secondaryButton,
+                                        cutColor   = colors.secondaryButton,
+                                        arrowColor = colors.secondaryIcon,
+                                        direction  = -1f
+                                    )
                             )
-                            .clickable { onBack() }
-                    )
-                    Text("SETTINGS", style = pixelStyle(12, colors.secondaryIcon), modifier = Modifier.offset(y = (-2).dp))
+                        }
+                        Text("SETTINGS", style = pixelStyle(12, colors.secondaryIcon), modifier = Modifier.offset(y = (-2).dp))
+                    }
                 }
 
                 Column(

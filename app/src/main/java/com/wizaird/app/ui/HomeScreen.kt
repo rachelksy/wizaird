@@ -428,7 +428,7 @@ fun PixelInputBar(
                 maxLines = 10,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
+                    .padding(start = 12.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty()) {

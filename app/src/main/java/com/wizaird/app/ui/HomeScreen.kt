@@ -204,12 +204,13 @@ fun AppHeader(onSettingsClick: () -> Unit, onProjectsClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             // Rabbit GIF replacing the W badge
+            /*
             Box(
                 modifier = Modifier.size(44.dp),
                 contentAlignment = Alignment.Center
@@ -224,11 +225,12 @@ fun AppHeader(onSettingsClick: () -> Unit, onProjectsClick: () -> Unit = {}) {
                     modifier = Modifier.fillMaxSize()
                 )
             }
+            */
             Column(
                 verticalArrangement = Arrangement.spacedBy(0.dp),
                 modifier = Modifier.offset(y = (-2).dp)
             ) {
-                Text("RACHEL", style = pixelStyle(14, colors.secondaryIcon))
+                Text("RACHEL", style = pixelStyle(16, colors.secondaryIcon))
                 Text("LV.3 APPRENTICE", style = pixelStyle(8, colors.secondaryIconSoft))
             }
         }

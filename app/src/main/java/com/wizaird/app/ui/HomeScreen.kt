@@ -209,7 +209,7 @@ fun AppHeader(onSettingsClick: () -> Unit, onProjectsClick: () -> Unit = {}) {
                     modifier = Modifier.offset(y = (-2).dp)
                 ) {
                     Text("RACHEL", style = pixelStyle(13, colors.secondaryIcon))
-                    Text("LV.3 APPRENTICE", style = pixelStyle(6, colors.secondaryIconSoft))
+                    Text("LV.3 APPRENTICE", style = pixelStyle(8, colors.secondaryIconSoft))
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -370,7 +370,7 @@ fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
                     modifier = Modifier.offset(y = (-2).dp)
                 ) {
                     Text("WIZAIRD", style = pixelStyle(13, colors.secondaryIcon))
-                    Text("LV.3 APPRENTICE", style = pixelStyle(6, colors.secondaryIconSoft))
+                    Text("LV.3 APPRENTICE", style = pixelStyle(8, colors.secondaryIconSoft))
                 }
             }
 

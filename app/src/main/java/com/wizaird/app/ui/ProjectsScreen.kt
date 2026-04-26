@@ -110,28 +110,40 @@ fun ProjectCard(name: String, chatCount: Int, onClick: () -> Unit) {
     PixelBox(
         modifier = Modifier
             .fillMaxWidth()
-            .height(80.dp)
             .pixelRounded8Clickable(interactionSource = cardInteraction) { onClick() },
         fillColor = colors.secondarySurface,
         cornerStyle = PixelCornerStyle.Rounded8
     ) {
-        Column(
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.Center
+                .fillMaxWidth()
+                .padding(start = 8.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                name,
-                style = pixelStyle(12, colors.secondaryIcon),
-                modifier = Modifier.offset(y = (-2).dp)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "$chatCount CHATS",
-                style = pixelStyle(6, colors.secondaryIconSoft),
-                modifier = Modifier.offset(y = (-2).dp)
-            )
+            // Project picture circle — exact copy of AgentScrollBar circles (64dp, PixelCornerStyle.Circle)
+            PixelBox(
+                modifier = Modifier.size(64.dp),
+                fillColor = colors.secondaryButton,
+                borderColor = androidx.compose.ui.graphics.Color.Transparent,
+                cutColor = colors.secondarySurface,
+                cornerStyle = PixelCornerStyle.Circle
+            ) {}
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(verticalArrangement = Arrangement.Center) {
+                Text(
+                    name,
+                    style = pixelStyle(12, colors.secondaryIcon),
+                    modifier = Modifier.offset(y = (-2).dp)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "$chatCount CHATS",
+                    style = pixelStyle(8, colors.secondaryIconSoft),
+                    modifier = Modifier.offset(y = (-2).dp)
+                )
+            }
         }
     }
 }

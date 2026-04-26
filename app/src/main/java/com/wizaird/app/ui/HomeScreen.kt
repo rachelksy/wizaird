@@ -25,22 +25,29 @@ import coil.compose.AsyncImage
 import coil.decode.GifDecoder
 import coil.request.ImageRequest
 import com.wizaird.app.data.AiSettings
+import com.wizaird.app.data.Project
 import com.wizaird.app.data.askAi
+import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 
 @Composable
 fun HomeScreen(
     onSettingsClick: () -> Unit,
     onProjectsClick: () -> Unit = {},
-    onNewProjectClick: () -> Unit = {}
+    onNewProjectClick: () -> Unit = {},
+    onProjectClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settings by settingsFlow(context).collectAsState(initial = AiSettings())
     val colors = LocalWizairdColors.current
+    val projects by projectsFlow(context).collectAsState(initial = emptyList())
+    var activeProjectIndex by remember { mutableIntStateOf(0) }
+    val activeProject = projects.getOrNull(activeProjectIndex)
 
     var bubbleText by remember { mutableStateOf("Artificial Intelligence experience, or AI UX, is the practice of designing interactions between humans and intelligent systems in ways that feel natural, trustworthy, and useful.\n\nUnlike traditional software, AI systems are probabilistic — they don't always produce the same output for the same input. This introduces a new design challenge: how do you build trust with a system that is inherently unpredictable? The answer lies in transparency. Users need to understand what the AI can and cannot do, when it is confident versus uncertain, and how to correct it when it goes wrong.\n\nGood AI experience design starts with setting the right expectations. Onboarding flows should communicate the AI's capabilities honestly, without overpromising. In-product cues — like confidence indicators, source citations, or simple disclaimers — help users calibrate their trust appropriately.\n\nFeedback loops are equally important. When a user can rate a response, flag an error, or regenerate an answer, they feel in control. This sense of agency is critical: AI should feel like a powerful tool the user wields, not an opaque oracle they must blindly trust.\n\nLatency is another unique challenge. AI responses often take longer than traditional software actions. Thoughtful loading states — like streaming text, animated indicators, or progress cues — transform waiting from frustration into anticipation.\n\nFinally, the best AI experiences are deeply contextual. They remember who the user is, adapt to their preferences over time, and surface the right information at the right moment. The goal is not to replace human judgment, but to augment it — making people feel smarter, faster, and more capable than they would be alone.") }
     var isLoading by remember { mutableStateOf(false) }
@@ -89,7 +96,12 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(48.dp))
             AppHeader(onSettingsClick = onSettingsClick, onProjectsClick = onProjectsClick)
             // StatStrip() // ── commented out; re-enable to show HP/XP bars ──
-            AgentScrollBar(onNewProjectClick = onNewProjectClick)
+            AgentScrollBar(
+                onNewProjectClick = onNewProjectClick,
+                onProjectClick = onProjectClick,
+                activeProjectIndex = activeProjectIndex,
+                onActiveProjectChange = { activeProjectIndex = it }
+            )
 
             Column(
                 modifier = Modifier
@@ -102,6 +114,7 @@ fun HomeScreen(
                 ChatBubble(
                     text = bubbleText,
                     loading = isLoading,
+                    projectName = activeProject?.name,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
@@ -236,13 +249,25 @@ fun AppHeader(onSettingsClick: () -> Unit, onProjectsClick: () -> Unit = {}) {
 
 // ── Agent scroll bar ─────────────────────────────────────────────
 // Horizontally scrollable row of pixel rounded-square agent avatars.
-// Add more items to the list to populate additional squares.
+// Index 0 is always the "+ NEW" button; indices 1..n map to real projects.
 @Composable
-fun AgentScrollBar(onNewProjectClick: () -> Unit = {}) {
+fun AgentScrollBar(
+    onNewProjectClick: () -> Unit = {},
+    onProjectClick: (String) -> Unit = {},
+    activeProjectIndex: Int = 0,
+    onActiveProjectChange: (Int) -> Unit = {}
+) {
+    val context = LocalContext.current
     val colors = LocalWizairdColors.current
-    // Placeholder agent list — replace/extend as needed
-    val agents = remember { List(8) { it } }
-    val activeIndex = 1  // second circle from the left is the active project
+    val projects by projectsFlow(context).collectAsState(initial = emptyList())
+
+    // Build a combined list: null = add button, non-null = project
+    val items: List<Project?> = listOf(null) + projects
+
+    // activeIndex in items = activeProjectIndex + 1 (offset by the add button at 0)
+    val activeItemIndex = activeProjectIndex + 1
+
+    val inactiveBorder = Color(0xFF999999)
 
     Row(
         modifier = Modifier
@@ -252,21 +277,27 @@ fun AgentScrollBar(onNewProjectClick: () -> Unit = {}) {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        agents.forEachIndexed { index, _ ->
-            val isActive = index == activeIndex
-            val isAddButton = index == 0
-            val addInteraction = remember { MutableInteractionSource() }
+        items.forEachIndexed { index, project ->
+            val isAddButton = project == null
+            val isActive = index == activeItemIndex
+            val interaction = remember { MutableInteractionSource() }
+
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 PixelBox(
                     modifier = Modifier
                         .size(64.dp)
-                        .then(if (isAddButton) Modifier.pixelLargeCircleClickable(interactionSource = addInteraction) { onNewProjectClick() } else Modifier),
+                        .then(
+                            if (isAddButton)
+                                Modifier.pixelLargeCircleClickable(interactionSource = interaction) { onNewProjectClick() }
+                            else
+                                Modifier.pixelLargeCircleClickable(interactionSource = interaction) { onActiveProjectChange(index - 1) }
+                        ),
                     fillColor = if (isAddButton) colors.secondaryButton else colors.secondarySurface,
-                    borderColor = if (isActive) colors.border else androidx.compose.ui.graphics.Color.Transparent,
+                    borderColor = if (isActive) colors.border else if (isAddButton) Color.Transparent else inactiveBorder,
                     cornerStyle = PixelCornerStyle.Circle
                 ) {
                     if (isAddButton) {
-                        // Pixel plus icon drawn in the center
+                        // Pixel plus icon
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -274,10 +305,40 @@ fun AgentScrollBar(onNewProjectClick: () -> Unit = {}) {
                             Box(modifier = Modifier.width(14.dp).height(2.dp).background(colors.secondaryIcon))
                             Box(modifier = Modifier.width(2.dp).height(14.dp).background(colors.secondaryIcon))
                         }
+                    } else if (project!!.picturePath.isNotEmpty() && File(project.picturePath).exists()) {
+                        // Project profile photo
+                        val imageLoader = remember {
+                            ImageLoader.Builder(context)
+                                .components { add(GifDecoder.Factory()) }
+                                .build()
+                        }
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(File(project.picturePath))
+                                .build(),
+                            imageLoader = imageLoader,
+                            contentDescription = project.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .requiredSize(64.dp)
+                                .clip(PixelLargeCircleShape)
+                        )
+                    } else {
+                        // Fallback: first letter of project name
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = project!!.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                                style = pixelStyle(20, colors.secondaryIcon),
+                                modifier = Modifier.offset(y = (-2).dp)
+                            )
+                        }
                     }
                 }
-                // Active indicator: 2px gap, 16px wide, 4px tall
-                if (isActive) {
+                // Active indicator bar
+                if (isActive && !isAddButton) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Box(
                         modifier = Modifier
@@ -286,7 +347,6 @@ fun AgentScrollBar(onNewProjectClick: () -> Unit = {}) {
                             .background(Coral)
                     )
                 } else {
-                    // Keep consistent height so circles stay aligned (2px gap + 4px bar)
                     Spacer(modifier = Modifier.height(6.dp))
                 }
             }
@@ -328,7 +388,7 @@ fun StatBar(label: String, value: Int, max: Int, color: Color) {
 
 // ── Chat bubble ──────────────────────────────────────────────────
 @Composable
-fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
+fun ChatBubble(text: String, loading: Boolean, projectName: String? = null, modifier: Modifier = Modifier) {
     val colors = LocalWizairdColors.current
     var dotCount by remember { mutableIntStateOf(1) }
     LaunchedEffect(loading) {
@@ -347,30 +407,26 @@ fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
         speechTail = true
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // ── Bubble header (mirrors AppHeader style) ──
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // W badge
-                Box(
+            // ── Bubble header ──
+            if (!projectName.isNullOrEmpty()) {
+                Row(
                     modifier = Modifier
-                        .size(28.dp)
-                        .background(colors.coral)
-                        .drawBehind { drawPixelBorder(all = true, color = colors.border) },
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("W", style = pixelStyle(12, Color.White), modifier = Modifier.offset(y = (-2).dp))
-                }
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                    modifier = Modifier.offset(y = (-2).dp)
-                ) {
-                    Text("WIZAIRD", style = pixelStyle(13, colors.secondaryIcon))
-                    Text("LV.3 APPRENTICE", style = pixelStyle(8, colors.secondaryIconSoft))
+                    Image(
+                        painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(colors.textXLow),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = projectName.uppercase(),
+                        style = pixelStyle(12, colors.textXLow),
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
                 }
             }
 
@@ -378,7 +434,7 @@ fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
             Box(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)) {
                 Text(
                     text = if (loading) "thinking${".".repeat(dotCount)}" else text,
-                    style = minecraftStyle(14, colors.secondaryIcon),
+                    style = minecraftStyle(14, colors.textHigh),
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                     overflow = TextOverflow.Clip
                 )

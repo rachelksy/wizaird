@@ -48,7 +48,8 @@ class MainActivity : ComponentActivity() {
                         HomeScreen(
                             onSettingsClick = { nav.navigate("settings") },
                             onProjectsClick = { nav.navigate("projects") },
-                            onNewProjectClick = { nav.navigate("new_project") }
+                            onNewProjectClick = { nav.navigate("new_project") },
+                            onProjectClick = { id -> nav.navigate("project/${id}") }
                         )
                     }
                     composable("settings") {

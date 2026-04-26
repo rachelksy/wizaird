@@ -34,6 +34,9 @@ data class WizairdColors(
     val secondaryButton: Color,   // muted/inactive button fill
     val secondaryIcon: Color,     // primary icon and text color
     val secondaryIconSoft: Color, // muted/secondary text color
+    val textHigh: Color,          // high-emphasis text
+    val textLow: Color,           // low-emphasis text
+    val textXLow: Color,          // extra-low-emphasis text
     val forest: Color,
     val forestDk: Color,
     val coral: Color,
@@ -49,6 +52,9 @@ val LightColors = WizairdColors(
     secondaryButton   = Color(0xFFD9C59A),
     secondaryIcon     = Color(0xFF2A1F14),
     secondaryIconSoft = Color(0xFF5B4326),
+    textHigh          = Color(0xFF111111),
+    textLow           = Color(0xFF666666),
+    textXLow          = Color(0xFF999999),
     forest            = Color(0xFF2F5D3A),
     forestDk          = Color(0xFF1A3A23),
     coral             = Color(0xFFE0563A),
@@ -64,6 +70,9 @@ val DarkColors = WizairdColors(
     secondaryButton   = Color(0xFF555555),
     secondaryIcon     = Color(0xFFE8DFC8),
     secondaryIconSoft = Color(0xFF9A8F7A),
+    textHigh          = Color(0xFFE8DFC8),
+    textLow           = Color(0xFF9A8F7A),
+    textXLow          = Color(0xFF666666),
     forest            = Color(0xFF3A7A4A),
     forestDk          = Color(0xFF1A3A23),
     coral             = Color(0xFFE0563A),

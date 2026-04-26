@@ -39,7 +39,7 @@ fun ProjectsScreen(onBack: () -> Unit, onNewProject: () -> Unit, onProjectClick:
                     .fillMaxWidth()
                     .padding(start = 12.dp, end = 12.dp),
                 fillColor = colors.secondarySurface,
-                cornerStyle = PixelCornerStyle.Rounded8
+                cornerStyle = PixelCornerStyle.Rounded
             ) {
                 Row(
                     modifier = Modifier
@@ -115,9 +115,9 @@ fun ProjectCard(project: Project, onClick: () -> Unit) {
     PixelBox(
         modifier = Modifier
             .fillMaxWidth()
-            .pixelRounded8Clickable(interactionSource = cardInteraction) { onClick() },
+            .pixelRoundedClickable(interactionSource = cardInteraction) { onClick() },
         fillColor = colors.secondarySurface,
-        cornerStyle = PixelCornerStyle.Rounded8
+        cornerStyle = PixelCornerStyle.Rounded
     ) {
         Row(
             modifier = Modifier

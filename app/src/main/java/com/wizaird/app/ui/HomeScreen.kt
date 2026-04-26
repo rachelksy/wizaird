@@ -197,7 +197,7 @@ fun AppHeader(onSettingsClick: () -> Unit, onProjectsClick: () -> Unit = {}) {
             .fillMaxWidth()
             .padding(start = 12.dp, end = 12.dp, top = 0.dp, bottom = 0.dp),
         fillColor = colors.secondarySurface,
-        cornerStyle = PixelCornerStyle.Rounded8
+        cornerStyle = PixelCornerStyle.Rounded
     ) {
         Row(
             modifier = Modifier
@@ -478,7 +478,7 @@ fun PixelInputBar(
     PixelBox(
         modifier = modifier,
         fillColor = colors.secondarySurface,
-        cornerStyle = PixelCornerStyle.Rounded8
+        cornerStyle = PixelCornerStyle.Rounded
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -517,7 +517,7 @@ fun PixelInputBar(
                         arrowColor = SecondaryIcon,
                         direction  = 1f
                     )
-                    .pixelRounded8Clickable(interactionSource = sendInteraction, onClick = onSubmit)
+                    .pixelRoundedClickable(interactionSource = sendInteraction, onClick = onSubmit)
             )
         }
     }

@@ -179,6 +179,19 @@ fun Modifier.pixelRounded8Clickable(
         .drawWithContent { if (pressed) drawPressOverlay(cuts) else drawContent() }
 }
 
+// For PixelCornerStyle.Rounded (R=10) — cuts: 7,5,3,2,2,1,1
+@Composable
+fun Modifier.pixelRoundedClickable(
+    interactionSource: MutableInteractionSource,
+    onClick: () -> Unit
+): Modifier {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val cuts = floatArrayOf(7f, 5f, 3f, 2f, 2f, 1f, 1f)
+    return this
+        .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+        .drawWithContent { if (pressed) drawPressOverlay(cuts) else drawContent() }
+}
+
 // ── Pixel clip shapes — exact same coordinates as the draw functions ──────────
 // clip(PixelCircleButtonShape) or clip(PixelRounded8Shape) before clickable
 // ensures the ripple is bounded by the real pixel outline, not a rectangle.

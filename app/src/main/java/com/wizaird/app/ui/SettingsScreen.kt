@@ -53,7 +53,7 @@ fun SettingsScreen(onBack: () -> Unit, initialDarkMode: Boolean = false) {
                         .fillMaxWidth()
                         .padding(start = 12.dp, end = 12.dp),
                     fillColor = colors.secondarySurface,
-                    cornerStyle = PixelCornerStyle.Rounded8
+                    cornerStyle = PixelCornerStyle.Rounded
                 ) {
                     Row(
                         modifier = Modifier
@@ -204,7 +204,7 @@ fun PixelTextInput(
     PixelBox(
         modifier = Modifier.fillMaxWidth(),
         fillColor = colors.secondarySurface,
-        cornerStyle = PixelCornerStyle.Rounded8
+        cornerStyle = PixelCornerStyle.Rounded
     ) {
         BasicTextField(
             value = value,

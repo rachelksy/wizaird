@@ -142,7 +142,9 @@ fun ProjectCard(project: Project, onClick: () -> Unit) {
                         model = ImageRequest.Builder(context).data(File(project.picturePath)).build(),
                         imageLoader = imageLoader,
                         contentDescription = "Project picture",
-                        modifier = Modifier.requiredSize(64.dp)
+                        modifier = Modifier
+                            .requiredSize(64.dp)
+                            .clip(PixelLargeCircleShape)
                     )
                 }
             }

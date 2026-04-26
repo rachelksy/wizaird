@@ -222,7 +222,9 @@ fun ProjectPicture(
                     model = ImageRequest.Builder(context).data(File(picturePath)).build(),
                     imageLoader = imageLoader,
                     contentDescription = "Project picture",
-                    modifier = Modifier.requiredSize(64.dp)
+                    modifier = Modifier
+                        .requiredSize(64.dp)
+                        .clip(PixelLargeCircleShape)
                 )
             } else {
                 // "+" hint

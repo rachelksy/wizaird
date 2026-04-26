@@ -114,7 +114,8 @@ fun SettingsScreen(onBack: () -> Unit, initialDarkMode: Boolean = false) {
                             value = apiKey,
                             onValueChange = { apiKey = it },
                             placeholder = "sk-...",
-                            isPassword = true
+                            isPassword = true,
+                            cornerStyle = PixelCornerStyle.Rounded8
                         )
                     }
 
@@ -122,7 +123,8 @@ fun SettingsScreen(onBack: () -> Unit, initialDarkMode: Boolean = false) {
                         PixelTextInput(
                             value = model,
                             onValueChange = { model = it },
-                            placeholder = "gpt-4o-mini"
+                            placeholder = "gpt-4o-mini",
+                            cornerStyle = PixelCornerStyle.Rounded8
                         )
                     }
 
@@ -198,13 +200,14 @@ fun PixelTextInput(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String = "",
-    isPassword: Boolean = false
+    isPassword: Boolean = false,
+    cornerStyle: PixelCornerStyle = PixelCornerStyle.Rounded
 ) {
     val colors = LocalWizairdColors.current
     PixelBox(
         modifier = Modifier.fillMaxWidth(),
         fillColor = colors.secondarySurface,
-        cornerStyle = PixelCornerStyle.Rounded
+        cornerStyle = cornerStyle
     ) {
         BasicTextField(
             value = value,

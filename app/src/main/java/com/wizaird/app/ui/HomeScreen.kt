@@ -237,14 +237,14 @@ fun AgentScrollBar() {
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
             .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 0.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         agents.forEach { _ ->
             PixelBox(
                 modifier = Modifier.size(64.dp),
                 fillColor = colors.bubble,
-                cornerStyle = PixelCornerStyle.Rounded
+                cornerStyle = PixelCornerStyle.Circle
             ) {}
         }
     }

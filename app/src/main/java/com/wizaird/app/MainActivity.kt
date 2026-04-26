@@ -16,6 +16,8 @@ import androidx.navigation.compose.rememberNavController
 import com.wizaird.app.data.AiSettings
 import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.ui.HomeScreen
+import com.wizaird.app.ui.NewProjectScreen
+import com.wizaird.app.ui.ProjectsScreen
 import com.wizaird.app.ui.SettingsScreen
 import com.wizaird.app.ui.theme.WizairdTheme
 
@@ -41,10 +43,23 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     composable("home") {
-                        HomeScreen(onSettingsClick = { nav.navigate("settings") })
+                        HomeScreen(
+                            onSettingsClick = { nav.navigate("settings") },
+                            onProjectsClick = { nav.navigate("projects") },
+                            onNewProjectClick = { nav.navigate("new_project") }
+                        )
                     }
                     composable("settings") {
                         SettingsScreen(onBack = { nav.popBackStack() })
+                    }
+                    composable("projects") {
+                        ProjectsScreen(
+                            onBack = { nav.popBackStack() },
+                            onNewProject = { nav.navigate("new_project") }
+                        )
+                    }
+                    composable("new_project") {
+                        NewProjectScreen(onBack = { nav.popBackStack() })
                     }
                 }
             }

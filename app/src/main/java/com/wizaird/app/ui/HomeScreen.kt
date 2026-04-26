@@ -2,12 +2,14 @@ package com.wizaird.app.ui
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -30,7 +32,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun HomeScreen(onSettingsClick: () -> Unit) {
+fun HomeScreen(
+    onSettingsClick: () -> Unit,
+    onProjectsClick: () -> Unit = {},
+    onNewProjectClick: () -> Unit = {}
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settings by settingsFlow(context).collectAsState(initial = AiSettings())
@@ -81,9 +87,9 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
                 .imePadding()
         ) {
             Spacer(modifier = Modifier.height(48.dp))
-            AppHeader(onSettingsClick = onSettingsClick)
+            AppHeader(onSettingsClick = onSettingsClick, onProjectsClick = onProjectsClick)
             // StatStrip() // ── commented out; re-enable to show HP/XP bars ──
-            AgentScrollBar()
+            AgentScrollBar(onNewProjectClick = onNewProjectClick)
 
             Column(
                 modifier = Modifier
@@ -165,7 +171,7 @@ fun PixelStatusBar() {
 
 // ── App header ───────────────────────────────────────────────────
 @Composable
-fun AppHeader(onSettingsClick: () -> Unit) {
+fun AppHeader(onSettingsClick: () -> Unit, onProjectsClick: () -> Unit = {}) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
     val gifLoader = remember {
@@ -213,7 +219,7 @@ fun AppHeader(onSettingsClick: () -> Unit) {
                     contentDescription = "Projects",
                     fillColor = colors.secondaryButton,
                     cutColor = colors.secondarySurface,
-                    onClick = { /* TODO: open projects */ }
+                    onClick = { onProjectsClick() }
                 )
                 // Settings icon in 40dp pixel circle
                 PixelCircleIconButton(
@@ -232,7 +238,7 @@ fun AppHeader(onSettingsClick: () -> Unit) {
 // Horizontally scrollable row of pixel rounded-square agent avatars.
 // Add more items to the list to populate additional squares.
 @Composable
-fun AgentScrollBar() {
+fun AgentScrollBar(onNewProjectClick: () -> Unit = {}) {
     val colors = LocalWizairdColors.current
     // Placeholder agent list — replace/extend as needed
     val agents = remember { List(8) { it } }
@@ -249,11 +255,14 @@ fun AgentScrollBar() {
         agents.forEachIndexed { index, _ ->
             val isActive = index == activeIndex
             val isAddButton = index == 0
+            val addInteraction = remember { MutableInteractionSource() }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 PixelBox(
-                    modifier = Modifier.size(64.dp),
+                    modifier = Modifier
+                        .size(64.dp)
+                        .then(if (isAddButton) Modifier.pixelLargeCircleClickable(interactionSource = addInteraction) { onNewProjectClick() } else Modifier),
                     fillColor = if (isAddButton) colors.secondaryButton else colors.secondarySurface,
-                    borderColor = if (isActive) colors.border else Color.Transparent,
+                    borderColor = if (isActive) colors.border else androidx.compose.ui.graphics.Color.Transparent,
                     cornerStyle = PixelCornerStyle.Circle
                 ) {
                     if (isAddButton) {

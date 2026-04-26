@@ -2,7 +2,9 @@ package com.wizaird.app.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.material3.ripple
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +13,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -19,11 +23,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wizaird.app.ui.theme.SecondaryIcon
@@ -79,7 +88,188 @@ fun DrawScope.drawPixelBorder(
 
 val PixelSize = 2.dp  // one pixel block — controls border thickness and corner cut size
 
-// Draws a pixel-art button (corner-cut, no border) with a pixel arrow icon.
+// Press overlay color — drawn over the pixel shape on tap
+private val PressOverlay = Color.Black.copy(alpha = 0.15f)
+
+// Draws the press overlay row-by-row using the given cut table,
+// painted ON TOP of content so child draws don't cover it.
+private fun androidx.compose.ui.graphics.drawscope.ContentDrawScope.drawPressOverlay(
+    cuts: FloatArray,
+    fullCircle: Boolean = false
+) {
+    drawContent()
+    val p = PixelSize.toPx()
+    val w = size.width
+    val h = size.height
+    val c = PressOverlay
+    val n = cuts.size
+
+    if (fullCircle) {
+        // Full circle: top and bottom staircases meet exactly at h/2, no overlap.
+        // Top half: rows 0..n-1 drawn from top downward
+        for (i in 0 until n) {
+            val cut = cuts[i] * p
+            val rowTop = i * p
+            val rowBot = minOf((i + 1) * p, h / 2f)
+            if (rowBot > rowTop) drawRect(c, Offset(cut, rowTop), Size(w - cut * 2, rowBot - rowTop))
+        }
+        // Bottom half: rows 0..n-1 drawn from bottom upward (mirror)
+        for (i in 0 until n) {
+            val cut = cuts[i] * p
+            val rowBot = h - i * p
+            val rowTop = maxOf(h - (i + 1) * p, h / 2f)
+            if (rowBot > rowTop) drawRect(c, Offset(cut, rowTop), Size(w - cut * 2, rowBot - rowTop))
+        }
+    } else {
+        // Has straight edges: top staircase, straight middle, bottom staircase — no overlap.
+        for (i in 0 until n) {
+            val cut = cuts[i] * p
+            drawRect(c, Offset(cut, i * p), Size(w - cut * 2, p))
+        }
+        val straightTop = n * p
+        val straightBot = h - n * p
+        if (straightBot > straightTop) drawRect(c, Offset(0f, straightTop), Size(w, straightBot - straightTop))
+        for (i in 0 until n) {
+            val cut = cuts[i] * p
+            drawRect(c, Offset(cut, h - (i + 1) * p), Size(w - cut * 2, p))
+        }
+    }
+}
+
+// For drawPixelCircle back buttons (40dp) — cuts: 7,5,3,2,2,1,1
+@Composable
+fun Modifier.pixelCircleClickable(
+    interactionSource: MutableInteractionSource,
+    onClick: () -> Unit
+): Modifier {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val cuts = floatArrayOf(7f, 5f, 3f, 2f, 2f, 1f, 1f)
+    return this
+        .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+        .drawWithContent { if (pressed) drawPressOverlay(cuts) else drawContent() }
+}
+
+// For PixelCornerStyle.Circle (64dp AgentScrollBar) — cuts: 16,13,10,8,7,6,5,4,3,3,2,2,2,1,1,1,1
+@Composable
+fun Modifier.pixelLargeCircleClickable(
+    interactionSource: MutableInteractionSource,
+    onClick: () -> Unit
+): Modifier {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val cuts = floatArrayOf(16f,13f,10f,8f,7f,6f,5f,4f,3f,3f,2f,2f,2f,1f,1f,1f,1f)
+    return this
+        .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+        .drawWithContent { if (pressed) drawPressOverlay(cuts, fullCircle = true) else drawContent() }
+}
+
+// For PixelCornerStyle.Rounded8 / drawPixelArrowButton — cuts: 5,3,2,1,1
+@Composable
+fun Modifier.pixelRounded8Clickable(
+    interactionSource: MutableInteractionSource,
+    onClick: () -> Unit
+): Modifier {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val cuts = floatArrayOf(5f, 3f, 2f, 1f, 1f)
+    return this
+        .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+        .drawWithContent { if (pressed) drawPressOverlay(cuts) else drawContent() }
+}
+
+// ── Pixel clip shapes — exact same coordinates as the draw functions ──────────
+// clip(PixelCircleButtonShape) or clip(PixelRounded8Shape) before clickable
+// ensures the ripple is bounded by the real pixel outline, not a rectangle.
+
+// Matches drawPixelCircle exactly — derived directly from its cut rects.
+// Left-edge x per row from top: 7p,5p,3p,2p,2p,1p,1p,0 (then straight to bottom mirror)
+object PixelCircleButtonShape : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val p = with(density) { PixelSize.toPx() }
+        val w = size.width
+        val h = size.height
+        val path = Path().apply {
+            // Start top-left, go clockwise
+            // Top-left corner steps (left edge x at each row: 7,5,3,2,2,1,1,0)
+            moveTo(p*7, 0f)
+            lineTo(w-p*7, 0f)   // top edge
+            // Top-right corner (mirror of top-left)
+            lineTo(w-p*5, 0f);  lineTo(w-p*5, p*1)
+            lineTo(w-p*3, p*1); lineTo(w-p*3, p*2)
+            lineTo(w-p*2, p*2); lineTo(w-p*2, p*4)
+            lineTo(w-p*1, p*4); lineTo(w-p*1, p*6)
+            lineTo(w-p*0, p*6); lineTo(w-p*0, p*7)
+            // Right edge
+            lineTo(w, h-p*7)
+            // Bottom-right corner
+            lineTo(w-p*0, h-p*6); lineTo(w-p*1, h-p*6)
+            lineTo(w-p*1, h-p*4); lineTo(w-p*2, h-p*4)
+            lineTo(w-p*2, h-p*2); lineTo(w-p*3, h-p*2)
+            lineTo(w-p*3, h-p*1); lineTo(w-p*5, h-p*1)
+            lineTo(w-p*5, h-p*0); lineTo(w-p*7, h)
+            // Bottom edge
+            lineTo(p*7, h)
+            // Bottom-left corner
+            lineTo(p*5, h); lineTo(p*5, h-p*1)
+            lineTo(p*3, h-p*1); lineTo(p*3, h-p*2)
+            lineTo(p*2, h-p*2); lineTo(p*2, h-p*4)
+            lineTo(p*1, h-p*4); lineTo(p*1, h-p*6)
+            lineTo(0f,  h-p*6); lineTo(0f,  h-p*7)
+            // Left edge
+            lineTo(0f, p*7)
+            // Top-left corner
+            lineTo(0f,  p*6);  lineTo(p*1, p*6)
+            lineTo(p*1, p*4);  lineTo(p*2, p*4)
+            lineTo(p*2, p*2);  lineTo(p*3, p*2)
+            lineTo(p*3, p*1);  lineTo(p*5, p*1)
+            lineTo(p*5, 0f);   lineTo(p*7, 0f)
+            close()
+        }
+        return Outline.Generic(path)
+    }
+}
+
+// Matches drawPixelArrowButton / PixelCornerStyle.Rounded8 exactly.
+// Left-edge x per row from top: 5p,3p,2p,1p,1p,0 (then straight)
+object PixelRounded8Shape : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val p = with(density) { PixelSize.toPx() }
+        val w = size.width
+        val h = size.height
+        val path = Path().apply {
+            moveTo(p*5, 0f)
+            lineTo(w-p*5, 0f)   // top edge
+            // Top-right
+            lineTo(w-p*3, 0f);  lineTo(w-p*3, p*1)
+            lineTo(w-p*2, p*1); lineTo(w-p*2, p*2)
+            lineTo(w-p*1, p*2); lineTo(w-p*1, p*4)
+            lineTo(w-p*0, p*4); lineTo(w,     p*5)
+            // Right edge
+            lineTo(w, h-p*5)
+            // Bottom-right
+            lineTo(w,     h-p*4); lineTo(w-p*1, h-p*4)
+            lineTo(w-p*1, h-p*2); lineTo(w-p*2, h-p*2)
+            lineTo(w-p*2, h-p*1); lineTo(w-p*3, h-p*1)
+            lineTo(w-p*3, h);     lineTo(w-p*5, h)
+            // Bottom edge
+            lineTo(p*5, h)
+            // Bottom-left
+            lineTo(p*3, h);    lineTo(p*3, h-p*1)
+            lineTo(p*2, h-p*1); lineTo(p*2, h-p*2)
+            lineTo(p*1, h-p*2); lineTo(p*1, h-p*4)
+            lineTo(0f,  h-p*4); lineTo(0f,  h-p*5)
+            // Left edge
+            lineTo(0f, p*5)
+            // Top-left
+            lineTo(0f,  p*4);  lineTo(p*1, p*4)
+            lineTo(p*1, p*2);  lineTo(p*2, p*2)
+            lineTo(p*2, p*1);  lineTo(p*3, p*1)
+            lineTo(p*3, 0f);   lineTo(p*5, 0f)
+            close()
+        }
+        return Outline.Generic(path)
+    }
+}
+
+
 // direction: 1f = right arrow (send), -1f = left arrow (back)
 fun Modifier.drawPixelArrowButton(
     fillColor: Color,
@@ -678,6 +868,7 @@ fun PixelCircleIconButton(
     cutColor: Color = LocalWizairdColors.current.secondarySurface,
     iconTint: Color = LocalWizairdColors.current.secondaryIcon
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
             .size(40.dp)
@@ -686,8 +877,7 @@ fun PixelCircleIconButton(
                 borderColor = Color.Transparent,
                 cutColor    = cutColor
             )
-            .clip(CircleShape)
-            .clickable { onClick() },
+            .pixelCircleClickable(interactionSource = interactionSource, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Image(

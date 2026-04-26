@@ -89,7 +89,7 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
                     .weight(1f)
                     .padding(horizontal = 12.dp)
             ) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // Bubble fills all remaining space
                 ChatBubble(
@@ -182,7 +182,7 @@ fun AppHeader(onSettingsClick: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -205,18 +205,24 @@ fun AppHeader(onSettingsClick: () -> Unit) {
                     Text("LV.3 APPRENTICE", style = pixelStyle(6, colors.inkSoft))
                 }
             }
-            // Gear icon button
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clickable { onSettingsClick() },
-                contentAlignment = Alignment.Center
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                // Folder icon button
+                Image(
+                    painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),
+                    contentDescription = "Projects",
+                    colorFilter = ColorFilter.tint(colors.ink),
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clickable { /* TODO: open projects */ }
+                )
+                // Gear icon button
                 Image(
                     painter = painterResource(id = com.wizaird.app.R.drawable.ic_settings_cog),
                     contentDescription = "Settings",
                     colorFilter = ColorFilter.tint(colors.ink),
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clickable { onSettingsClick() }
                 )
             }
         }
@@ -231,21 +237,51 @@ fun AgentScrollBar() {
     val colors = LocalWizairdColors.current
     // Placeholder agent list — replace/extend as needed
     val agents = remember { List(8) { it } }
+    val activeIndex = 1  // second circle from the left is the active project
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 0.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 0.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        agents.forEach { _ ->
-            PixelBox(
-                modifier = Modifier.size(64.dp),
-                fillColor = colors.bubble,
-                cornerStyle = PixelCornerStyle.Circle
-            ) {}
+        agents.forEachIndexed { index, _ ->
+            val isActive = index == activeIndex
+            val isAddButton = index == 0
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                PixelBox(
+                    modifier = Modifier.size(64.dp),
+                    fillColor = if (isAddButton) Gold else colors.bubble,
+                    borderColor = if (isActive) colors.border else Color.Transparent,
+                    cornerStyle = PixelCornerStyle.Circle
+                ) {
+                    if (isAddButton) {
+                        // Pixel plus icon drawn in the center
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(modifier = Modifier.width(14.dp).height(2.dp).background(Ink))
+                            Box(modifier = Modifier.width(2.dp).height(14.dp).background(Ink))
+                        }
+                    }
+                }
+                // Active indicator: 2px gap, 16px wide, 4px tall
+                if (isActive) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(16.dp)
+                            .height(4.dp)
+                            .background(Coral)
+                    )
+                } else {
+                    // Keep consistent height so circles stay aligned (2px gap + 4px bar)
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+            }
         }
     }
 }

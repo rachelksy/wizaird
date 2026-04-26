@@ -48,6 +48,7 @@ fun SettingsScreen(onBack: () -> Unit, initialDarkMode: Boolean = false) {
                 Spacer(modifier = Modifier.height(48.dp))
 
                 // Header — same size as AppHeader so the screen transition doesn't jump
+                /*
                 PixelBox(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -55,11 +56,11 @@ fun SettingsScreen(onBack: () -> Unit, initialDarkMode: Boolean = false) {
                     fillColor = colors.secondarySurface,
                     cornerStyle = PixelCornerStyle.Rounded
                 ) {
+                */
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp)
-                            .padding(start = 12.dp, end = 12.dp),
+                            .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -70,7 +71,7 @@ fun SettingsScreen(onBack: () -> Unit, initialDarkMode: Boolean = false) {
                                 .drawPixelCircle(
                                     fillColor   = colors.secondaryButton,
                                     borderColor = androidx.compose.ui.graphics.Color.Transparent,
-                                    cutColor    = colors.secondarySurface
+                                    cutColor    = colors.background
                                 )
                                 .pixelCircleClickable(interactionSource = backInteraction) { onBack() },
                             contentAlignment = Alignment.Center
@@ -86,9 +87,9 @@ fun SettingsScreen(onBack: () -> Unit, initialDarkMode: Boolean = false) {
                                     )
                             )
                         }
-                        Text("SETTINGS", style = pixelStyle(12, colors.secondaryIcon), modifier = Modifier.offset(y = (-2).dp))
+                        Text("SETTINGS", style = pixelStyle(14, colors.secondaryIcon), modifier = Modifier.offset(y = (-2).dp))
                     }
-                }
+                // } // end PixelBox
 
                 Column(
                     modifier = Modifier

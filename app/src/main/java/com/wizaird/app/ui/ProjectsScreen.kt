@@ -34,6 +34,7 @@ fun ProjectsScreen(onBack: () -> Unit, onNewProject: () -> Unit, onProjectClick:
             Spacer(modifier = Modifier.height(48.dp))
 
             // Header
+            /*
             PixelBox(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -41,11 +42,11 @@ fun ProjectsScreen(onBack: () -> Unit, onNewProject: () -> Unit, onProjectClick:
                 fillColor = colors.secondarySurface,
                 cornerStyle = PixelCornerStyle.Rounded
             ) {
+            */
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
-                        .padding(start = 12.dp, end = 12.dp),
+                        .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -56,7 +57,7 @@ fun ProjectsScreen(onBack: () -> Unit, onNewProject: () -> Unit, onProjectClick:
                             .drawPixelCircle(
                                 fillColor   = colors.secondaryButton,
                                 borderColor = androidx.compose.ui.graphics.Color.Transparent,
-                                cutColor    = colors.secondarySurface
+                                cutColor    = colors.background
                             )
                             .pixelCircleClickable(interactionSource = backInteraction) { onBack() },
                         contentAlignment = Alignment.Center
@@ -74,7 +75,7 @@ fun ProjectsScreen(onBack: () -> Unit, onNewProject: () -> Unit, onProjectClick:
                     }
                     Text(
                         "PROJECTS",
-                        style = pixelStyle(12, colors.secondaryIcon),
+                        style = pixelStyle(14, colors.secondaryIcon),
                         modifier = Modifier
                             .weight(1f)
                             .offset(y = (-2).dp)
@@ -82,11 +83,10 @@ fun ProjectsScreen(onBack: () -> Unit, onNewProject: () -> Unit, onProjectClick:
                     PixelButtonSmall(
                         label = "+ NEW",
                         primary = true,
-                        cutColor = colors.secondarySurface,
                         onClick = onNewProject
                     )
                 }
-            }
+            // } // end PixelBox
 
             // Project list
             Column(

@@ -51,6 +51,7 @@ fun NewProjectScreen(onBack: () -> Unit) {
             Spacer(modifier = Modifier.height(48.dp))
 
             // Header
+            /*
             PixelBox(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -58,11 +59,11 @@ fun NewProjectScreen(onBack: () -> Unit) {
                 fillColor = colors.secondarySurface,
                 cornerStyle = PixelCornerStyle.Rounded
             ) {
+            */
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
-                        .padding(start = 12.dp, end = 12.dp),
+                        .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -73,7 +74,7 @@ fun NewProjectScreen(onBack: () -> Unit) {
                             .drawPixelCircle(
                                 fillColor   = colors.secondaryButton,
                                 borderColor = androidx.compose.ui.graphics.Color.Transparent,
-                                cutColor    = colors.secondarySurface
+                                cutColor    = colors.background
                             )
                             .pixelCircleClickable(interactionSource = backInteraction) { onBack() },
                         contentAlignment = Alignment.Center
@@ -91,11 +92,11 @@ fun NewProjectScreen(onBack: () -> Unit) {
                     }
                     Text(
                         "NEW PROJECT",
-                        style = pixelStyle(12, colors.secondaryIcon),
+                        style = pixelStyle(14, colors.secondaryIcon),
                         modifier = Modifier.offset(y = (-2).dp)
                     )
                 }
-            }
+            // } // end PixelBox
 
             Column(
                 modifier = Modifier

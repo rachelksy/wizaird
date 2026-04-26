@@ -192,6 +192,7 @@ fun AppHeader(onSettingsClick: () -> Unit, onProjectsClick: () -> Unit = {}) {
             .components { add(GifDecoder.Factory()) }
             .build()
     }
+    /*
     PixelBox(
         modifier = Modifier
             .fillMaxWidth()
@@ -199,15 +200,20 @@ fun AppHeader(onSettingsClick: () -> Unit, onProjectsClick: () -> Unit = {}) {
         fillColor = colors.secondarySurface,
         cornerStyle = PixelCornerStyle.Rounded
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Rabbit GIF replacing the W badge
+    */
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Rabbit GIF replacing the W badge
+            Box(
+                modifier = Modifier.size(44.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
                         .data("file:///android_asset/rabbit right.gif")
@@ -215,36 +221,35 @@ fun AppHeader(onSettingsClick: () -> Unit, onProjectsClick: () -> Unit = {}) {
                     imageLoader = gifLoader,
                     contentDescription = "Rabbit",
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.height(40.dp).wrapContentWidth()
+                    modifier = Modifier.fillMaxSize()
                 )
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                    modifier = Modifier.offset(y = (-2).dp)
-                ) {
-                    Text("RACHEL", style = pixelStyle(13, colors.secondaryIcon))
-                    Text("LV.3 APPRENTICE", style = pixelStyle(8, colors.secondaryIconSoft))
-                }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Folder icon in 40dp pixel circle
-                PixelCircleIconButton(
-                    iconRes = com.wizaird.app.R.drawable.ic_folder,
-                    contentDescription = "Projects",
-                    fillColor = colors.secondaryButton,
-                    cutColor = colors.secondarySurface,
-                    onClick = { onProjectsClick() }
-                )
-                // Settings icon in 40dp pixel circle
-                PixelCircleIconButton(
-                    iconRes = com.wizaird.app.R.drawable.ic_settings_cog,
-                    contentDescription = "Settings",
-                    fillColor = colors.secondaryButton,
-                    cutColor = colors.secondarySurface,
-                    onClick = { onSettingsClick() }
-                )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(0.dp),
+                modifier = Modifier.offset(y = (-2).dp)
+            ) {
+                Text("RACHEL", style = pixelStyle(14, colors.secondaryIcon))
+                Text("LV.3 APPRENTICE", style = pixelStyle(8, colors.secondaryIconSoft))
             }
         }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Folder icon in 40dp pixel circle
+            PixelCircleIconButton(
+                iconRes = com.wizaird.app.R.drawable.ic_folder,
+                contentDescription = "Projects",
+                fillColor = colors.secondaryButton,
+                onClick = { onProjectsClick() }
+            )
+            // Settings icon in 40dp pixel circle
+            PixelCircleIconButton(
+                iconRes = com.wizaird.app.R.drawable.ic_settings_cog,
+                contentDescription = "Settings",
+                fillColor = colors.secondaryButton,
+                onClick = { onSettingsClick() }
+            )
+        }
     }
+    // } // end PixelBox
 }
 
 // ── Agent scroll bar ─────────────────────────────────────────────

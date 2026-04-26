@@ -85,7 +85,6 @@ fun ProjectScreen(
                         iconRes = com.wizaird.app.R.drawable.ic_settings_cog,
                         contentDescription = "Project Settings",
                         fillColor = colors.secondaryButton,
-                        cutColor = colors.secondarySurface,
                         onClick = onSettingsClick
                     )
                 }

@@ -1041,26 +1041,28 @@ fun PixelCircleIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     fillColor: Color = LocalWizairdColors.current.secondarySurface,
-    cutColor: Color = LocalWizairdColors.current.secondarySurface,
+    borderColor: Color = Color.Transparent,
     iconTint: Color = LocalWizairdColors.current.secondaryIcon
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    Box(
+    PixelBox(
         modifier = modifier
             .size(40.dp)
-            .drawPixelCircle(
-                fillColor   = fillColor,
-                borderColor = Color.Transparent,
-                cutColor    = cutColor
-            )
             .pixelCircleClickable(interactionSource = interactionSource, onClick = onClick),
-        contentAlignment = Alignment.Center
+        fillColor = fillColor,
+        borderColor = borderColor,
+        cornerStyle = PixelCornerStyle.Rounded
     ) {
-        Image(
-            painter = painterResource(id = iconRes),
-            contentDescription = contentDescription,
-            colorFilter = ColorFilter.tint(iconTint),
-            modifier = Modifier.size(20.dp)
-        )
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = iconRes),
+                contentDescription = contentDescription,
+                colorFilter = ColorFilter.tint(iconTint),
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }

@@ -497,7 +497,7 @@ fun PixelInputBar(
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty()) {
-                            Text("ASK THE WIZARD...", style = minecraftStyle(14, colors.secondaryIconSoft))
+                            Text("ASK THE WIZAIRD...", style = pixelStyle(12, colors.textXLow), modifier = Modifier.offset(y = (-2).dp))
                         }
                         inner()
                     }

@@ -136,6 +136,98 @@ fun Modifier.drawPixelArrowButton(
     }
 }
 
+// Draws a pixel-art circle on a square box using the R=10 staircase corner cuts.
+// Use on a Box with equal width and height (e.g. size(48.dp)).
+fun Modifier.drawPixelCircle(
+    fillColor: Color,
+    borderColor: Color,
+    cutColor: Color
+): Modifier = this.drawBehind {
+    val p = PixelSize.toPx()
+    val w = size.width
+    val h = size.height
+
+    // Fill entire square first
+    drawRect(fillColor)
+
+    // Border — straight edges between the corner curves
+    drawRect(borderColor, Offset(p*7,   0f),    Size(w - p*14, p))   // top
+    drawRect(borderColor, Offset(p*7,   h - p), Size(w - p*14, p))   // bottom
+    drawRect(borderColor, Offset(0f,    p*7),   Size(p, h - p*14))   // left
+    drawRect(borderColor, Offset(w - p, p*7),   Size(p, h - p*14))   // right
+
+    // Corner border steps — top-left
+    drawRect(borderColor, Offset(p*7, p*0), Size(p,   p))
+    drawRect(borderColor, Offset(p*5, p*1), Size(p*2, p))
+    drawRect(borderColor, Offset(p*3, p*2), Size(p*2, p))
+    drawRect(borderColor, Offset(p*2, p*3), Size(p,   p))
+    drawRect(borderColor, Offset(p*2, p*4), Size(p,   p))
+    drawRect(borderColor, Offset(p*1, p*5), Size(p,   p))
+    drawRect(borderColor, Offset(p*1, p*6), Size(p,   p))
+    drawRect(borderColor, Offset(p*0, p*7), Size(p,   p))
+    // Corner border steps — top-right
+    drawRect(borderColor, Offset(w-p*8, p*0), Size(p,   p))
+    drawRect(borderColor, Offset(w-p*7, p*1), Size(p*2, p))
+    drawRect(borderColor, Offset(w-p*5, p*2), Size(p*2, p))
+    drawRect(borderColor, Offset(w-p*3, p*3), Size(p,   p))
+    drawRect(borderColor, Offset(w-p*3, p*4), Size(p,   p))
+    drawRect(borderColor, Offset(w-p*2, p*5), Size(p,   p))
+    drawRect(borderColor, Offset(w-p*2, p*6), Size(p,   p))
+    drawRect(borderColor, Offset(w-p*1, p*7), Size(p,   p))
+    // Corner border steps — bottom-left
+    drawRect(borderColor, Offset(p*7, h-p*1), Size(p,   p))
+    drawRect(borderColor, Offset(p*5, h-p*2), Size(p*2, p))
+    drawRect(borderColor, Offset(p*3, h-p*3), Size(p*2, p))
+    drawRect(borderColor, Offset(p*2, h-p*4), Size(p,   p))
+    drawRect(borderColor, Offset(p*2, h-p*5), Size(p,   p))
+    drawRect(borderColor, Offset(p*1, h-p*6), Size(p,   p))
+    drawRect(borderColor, Offset(p*1, h-p*7), Size(p,   p))
+    drawRect(borderColor, Offset(p*0, h-p*8), Size(p,   p))
+    // Corner border steps — bottom-right
+    drawRect(borderColor, Offset(w-p*8, h-p*1), Size(p,   p))
+    drawRect(borderColor, Offset(w-p*7, h-p*2), Size(p*2, p))
+    drawRect(borderColor, Offset(w-p*5, h-p*3), Size(p*2, p))
+    drawRect(borderColor, Offset(w-p*3, h-p*4), Size(p,   p))
+    drawRect(borderColor, Offset(w-p*3, h-p*5), Size(p,   p))
+    drawRect(borderColor, Offset(w-p*2, h-p*6), Size(p,   p))
+    drawRect(borderColor, Offset(w-p*2, h-p*7), Size(p,   p))
+    drawRect(borderColor, Offset(w-p*1, h-p*8), Size(p,   p))
+
+    // Corner cuts — erase fill outside the curve
+    // Top-left
+    drawRect(cutColor, Offset(0f, p*0), Size(p*7, p))
+    drawRect(cutColor, Offset(0f, p*1), Size(p*5, p))
+    drawRect(cutColor, Offset(0f, p*2), Size(p*3, p))
+    drawRect(cutColor, Offset(0f, p*3), Size(p*2, p))
+    drawRect(cutColor, Offset(0f, p*4), Size(p*2, p))
+    drawRect(cutColor, Offset(0f, p*5), Size(p*1, p))
+    drawRect(cutColor, Offset(0f, p*6), Size(p*1, p))
+    // Top-right
+    drawRect(cutColor, Offset(w-p*7, p*0), Size(p*7, p))
+    drawRect(cutColor, Offset(w-p*5, p*1), Size(p*5, p))
+    drawRect(cutColor, Offset(w-p*3, p*2), Size(p*3, p))
+    drawRect(cutColor, Offset(w-p*2, p*3), Size(p*2, p))
+    drawRect(cutColor, Offset(w-p*2, p*4), Size(p*2, p))
+    drawRect(cutColor, Offset(w-p*1, p*5), Size(p*1, p))
+    drawRect(cutColor, Offset(w-p*1, p*6), Size(p*1, p))
+    // Bottom-left
+    drawRect(cutColor, Offset(0f, h-p*1), Size(p*7, p))
+    drawRect(cutColor, Offset(0f, h-p*2), Size(p*5, p))
+    drawRect(cutColor, Offset(0f, h-p*3), Size(p*3, p))
+    drawRect(cutColor, Offset(0f, h-p*4), Size(p*2, p))
+    drawRect(cutColor, Offset(0f, h-p*5), Size(p*2, p))
+    drawRect(cutColor, Offset(0f, h-p*6), Size(p*1, p))
+    drawRect(cutColor, Offset(0f, h-p*7), Size(p*1, p))
+    // Bottom-right
+    drawRect(cutColor, Offset(w-p*7, h-p*1), Size(p*7, p))
+    drawRect(cutColor, Offset(w-p*5, h-p*2), Size(p*5, p))
+    drawRect(cutColor, Offset(w-p*3, h-p*3), Size(p*3, p))
+    drawRect(cutColor, Offset(w-p*2, h-p*4), Size(p*2, p))
+    drawRect(cutColor, Offset(w-p*2, h-p*5), Size(p*2, p))
+    drawRect(cutColor, Offset(w-p*1, h-p*6), Size(p*1, p))
+    drawRect(cutColor, Offset(w-p*1, h-p*7), Size(p*1, p))
+}
+
 enum class PixelCornerStyle { Cut, Rounded, Rounded8 }
 
 // Pixel-art box with corner style:

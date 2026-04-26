@@ -79,16 +79,17 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
                 .fillMaxSize()
                 .imePadding()
         ) {
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(48.dp))
             AppHeader(onSettingsClick = onSettingsClick)
-            StatStrip()
+            // StatStrip() // ── commented out; re-enable to show HP/XP bars ──
+            AgentScrollBar()
 
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 12.dp)
             ) {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Bubble fills all remaining space
                 ChatBubble(
@@ -164,48 +165,87 @@ fun PixelStatusBar() {
 // ── App header ───────────────────────────────────────────────────
 @Composable
 fun AppHeader(onSettingsClick: () -> Unit) {
+    val context = LocalContext.current
     val colors = LocalWizairdColors.current
+    val gifLoader = remember {
+        ImageLoader.Builder(context)
+            .components { add(GifDecoder.Factory()) }
+            .build()
+    }
+    PixelBox(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, top = 0.dp, bottom = 0.dp),
+        fillColor = colors.bubble,
+        cornerStyle = PixelCornerStyle.Rounded8
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Rabbit GIF replacing the W badge
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data("file:///android_asset/rabbit right.gif")
+                        .build(),
+                    imageLoader = gifLoader,
+                    contentDescription = "Rabbit",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.height(40.dp).wrapContentWidth()
+                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
+                    modifier = Modifier.offset(y = (-2).dp)
+                ) {
+                    Text("RACHEL", style = pixelStyle(13, colors.ink))
+                    Text("LV.3 APPRENTICE", style = pixelStyle(6, colors.inkSoft))
+                }
+            }
+            // Gear icon button
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clickable { onSettingsClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = com.wizaird.app.R.drawable.ic_settings_cog),
+                    contentDescription = "Settings",
+                    colorFilter = ColorFilter.tint(colors.ink),
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+    }
+}
+
+// ── Agent scroll bar ─────────────────────────────────────────────
+// Horizontally scrollable row of pixel rounded-square agent avatars.
+// Add more items to the list to populate additional squares.
+@Composable
+fun AgentScrollBar() {
+    val colors = LocalWizairdColors.current
+    // Placeholder agent list — replace/extend as needed
+    val agents = remember { List(8) { it } }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(colors.background)
-            .drawBehind { drawPixelBorder(top = true, bottom = true, color = colors.border) }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .horizontalScroll(rememberScrollState())
+            .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 0.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            // W badge
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .background(colors.coral)
-                    .drawBehind { drawPixelBorder(all = true, color = colors.border) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text("W", style = pixelStyle(12, Color.White), modifier = Modifier.offset(y = (-2).dp))
-            }
-            Column(
-                verticalArrangement = Arrangement.spacedBy(0.dp),
-                modifier = Modifier.offset(y = (-2).dp)
-            ) {
-                Text("WIZAIRD", style = pixelStyle(13, colors.ink))
-                Text("LV.3 APPRENTICE", style = pixelStyle(6, colors.inkSoft))
-            }
-        }
-        // Gear icon button
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clickable { onSettingsClick() },
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = com.wizaird.app.R.drawable.ic_settings_cog),
-                contentDescription = "Settings",
-                colorFilter = ColorFilter.tint(colors.ink),
-                modifier = Modifier.size(22.dp)
-            )
+        agents.forEach { _ ->
+            PixelBox(
+                modifier = Modifier.size(64.dp),
+                fillColor = colors.bubble,
+                cornerStyle = PixelCornerStyle.Rounded
+            ) {}
         }
     }
 }

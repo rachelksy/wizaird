@@ -244,6 +244,9 @@ enum class PixelCornerStyle { Cut, Rounded, Rounded8, Circle }
 //   Rounded — non-uniform curve derived from a circle (5,3,2,1 block cuts), used for chat bubble
 // Fill drawn behind content; border + corners drawn ON TOP of content
 // so they always show regardless of what color children have.
+//
+// speechTail: if true, draws a 5-block-tall pixel triangle tail at the bottom-left,
+//             making the box look like a speech bubble.
 @Composable
 fun PixelBox(
     modifier: Modifier = Modifier,
@@ -252,6 +255,7 @@ fun PixelBox(
     cutColor: Color? = null,      // null = use theme background
     px: Dp = PixelSize,
     cornerStyle: PixelCornerStyle = PixelCornerStyle.Cut,
+    speechTail: Boolean = false,
     content: @Composable BoxScope.() -> Unit
 ) {
     val colors = LocalWizairdColors.current
@@ -608,6 +612,54 @@ fun PixelBox(
                     drawRect(resolvedCut, Offset(w - p*2, h - p*5), Size(p*2, p))
                     drawRect(resolvedCut, Offset(w - p*1, h - p*6), Size(p*1, p))
                     drawRect(resolvedCut, Offset(w - p*1, h - p*7), Size(p*1, p))
+                }
+
+                // ── Speech bubble tail ────────────────────────────────────────────
+                // An 8-block-tall pixel staircase triangle centered on the bubble.
+                // Each row narrows by 1 block on each side going downward:
+                //   row 0 (base): 15p wide
+                //   row 1:        13p wide
+                //   row 2:        11p wide
+                //   row 3:         9p wide
+                //   row 4:         7p wide
+                //   row 5:         5p wide
+                //   row 6:         3p wide
+                //   row 7 (tip):   1p wide
+                // Centered horizontally: tailX = center - 7.5p (half of 15p base)
+                if (speechTail) {
+                    val p = px.toPx()
+                    val tailX = size.width / 2f - p * 7.5f
+                    val tailY = size.height - p - 1f        // overlap bubble bottom by 1 raw pixel to kill the seam
+
+                    // Fill drawn AFTER the border pass so it paints over the bubble's
+                    // bottom border line — eliminating the seam at the connection point
+                    drawRect(fillColor, Offset(tailX,       tailY + p * 0), Size(p * 15, p))
+                    drawRect(fillColor, Offset(tailX + p,   tailY + p * 1), Size(p * 13, p))
+                    drawRect(fillColor, Offset(tailX + p*2, tailY + p * 2), Size(p * 11, p))
+                    drawRect(fillColor, Offset(tailX + p*3, tailY + p * 3), Size(p *  9, p))
+                    drawRect(fillColor, Offset(tailX + p*4, tailY + p * 4), Size(p *  7, p))
+                    drawRect(fillColor, Offset(tailX + p*5, tailY + p * 5), Size(p *  5, p))
+                    drawRect(fillColor, Offset(tailX + p*6, tailY + p * 6), Size(p *  3, p))
+
+                    // Border lines drawn on top of fill
+                    // Left border
+                    drawRect(resolvedBorder, Offset(tailX,       tailY + p * 0), Size(p, p))
+                    drawRect(resolvedBorder, Offset(tailX + p,   tailY + p * 1), Size(p, p))
+                    drawRect(resolvedBorder, Offset(tailX + p*2, tailY + p * 2), Size(p, p))
+                    drawRect(resolvedBorder, Offset(tailX + p*3, tailY + p * 3), Size(p, p))
+                    drawRect(resolvedBorder, Offset(tailX + p*4, tailY + p * 4), Size(p, p))
+                    drawRect(resolvedBorder, Offset(tailX + p*5, tailY + p * 5), Size(p, p))
+                    drawRect(resolvedBorder, Offset(tailX + p*6, tailY + p * 6), Size(p, p))
+                    // Right border
+                    drawRect(resolvedBorder, Offset(tailX + p*14, tailY + p * 0), Size(p, p))
+                    drawRect(resolvedBorder, Offset(tailX + p*13, tailY + p * 1), Size(p, p))
+                    drawRect(resolvedBorder, Offset(tailX + p*12, tailY + p * 2), Size(p, p))
+                    drawRect(resolvedBorder, Offset(tailX + p*11, tailY + p * 3), Size(p, p))
+                    drawRect(resolvedBorder, Offset(tailX + p*10, tailY + p * 4), Size(p, p))
+                    drawRect(resolvedBorder, Offset(tailX + p* 9, tailY + p * 5), Size(p, p))
+                    drawRect(resolvedBorder, Offset(tailX + p* 8, tailY + p * 6), Size(p, p))
+                    // Center tip block
+                    drawRect(resolvedBorder, Offset(tailX + p*7,  tailY + p * 6), Size(p, p))
                 }
             }
             .padding(px * 2),

@@ -90,7 +90,7 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
                     .weight(1f)
                     .padding(horizontal = 12.dp)
             ) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Bubble fills all remaining space
                 ChatBubble(
@@ -101,7 +101,7 @@ fun HomeScreen(onSettingsClick: () -> Unit) {
                         .weight(1f)
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Wizard
                 WizardCharacter(
@@ -334,7 +334,8 @@ fun ChatBubble(text: String, loading: Boolean, modifier: Modifier = Modifier) {
     PixelBox(
         modifier = modifier,
         fillColor = colors.secondarySurface,
-        cornerStyle = PixelCornerStyle.Rounded
+        cornerStyle = PixelCornerStyle.Rounded,
+        speechTail = true
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // ── Bubble header (mirrors AppHeader style) ──

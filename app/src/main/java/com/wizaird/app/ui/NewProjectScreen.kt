@@ -1,15 +1,12 @@
 package com.wizaird.app.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.wizaird.app.ui.theme.*
 
@@ -131,17 +128,15 @@ fun NewProjectScreen(onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    PixelActionButton(
+                    PixelButtonLarge(
                         label = "CANCEL",
-                        color = colors.secondaryButton,
-                        textColor = colors.secondaryIcon,
+                        primary = false,
                         modifier = Modifier.weight(1f),
                         onClick = onBack
                     )
-                    PixelActionButton(
+                    PixelButtonLarge(
                         label = "CREATE",
-                        color = Coral,
-                        textColor = SecondaryIcon,
+                        primary = true,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             // TODO: persist project

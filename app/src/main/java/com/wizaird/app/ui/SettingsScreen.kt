@@ -6,7 +6,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -101,20 +100,11 @@ fun SettingsScreen(onBack: () -> Unit) {
                     SettingsField(label = "AI PROVIDER") {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             providers.forEach { p ->
-                                val active = provider == p
-                                val chipColor = if (active) Coral else colors.secondaryButton
-                                PixelBox(
-                                    fillColor = chipColor,
-                                    borderColor = chipColor,
-                                    cornerStyle = PixelCornerStyle.Rounded8,
-                                    modifier = Modifier.clickable { provider = p }
-                                ) {
-                                    Text(
-                                        p.uppercase(),
-                                        style = pixelStyle(12, if (active) SecondaryIcon else colors.secondaryIcon),
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp).offset(y = (-2).dp)
-                                    )
-                                }
+                                PixelButtonMedium(
+                                    label = p.uppercase(),
+                                    primary = provider == p,
+                                    onClick = { provider = p }
+                                )
                             }
                         }
                     }
@@ -156,20 +146,11 @@ fun SettingsScreen(onBack: () -> Unit) {
                     SettingsField(label = "DARK MODE") {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf(false to "LIGHT", true to "DARK").forEach { (value, label) ->
-                                val active = darkMode == value
-                                val chipColor = if (active) Coral else colors.secondaryButton
-                                PixelBox(
-                                    fillColor = chipColor,
-                                    borderColor = chipColor,
-                                    cornerStyle = PixelCornerStyle.Rounded8,
-                                    modifier = Modifier.clickable { darkMode = value }
-                                ) {
-                                    Text(
-                                        label,
-                                        style = pixelStyle(12, if (active) SecondaryIcon else colors.secondaryIcon),
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp).offset(y = (-2).dp)
-                                    )
-                                }
+                                PixelButtonMedium(
+                                    label = label,
+                                    primary = darkMode == value,
+                                    onClick = { darkMode = value }
+                                )
                             }
                         }
                     }
@@ -179,17 +160,15 @@ fun SettingsScreen(onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        PixelActionButton(
+                        PixelButtonLarge(
                             label = "CANCEL",
-                            color = colors.secondaryButton,
-                            textColor = colors.secondaryIcon,
+                            primary = false,
                             modifier = Modifier.weight(1f),
                             onClick = onBack
                         )
-                        PixelActionButton(
+                        PixelButtonLarge(
                             label = "SAVE",
-                            color = Coral,
-                            textColor = SecondaryIcon,
+                            primary = true,
                             modifier = Modifier.weight(1f),
                             onClick = {
                                 scope.launch {
@@ -251,27 +230,5 @@ fun PixelTextInput(
     }
 }
 
-@Composable
-fun PixelActionButton(
-    label: String,
-    color: Color,
-    textColor: Color,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    PixelBox(
-        modifier = modifier.clickable { onClick() },
-        fillColor = color,
-        borderColor = color,
-        cornerStyle = PixelCornerStyle.Rounded8
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(label, style = pixelStyle(12, textColor), modifier = Modifier.offset(y = (-2).dp))
-        }
-    }
-}
+
+

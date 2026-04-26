@@ -8,8 +8,11 @@ import androidx.compose.material3.ripple
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.Composable
@@ -35,6 +38,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wizaird.app.ui.theme.Coral
 import com.wizaird.app.ui.theme.SecondaryIcon
 import com.wizaird.app.ui.theme.LocalWizairdColors
 import com.wizaird.app.ui.theme.Paper
@@ -855,6 +859,110 @@ fun PixelBox(
             .padding(px * 2),
         content = content
     )
+}
+
+// ── Reusable pixel rounded-rectangle buttons ─────────────────────
+// All three sizes use PixelCornerStyle.Rounded8 and pixelRounded8Clickable
+// so the press overlay is clipped to the pixel shape, not a rectangle.
+//
+// Variants:
+//   primary   — filled with Coral, white text
+//   secondary — filled with secondaryButton, secondaryIcon text
+//
+// Sizes:
+//   Small  — compact, used for inline actions like "+ NEW"
+//   Medium — used for selector chips (AI provider, dark mode)
+//   Large  — used for full-width action buttons (CANCEL / SAVE)
+
+@Composable
+fun PixelButtonSmall(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    primary: Boolean = true,
+    cutColor: Color? = null
+) {
+    val colors = LocalWizairdColors.current
+    val fillColor  = if (primary) Coral else colors.secondaryButton
+    val textColor  = if (primary) SecondaryIcon else colors.secondaryIcon
+    val interactionSource = remember { MutableInteractionSource() }
+    PixelBox(
+        modifier = modifier
+            .pixelRounded8Clickable(interactionSource = interactionSource, onClick = onClick),
+        fillColor = fillColor,
+        borderColor = fillColor,
+        cutColor = cutColor,
+        cornerStyle = PixelCornerStyle.Rounded8
+    ) {
+        Text(
+            label,
+            style = pixelStyle(10, textColor),
+            modifier = Modifier
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+                .offset(y = (-2).dp)
+        )
+    }
+}
+
+@Composable
+fun PixelButtonMedium(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    primary: Boolean = true
+) {
+    val colors = LocalWizairdColors.current
+    val fillColor  = if (primary) Coral else colors.secondaryButton
+    val textColor  = if (primary) SecondaryIcon else colors.secondaryIcon
+    val interactionSource = remember { MutableInteractionSource() }
+    PixelBox(
+        modifier = modifier
+            .pixelRounded8Clickable(interactionSource = interactionSource, onClick = onClick),
+        fillColor = fillColor,
+        borderColor = fillColor,
+        cornerStyle = PixelCornerStyle.Rounded8
+    ) {
+        Text(
+            label,
+            style = pixelStyle(12, textColor),
+            modifier = Modifier
+                .padding(horizontal = 6.dp, vertical = 4.dp)
+                .offset(y = (-2).dp)
+        )
+    }
+}
+
+@Composable
+fun PixelButtonLarge(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    primary: Boolean = true
+) {
+    val colors = LocalWizairdColors.current
+    val fillColor  = if (primary) Coral else colors.secondaryButton
+    val textColor  = if (primary) SecondaryIcon else colors.secondaryIcon
+    val interactionSource = remember { MutableInteractionSource() }
+    PixelBox(
+        modifier = modifier
+            .pixelRounded8Clickable(interactionSource = interactionSource, onClick = onClick),
+        fillColor = fillColor,
+        borderColor = fillColor,
+        cornerStyle = PixelCornerStyle.Rounded8
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                label,
+                style = pixelStyle(12, textColor),
+                modifier = Modifier.offset(y = (-2).dp)
+            )
+        }
+    }
 }
 
 // ── 40dp pixel-circle icon button ────────────────────────────────

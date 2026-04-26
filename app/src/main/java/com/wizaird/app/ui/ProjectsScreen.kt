@@ -79,22 +79,12 @@ fun ProjectsScreen(onBack: () -> Unit, onNewProject: () -> Unit) {
                             .offset(y = (-2).dp)
                     )
                     // "+ NEW" button
-                    val newInteraction = remember { MutableInteractionSource() }
-                    PixelBox(
-                        fillColor = Coral,
-                        borderColor = Coral,
+                    PixelButtonSmall(
+                        label = "+ NEW",
+                        primary = true,
                         cutColor = colors.secondarySurface,
-                        cornerStyle = PixelCornerStyle.Rounded8,
-                        modifier = Modifier.pixelRounded8Clickable(interactionSource = newInteraction) { onNewProject() }
-                    ) {
-                        Text(
-                            "+ NEW",
-                            style = pixelStyle(10, SecondaryIcon),
-                            modifier = Modifier
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                                .offset(y = (-2).dp)
-                        )
-                    }
+                        onClick = onNewProject
+                    )
                 }
             }
 

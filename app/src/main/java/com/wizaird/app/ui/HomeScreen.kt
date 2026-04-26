@@ -449,6 +449,7 @@ fun PixelInputBar(
             )
             // Send button — pixel-rounded, centered, arrow icon
             val bubbleColor = colors.secondarySurface
+            val sendInteraction = remember { MutableInteractionSource() }
             Box(
                 modifier = Modifier
                     .align(Alignment.Bottom)
@@ -460,7 +461,7 @@ fun PixelInputBar(
                         arrowColor = SecondaryIcon,
                         direction  = 1f
                     )
-                    .clickable { onSubmit() }
+                    .pixelRounded8Clickable(interactionSource = sendInteraction, onClick = onSubmit)
             )
         }
     }

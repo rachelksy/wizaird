@@ -17,6 +17,8 @@ import com.wizaird.app.data.AiSettings
 import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.ui.HomeScreen
 import com.wizaird.app.ui.NewProjectScreen
+import com.wizaird.app.ui.ProjectScreen
+import com.wizaird.app.ui.ProjectSettingsScreen
 import com.wizaird.app.ui.ProjectsScreen
 import com.wizaird.app.ui.SettingsScreen
 import com.wizaird.app.ui.theme.WizairdTheme
@@ -55,11 +57,27 @@ class MainActivity : ComponentActivity() {
                     composable("projects") {
                         ProjectsScreen(
                             onBack = { nav.popBackStack() },
-                            onNewProject = { nav.navigate("new_project") }
+                            onNewProject = { nav.navigate("new_project") },
+                            onProjectClick = { id -> nav.navigate("project/${id}") }
                         )
                     }
                     composable("new_project") {
                         NewProjectScreen(onBack = { nav.popBackStack() })
+                    }
+                    composable("project/{id}") { backStackEntry ->
+                        val id = backStackEntry.arguments?.getString("id") ?: ""
+                        ProjectScreen(
+                            projectId = id,
+                            onBack = { nav.popBackStack() },
+                            onSettingsClick = { nav.navigate("project_settings/${id}") }
+                        )
+                    }
+                    composable("project_settings/{id}") { backStackEntry ->
+                        val id = backStackEntry.arguments?.getString("id") ?: ""
+                        ProjectSettingsScreen(
+                            projectId = id,
+                            onBack = { nav.popBackStack() }
+                        )
                     }
                 }
             }

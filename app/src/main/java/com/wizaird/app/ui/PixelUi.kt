@@ -274,6 +274,61 @@ object PixelRounded8Shape : Shape {
 }
 
 
+// Matches PixelCornerStyle.Circle (64dp) — cut table: 16,13,10,8,7,6,5,4,3,3,2,2,2,1,1,1,1
+object PixelLargeCircleShape : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val p = with(density) { PixelSize.toPx() }
+        val w = size.width
+        val h = size.height
+        val cuts = intArrayOf(16,13,10,8,7,6,5,4,3,3,2,2,2,1,1,1,1)
+        val n = cuts.size
+        val path = Path().apply {
+            moveTo(p * cuts[0], 0f)
+            // Top edge
+            lineTo(w - p * cuts[0], 0f)
+            // Top-right staircase (downward)
+            for (i in 0 until n - 1) {
+                lineTo(w - p * cuts[i],     p * i)
+                lineTo(w - p * cuts[i + 1], p * i)
+                lineTo(w - p * cuts[i + 1], p * (i + 1))
+            }
+            lineTo(w - p * cuts[n - 1], p * (n - 1))
+            // Right edge
+            lineTo(w, p * n)
+            lineTo(w, h - p * n)
+            // Bottom-right staircase (downward from bottom)
+            lineTo(w - p * cuts[n - 1], h - p * (n - 1))
+            for (i in n - 1 downTo 1) {
+                lineTo(w - p * cuts[i],     h - p * i)
+                lineTo(w - p * cuts[i - 1], h - p * i)
+                lineTo(w - p * cuts[i - 1], h - p * (i - 1))
+            }
+            // Bottom edge
+            lineTo(w - p * cuts[0], h)
+            lineTo(p * cuts[0], h)
+            // Bottom-left staircase
+            for (i in 0 until n - 1) {
+                lineTo(p * cuts[i],     h - p * i)
+                lineTo(p * cuts[i + 1], h - p * i)
+                lineTo(p * cuts[i + 1], h - p * (i + 1))
+            }
+            lineTo(p * cuts[n - 1], h - p * (n - 1))
+            // Left edge
+            lineTo(0f, h - p * n)
+            lineTo(0f, p * n)
+            // Top-left staircase
+            lineTo(p * cuts[n - 1], p * (n - 1))
+            for (i in n - 1 downTo 1) {
+                lineTo(p * cuts[i],     p * i)
+                lineTo(p * cuts[i - 1], p * i)
+                lineTo(p * cuts[i - 1], p * (i - 1))
+            }
+            close()
+        }
+        return Outline.Generic(path)
+    }
+}
+
 // direction: 1f = right arrow (send), -1f = left arrow (back)
 fun Modifier.drawPixelArrowButton(
     fillColor: Color,

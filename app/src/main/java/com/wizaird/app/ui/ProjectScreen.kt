@@ -10,10 +10,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.ui.theme.*
+
+enum class ProjectTab { CHATS, NOTES }
 
 // Placeholder data class for a chat entry
 data class Chat(
@@ -36,6 +44,8 @@ fun ProjectScreen(
     val projects by projectsFlow(context).collectAsState(initial = emptyList())
     val project = projects.firstOrNull { it.id == projectId }
     val projectName = project?.name?.ifEmpty { "UNNAMED PROJECT" } ?: "UNNAMED PROJECT"
+
+    var activeTab by remember { mutableStateOf(ProjectTab.CHATS) }
 
     // Placeholder chat list — replace with real data once AI wiring is done
     val chats = remember {
@@ -98,13 +108,23 @@ fun ProjectScreen(
                     )
                 }
 
-                Text(
-                    projectName,
-                    style = pixelStyle(14, colors.secondaryIcon),
-                    modifier = Modifier
-                        .weight(1f)
-                        .offset(y = (-2).dp)
-                )
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    androidx.compose.foundation.Image(
+                        painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        projectName,
+                        style = pixelStyle(14, colors.secondaryIcon),
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
+                }
 
                 PixelCircleIconButton(
                     iconRes = com.wizaird.app.R.drawable.ic_settings_2,
@@ -114,68 +134,191 @@ fun ProjectScreen(
                 )
             }
 
-            // Chat list or blank state
-            if (chats.isEmpty()) {
-                // Blank state
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
+            // Tab row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                val svgLoader = remember {
+                    ImageLoader.Builder(context)
+                        .components { add(SvgDecoder.Factory()) }
+                        .build()
+                }
+                listOf(ProjectTab.CHATS to "Chats", ProjectTab.NOTES to "Notes").forEach { (tab, label) ->
+                    val isActive = activeTab == tab
+                    val tabInteraction = remember { MutableInteractionSource() }
+                    val iconColor = if (isActive) colors.textHigh else colors.textXLow
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.width(IntrinsicSize.Max)
                     ) {
-                        Text(
-                            "NO CHATS YET",
-                            style = pixelStyle(14, colors.secondaryIcon)
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        PixelBox(
+                            modifier = Modifier
+                                .pixelRounded8Clickable(
+                                    interactionSource = tabInteraction
+                                ) { activeTab = tab },
+                            fillColor = androidx.compose.ui.graphics.Color.Transparent,
+                            borderColor = androidx.compose.ui.graphics.Color.Transparent,
+                            cornerStyle = PixelCornerStyle.Rounded8
                         ) {
-                            Text(
-                                "TAP",
-                                style = pixelStyle(10, colors.secondaryIconSoft),
-                                modifier = Modifier.offset(y = (-2).dp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                if (tab == ProjectTab.CHATS) {
+                                    androidx.compose.foundation.Image(
+                                        painter = painterResource(id = com.wizaird.app.R.drawable.ic_comment),
+                                        contentDescription = null,
+                                        colorFilter = ColorFilter.tint(iconColor),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                } else {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
+                                            .build(),
+                                        imageLoader = svgLoader,
+                                        contentDescription = null,
+                                        colorFilter = ColorFilter.tint(iconColor),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                                Text(
+                                    text = label,
+                                    style = pixelStyle(12, iconColor),
+                                    modifier = Modifier.offset(y = (-2).dp)
+                                )
+                            }
+                        }
+                        if (isActive) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.8f)
+                                    .height(4.dp)
+                                    .background(Coral)
                             )
-                            androidx.compose.foundation.Image(
-                                painter = androidx.compose.ui.res.painterResource(
-                                    id = com.wizaird.app.R.drawable.ic_comment
-                                ),
-                                contentDescription = null,
-                                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIconSoft),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                "TO START A NEW CHAT",
-                                style = pixelStyle(10, colors.secondaryIconSoft),
-                                modifier = Modifier.offset(y = (-2).dp)
-                            )
+                        } else {
+                            Spacer(modifier = Modifier.height(4.dp))
                         }
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(top = 12.dp, bottom = 96.dp)
-                ) {
-                    items(chats) { chat ->
-                        ChatListItem(
-                            chat = chat,
-                            onClick = { onChatClick(chat.id) }
-                        )
+            }
+
+            // Tab content
+            when (activeTab) {
+                ProjectTab.CHATS -> {
+                    // Chat list or blank state
+                    if (chats.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    "NO CHATS YET",
+                                    style = pixelStyle(14, colors.secondaryIcon)
+                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        "TAP",
+                                        style = pixelStyle(10, colors.secondaryIconSoft),
+                                        modifier = Modifier.offset(y = (-2).dp)
+                                    )
+                                    androidx.compose.foundation.Image(
+                                        painter = androidx.compose.ui.res.painterResource(
+                                            id = com.wizaird.app.R.drawable.ic_comment
+                                        ),
+                                        contentDescription = null,
+                                        colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIconSoft),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        "TO START A NEW CHAT",
+                                        style = pixelStyle(10, colors.secondaryIconSoft),
+                                        modifier = Modifier.offset(y = (-2).dp)
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(top = 12.dp, bottom = 96.dp)
+                        ) {
+                            items(chats) { chat ->
+                                ChatListItem(
+                                    chat = chat,
+                                    onClick = { onChatClick(chat.id) }
+                                )
+                            }
+                        }
+                    }
+                }
+                ProjectTab.NOTES -> {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "NO NOTES YET",
+                                style = pixelStyle(14, colors.secondaryIcon)
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    "TAP",
+                                    style = pixelStyle(10, colors.secondaryIconSoft),
+                                    modifier = Modifier.offset(y = (-2).dp)
+                                )
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
+                                        .build(),
+                                    imageLoader = remember {
+                                        ImageLoader.Builder(context)
+                                            .components { add(SvgDecoder.Factory()) }
+                                            .build()
+                                    },
+                                    contentDescription = null,
+                                    colorFilter = ColorFilter.tint(colors.secondaryIconSoft),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    "TO START A NEW NOTE",
+                                    style = pixelStyle(10, colors.secondaryIconSoft),
+                                    modifier = Modifier.offset(y = (-2).dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // FAB — 80dp pixel circle primary button, bottom-right
+        // FAB — switches based on active tab
         val fabInteraction = remember { MutableInteractionSource() }
         PixelBox(
             modifier = Modifier
@@ -185,9 +328,10 @@ fun ProjectScreen(
                 .size(80.dp)
                 .clip(PixelXLargeCircleShape)
                 .pixelXLargeCircleClickable(interactionSource = fabInteraction) {
-                    onNewChatClick()
+                    if (activeTab == ProjectTab.CHATS) onNewChatClick()
+                    // TODO: onNewNoteClick()
                 },
-            fillColor = Coral,
+            fillColor = if (activeTab == ProjectTab.CHATS) Coral else colors.secondaryButton,
             borderColor = androidx.compose.ui.graphics.Color.Transparent,
             cornerStyle = PixelCornerStyle.XLargeCircle
         ) {
@@ -195,14 +339,30 @@ fun ProjectScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                androidx.compose.foundation.Image(
-                    painter = androidx.compose.ui.res.painterResource(
-                        id = com.wizaird.app.R.drawable.ic_comment
-                    ),
-                    contentDescription = "New Chat",
-                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIcon),
-                    modifier = Modifier.size(28.dp)
-                )
+                if (activeTab == ProjectTab.CHATS) {
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(
+                            id = com.wizaird.app.R.drawable.ic_comment
+                        ),
+                        contentDescription = "New Chat",
+                        colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIcon),
+                        modifier = Modifier.size(28.dp)
+                    )
+                } else {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
+                            .build(),
+                        imageLoader = remember {
+                            ImageLoader.Builder(context)
+                                .components { add(SvgDecoder.Factory()) }
+                                .build()
+                        },
+                        contentDescription = "New Note",
+                        colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         }
     }

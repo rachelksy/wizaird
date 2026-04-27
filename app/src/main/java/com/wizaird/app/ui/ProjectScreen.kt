@@ -3,6 +3,7 @@ package com.wizaird.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
@@ -153,36 +154,32 @@ fun ProjectScreen(
 
         // FAB — 80dp pixel circle primary button, bottom-right
         val fabInteraction = remember { MutableInteractionSource() }
-        Box(
+        PixelBox(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = 16.dp)
                 .navigationBarsPadding()
                 .size(80.dp)
+                .clip(PixelXLargeCircleShape)
                 .pixelXLargeCircleClickable(interactionSource = fabInteraction) {
                     // TODO: navigate to new chat
                 },
-            contentAlignment = Alignment.Center
+            fillColor = Coral,
+            borderColor = androidx.compose.ui.graphics.Color.Transparent,
+            cornerStyle = PixelCornerStyle.XLargeCircle
         ) {
-            PixelBox(
+            Box(
                 modifier = Modifier.fillMaxSize(),
-                fillColor = Coral,
-                borderColor = Coral,
-                cornerStyle = PixelCornerStyle.XLargeCircle
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    androidx.compose.foundation.Image(
-                        painter = androidx.compose.ui.res.painterResource(
-                            id = com.wizaird.app.R.drawable.ic_comment
-                        ),
-                        contentDescription = "New Chat",
-                        colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(SecondaryIcon),
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(
+                        id = com.wizaird.app.R.drawable.ic_comment
+                    ),
+                    contentDescription = "New Chat",
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(SecondaryIcon),
+                    modifier = Modifier.size(28.dp)
+                )
             }
         }
     }

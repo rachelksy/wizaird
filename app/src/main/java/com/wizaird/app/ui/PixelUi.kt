@@ -109,7 +109,7 @@ private fun androidx.compose.ui.graphics.drawscope.ContentDrawScope.drawPressOve
     val n = cuts.size
 
     if (fullCircle) {
-        // Full circle: top and bottom staircases meet exactly at h/2, no overlap.
+        // Full circle: top staircase rows, straight middle band, bottom staircase rows.
         // Top half: rows 0..n-1 drawn from top downward
         for (i in 0 until n) {
             val cut = cuts[i] * p
@@ -117,6 +117,11 @@ private fun androidx.compose.ui.graphics.drawscope.ContentDrawScope.drawPressOve
             val rowBot = minOf((i + 1) * p, h / 2f)
             if (rowBot > rowTop) drawRect(c, Offset(cut, rowTop), Size(w - cut * 2, rowBot - rowTop))
         }
+        // Middle band: if the staircase rows don't reach h/2, fill the gap with no cut (full width)
+        val staircaseHeight = n * p
+        val midTop = staircaseHeight
+        val midBot = h - staircaseHeight
+        if (midBot > midTop) drawRect(c, Offset(0f, midTop), Size(w, midBot - midTop))
         // Bottom half: rows 0..n-1 drawn from bottom upward (mirror)
         for (i in 0 until n) {
             val cut = cuts[i] * p
@@ -166,15 +171,15 @@ fun Modifier.pixelLargeCircleClickable(
         .drawWithContent { if (pressed) drawPressOverlay(cuts, fullCircle = true) else drawContent() }
 }
 
-// For PixelCornerStyle.XLargeCircle (80dp) — Bresenham midpoint r=20, 8-way symmetric
-// cuts: 16,13,11,9,8,7,6,5,4,3,3,2,2,1,1,1,0,0,0,0,0
+// For PixelCornerStyle.XLargeCircle (80dp)
+// cuts: 16,13,11,9,8,7,6,5,4,3,3,2,2,1,1,1 — matches PixelBox draw and PixelXLargeCircleShape exactly
 @Composable
 fun Modifier.pixelXLargeCircleClickable(
     interactionSource: MutableInteractionSource,
     onClick: () -> Unit
 ): Modifier {
     val pressed by interactionSource.collectIsPressedAsState()
-    val cuts = floatArrayOf(16f,13f,11f,9f,8f,7f,6f,5f,4f,3f,3f,2f,2f,1f,1f,1f,0f,0f,0f,0f,0f)
+    val cuts = floatArrayOf(16f,13f,11f,9f,8f,7f,6f,5f,4f,3f,3f,2f,2f,1f,1f,1f)
     return this
         .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
         .drawWithContent { if (pressed) drawPressOverlay(cuts, fullCircle = true) else drawContent() }
@@ -515,42 +520,58 @@ fun Modifier.drawPixelCircle(
 
 enum class PixelCornerStyle { Cut, Rounded, Rounded8, Circle, XLargeCircle }
 
-// Matches PixelCornerStyle.XLargeCircle (80dp) — Bresenham midpoint r=20, 8-way symmetric
-// Cut table: [16,13,11,9,8,7,6,5,4,3,3,2,2,1,1,1,0,0,0,0,0]
+// Clip shape for PixelCornerStyle.XLargeCircle (80dp FAB).
+// Cut table derived DIRECTLY from the drawRect(resolvedCut, ...) calls in the
+// XLargeCircle branch of PixelBox — so the clip boundary is pixel-perfect with
+// what is actually painted:
+//   row  0: cut=16   row  1: cut=13   row  2: cut=11   row  3: cut=9
+//   row  4: cut=8    row  5: cut=7    row  6: cut=6    row  7: cut=5
+//   row  8: cut=4    row  9: cut=3    row 10: cut=3    row 11: cut=2
+//   row 12: cut=2    row 13: cut=1    row 14: cut=1    row 15: cut=1
+// 16 staircase rows top and bottom; straight edges in between.
 object PixelXLargeCircleShape : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val p = with(density) { PixelSize.toPx() }
         val w = size.width
         val h = size.height
-        val cuts = intArrayOf(16,13,11,9,8,7,6,5,4,3,3,2,2,1,1,1,0,0,0,0,0)
-        val n = cuts.size
+        // cuts[i] = how many p-units are cut from each side at row i from the top/bottom
+        val cuts = intArrayOf(16, 13, 11, 9, 8, 7, 6, 5, 4, 3, 3, 2, 2, 1, 1, 1)
+        val n = cuts.size  // 16 staircase rows
         val path = Path().apply {
+            // Top edge — starts at the first cut inset
             moveTo(p * cuts[0], 0f)
             lineTo(w - p * cuts[0], 0f)
+            // Top-right staircase: step inward row by row going down
             for (i in 0 until n - 1) {
                 lineTo(w - p * cuts[i],     p * i)
                 lineTo(w - p * cuts[i + 1], p * i)
                 lineTo(w - p * cuts[i + 1], p * (i + 1))
             }
             lineTo(w - p * cuts[n - 1], p * (n - 1))
+            // Right straight edge
             lineTo(w, p * n)
             lineTo(w, h - p * n)
+            // Bottom-right staircase: step outward row by row going up from bottom
             lineTo(w - p * cuts[n - 1], h - p * (n - 1))
             for (i in n - 1 downTo 1) {
                 lineTo(w - p * cuts[i],     h - p * i)
                 lineTo(w - p * cuts[i - 1], h - p * i)
                 lineTo(w - p * cuts[i - 1], h - p * (i - 1))
             }
+            // Bottom edge
             lineTo(w - p * cuts[0], h)
             lineTo(p * cuts[0], h)
+            // Bottom-left staircase
             for (i in 0 until n - 1) {
                 lineTo(p * cuts[i],     h - p * i)
                 lineTo(p * cuts[i + 1], h - p * i)
                 lineTo(p * cuts[i + 1], h - p * (i + 1))
             }
             lineTo(p * cuts[n - 1], h - p * (n - 1))
+            // Left straight edge
             lineTo(0f, h - p * n)
             lineTo(0f, p * n)
+            // Top-left staircase
             lineTo(p * cuts[n - 1], p * (n - 1))
             for (i in n - 1 downTo 1) {
                 lineTo(p * cuts[i],     p * i)

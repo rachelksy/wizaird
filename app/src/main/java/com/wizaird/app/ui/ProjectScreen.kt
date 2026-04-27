@@ -26,7 +26,8 @@ data class Chat(
 fun ProjectScreen(
     projectId: String,
     onBack: () -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onNewChatClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -162,7 +163,7 @@ fun ProjectScreen(
                 .size(80.dp)
                 .clip(PixelXLargeCircleShape)
                 .pixelXLargeCircleClickable(interactionSource = fabInteraction) {
-                    // TODO: navigate to new chat
+                    onNewChatClick()
                 },
             fillColor = Coral,
             borderColor = androidx.compose.ui.graphics.Color.Transparent,

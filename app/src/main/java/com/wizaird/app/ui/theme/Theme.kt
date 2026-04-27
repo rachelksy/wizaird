@@ -23,6 +23,7 @@ val Bubble           = Color(0xFFFFFAED)
 
 val PixelFont      = FontFamily(Font(R.font.vt323))
 val MinecraftFont  = FontFamily(Font(R.font.macs_minecraft))
+val MinecraftBoldFont = FontFamily(Font(R.font.macs_minecraft_bold))
 val PixeloidFont   = FontFamily(Font(R.font.pixeloid_sans))
 
 // ── Theme tokens ─────────────────────────────────────────────────

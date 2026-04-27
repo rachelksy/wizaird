@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
@@ -54,14 +55,15 @@ fun HomeScreen(
     var inputText by remember { mutableStateOf("") }
 
     // Bob animation — matches HTML: sin(t/3)*2 at 120ms tick, ±2px float
-    val bobAnim = rememberInfiniteTransition(label = "bob")
-    val bobY by bobAnim.animateFloat(
-        initialValue = 0f, targetValue = -2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(360, easing = LinearEasing), // 3 ticks × 120ms = 360ms half-period
-            repeatMode = RepeatMode.Reverse
-        ), label = "bobY"
-    )
+    // val bobAnim = rememberInfiniteTransition(label = "bob")
+    // val bobY by bobAnim.animateFloat(
+    //     initialValue = 0f, targetValue = -2f,
+    //     animationSpec = infiniteRepeatable(
+    //         animation = tween(360, easing = LinearEasing), // 3 ticks × 120ms = 360ms half-period
+    //         repeatMode = RepeatMode.Reverse
+    //     ), label = "bobY"
+    // )
+    val bobY = 0f
 
     fun askQuestion(prompt: String) {
         scope.launch {
@@ -479,7 +481,8 @@ fun PixelInputBar(
     value: String,
     onValueChange: (String) -> Unit,
     onSubmit: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    focusRequester: androidx.compose.ui.focus.FocusRequester? = null
 ) {
     val colors = LocalWizairdColors.current
     PixelBox(
@@ -500,7 +503,8 @@ fun PixelInputBar(
                 maxLines = 10,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 12.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
+                    .padding(start = 12.dp, end = 4.dp, top = 3.dp, bottom = 3.dp)
+                    .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty()) {

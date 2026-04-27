@@ -20,6 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.wizaird.app.data.AiSettings
 import com.wizaird.app.data.settingsFlow
+import com.wizaird.app.ui.ChatScreen
 import com.wizaird.app.ui.HomeScreen
 import com.wizaird.app.ui.NewProjectScreen
 import com.wizaird.app.ui.ProjectScreen
@@ -92,13 +93,21 @@ class MainActivity : ComponentActivity() {
                         ProjectScreen(
                             projectId = id,
                             onBack = { nav.popBackStack() },
-                            onSettingsClick = { nav.navigate("project_settings/${id}") }
+                            onSettingsClick = { nav.navigate("project_settings/${id}") },
+                            onNewChatClick = { nav.navigate("chat/${id}") }
                         )
                     }
                     composable("project_settings/{id}") { backStackEntry ->
                         val id = backStackEntry.arguments?.getString("id") ?: ""
                         ProjectSettingsScreen(
                             projectId = id,
+                            onBack = { nav.popBackStack() }
+                        )
+                    }
+                    composable("chat/{projectId}") { backStackEntry ->
+                        val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+                        ChatScreen(
+                            projectId = projectId,
                             onBack = { nav.popBackStack() }
                         )
                     }

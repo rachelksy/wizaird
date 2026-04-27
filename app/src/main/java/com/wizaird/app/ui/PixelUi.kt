@@ -352,55 +352,51 @@ object PixelRounded8Shape : Shape {
 // Use clip(PixelRoundedShape) when the PixelBox is drawn over a non-background surface
 // (e.g. inside a Dialog scrim) so the corner cuts are physically clipped rather than
 // painted with cutColor.
+//
+// Coordinates derived directly from the drawRect cut calls in PixelBox Rounded branch.
+// The draw code cuts these rects from each corner:
+//   row 0: 7p   row 1: 5p   row 2: 3p   row 3: 2p
+//   row 4: 2p   row 5: 1p   row 6: 1p   row 7+: straight (no cut)
+// Path traces clockwise. Each staircase step = move right to the new cut boundary,
+// then step down one row.
 object PixelRoundedShape : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val p = with(density) { PixelSize.toPx() }
         val w = size.width
         val h = size.height
-        // cuts[i] = how many p-units are cut from each side at row i from top/bottom
-        val cuts = intArrayOf(7, 5, 3, 2, 2, 1, 1)
-        val n = cuts.size
         val path = Path().apply {
             // Top edge
-            moveTo(p * cuts[0], 0f)
-            lineTo(w - p * cuts[0], 0f)
-            // Top-right staircase
-            for (i in 0 until n - 1) {
-                lineTo(w - p * cuts[i],     p * i)
-                lineTo(w - p * cuts[i + 1], p * i)
-                lineTo(w - p * cuts[i + 1], p * (i + 1))
-            }
-            lineTo(w - p * cuts[n - 1], p * (n - 1))
+            moveTo(p*7, 0f);        lineTo(w-p*7, 0f)
+            // Top-right corner (flip x from top-left)
+            lineTo(w-p*7, p*1);     lineTo(w-p*5, p*1)
+            lineTo(w-p*5, p*2);     lineTo(w-p*3, p*2)
+            lineTo(w-p*3, p*4);     lineTo(w-p*2, p*4)
+            lineTo(w-p*2, p*6);     lineTo(w-p*1, p*6)
+            lineTo(w-p*1, p*7);     lineTo(w, p*7)
             // Right straight edge
-            lineTo(w, p * n)
-            lineTo(w, h - p * n)
-            // Bottom-right staircase
-            lineTo(w - p * cuts[n - 1], h - p * (n - 1))
-            for (i in n - 1 downTo 1) {
-                lineTo(w - p * cuts[i],     h - p * i)
-                lineTo(w - p * cuts[i - 1], h - p * i)
-                lineTo(w - p * cuts[i - 1], h - p * (i - 1))
-            }
+            lineTo(w, h-p*7)
+            // Bottom-right corner (flip x and y from top-left)
+            lineTo(w-p*1, h-p*7);   lineTo(w-p*1, h-p*6)
+            lineTo(w-p*2, h-p*6);   lineTo(w-p*2, h-p*4)
+            lineTo(w-p*3, h-p*4);   lineTo(w-p*3, h-p*2)
+            lineTo(w-p*5, h-p*2);   lineTo(w-p*5, h-p*1)
+            lineTo(w-p*7, h-p*1);   lineTo(w-p*7, h)
             // Bottom edge
-            lineTo(w - p * cuts[0], h)
-            lineTo(p * cuts[0], h)
-            // Bottom-left staircase
-            for (i in 0 until n - 1) {
-                lineTo(p * cuts[i],     h - p * i)
-                lineTo(p * cuts[i + 1], h - p * i)
-                lineTo(p * cuts[i + 1], h - p * (i + 1))
-            }
-            lineTo(p * cuts[n - 1], h - p * (n - 1))
+            lineTo(p*7, h)
+            // Bottom-left corner (flip y from top-left)
+            lineTo(p*7, h-p*1);     lineTo(p*5, h-p*1)
+            lineTo(p*5, h-p*2);     lineTo(p*3, h-p*2)
+            lineTo(p*3, h-p*4);     lineTo(p*2, h-p*4)
+            lineTo(p*2, h-p*6);     lineTo(p*1, h-p*6)
+            lineTo(p*1, h-p*7);     lineTo(0f, h-p*7)
             // Left straight edge
-            lineTo(0f, h - p * n)
-            lineTo(0f, p * n)
-            // Top-left staircase
-            lineTo(p * cuts[n - 1], p * (n - 1))
-            for (i in n - 1 downTo 1) {
-                lineTo(p * cuts[i],     p * i)
-                lineTo(p * cuts[i - 1], p * i)
-                lineTo(p * cuts[i - 1], p * (i - 1))
-            }
+            lineTo(0f, p*7)
+            // Top-left corner (working reference)
+            lineTo(p*1, p*7);       lineTo(p*1, p*6)
+            lineTo(p*2, p*6);       lineTo(p*2, p*4)
+            lineTo(p*3, p*4);       lineTo(p*3, p*2)
+            lineTo(p*5, p*2);       lineTo(p*5, p*1)
+            lineTo(p*7, p*1);       lineTo(p*7, 0f)
             close()
         }
         return Outline.Generic(path)

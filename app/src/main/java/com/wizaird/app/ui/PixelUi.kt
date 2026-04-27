@@ -1332,7 +1332,8 @@ fun PixelButtonLarge(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    primary: Boolean = true
+    primary: Boolean = true,
+    cutColor: Color? = null
 ) {
     val colors = LocalWizairdColors.current
     val fillColor  = if (primary) Coral else colors.secondaryButton
@@ -1343,6 +1344,7 @@ fun PixelButtonLarge(
             .pixelRounded8Clickable(interactionSource = interactionSource, onClick = onClick),
         fillColor = fillColor,
         borderColor = fillColor,
+        cutColor = cutColor,
         cornerStyle = PixelCornerStyle.Rounded8
     ) {
         Box(

@@ -300,12 +300,14 @@ private fun UnsavedChangesDialog(
                         label = "DISCARD",
                         primary = false,
                         modifier = Modifier.weight(1f),
+                        cutColor = colors.secondarySurface,
                         onClick = onDiscard
                     )
                     PixelButtonLarge(
                         label = "KEEP EDITING",
                         primary = true,
                         modifier = Modifier.weight(1f),
+                        cutColor = colors.secondarySurface,
                         onClick = onKeepEditing
                     )
                 }

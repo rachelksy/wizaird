@@ -63,7 +63,6 @@ fun ChatScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)
-                .height(48.dp)
         ) {
             // Back button — left
             val backInteraction = remember { MutableInteractionSource() }

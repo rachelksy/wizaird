@@ -19,7 +19,7 @@ import com.wizaird.app.ui.theme.*
 data class Chat(
     val id: String,
     val title: String,
-    val preview: String
+    val createdAt: String   // formatted date + time string, e.g. "Nov 12, 2024  •  9:41 AM"
 )
 
 @Composable
@@ -27,7 +27,8 @@ fun ProjectScreen(
     projectId: String,
     onBack: () -> Unit,
     onSettingsClick: () -> Unit,
-    onNewChatClick: () -> Unit = {}
+    onNewChatClick: () -> Unit = {},
+    onChatClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -36,8 +37,26 @@ fun ProjectScreen(
     val project = projects.firstOrNull { it.id == projectId }
     val projectName = project?.name?.ifEmpty { "UNNAMED PROJECT" } ?: "UNNAMED PROJECT"
 
-    // Placeholder: empty chat list for now
-    val chats = remember { emptyList<Chat>() }
+    // Placeholder chat list — replace with real data once AI wiring is done
+    val chats = remember {
+        listOf(
+            Chat(
+                id = "1",
+                title = "Brainstorming session",
+                createdAt = "Nov 12, 2024  •  9:41 AM"
+            ),
+            Chat(
+                id = "2",
+                title = "Feature planning",
+                createdAt = "Nov 14, 2024  •  2:15 PM"
+            ),
+            Chat(
+                id = "3",
+                title = "Bug investigation",
+                createdAt = "Nov 18, 2024  •  11:03 AM"
+            )
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -88,7 +107,7 @@ fun ProjectScreen(
                 )
 
                 PixelCircleIconButton(
-                    iconRes = com.wizaird.app.R.drawable.ic_settings_cog,
+                    iconRes = com.wizaird.app.R.drawable.ic_settings_2,
                     contentDescription = "Project Settings",
                     fillColor = colors.secondaryButton,
                     onClick = onSettingsClick
@@ -147,7 +166,10 @@ fun ProjectScreen(
                     contentPadding = PaddingValues(top = 12.dp, bottom = 96.dp)
                 ) {
                     items(chats) { chat ->
-                        ChatListItem(chat = chat)
+                        ChatListItem(
+                            chat = chat,
+                            onClick = { onChatClick(chat.id) }
+                        )
                     }
                 }
             }
@@ -178,7 +200,7 @@ fun ProjectScreen(
                         id = com.wizaird.app.R.drawable.ic_comment
                     ),
                     contentDescription = "New Chat",
-                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(SecondaryIcon),
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIcon),
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -187,13 +209,13 @@ fun ProjectScreen(
 }
 
 @Composable
-fun ChatListItem(chat: Chat) {
+fun ChatListItem(chat: Chat, onClick: () -> Unit = {}) {
     val colors = LocalWizairdColors.current
     val interaction = remember { MutableInteractionSource() }
     PixelBox(
         modifier = Modifier
             .fillMaxWidth()
-            .pixelRoundedClickable(interactionSource = interaction, onClick = {}),
+            .pixelRoundedClickable(interactionSource = interaction, onClick = onClick),
         fillColor = colors.secondarySurface,
         cornerStyle = PixelCornerStyle.Rounded
     ) {
@@ -209,9 +231,9 @@ fun ChatListItem(chat: Chat) {
                 modifier = Modifier.offset(y = (-2).dp)
             )
             Text(
-                text = chat.preview,
-                style = minecraftStyle(11, colors.secondaryIconSoft),
-                maxLines = 2
+                text = chat.createdAt,
+                style = pixelStyle(8, colors.secondaryIconSoft),
+                modifier = Modifier.offset(y = (-2).dp)
             )
         }
     }

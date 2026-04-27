@@ -229,11 +229,10 @@ fun AppHeader(onSettingsClick: () -> Unit, onProjectsClick: () -> Unit = {}) {
             }
             */
             Column(
-                verticalArrangement = Arrangement.spacedBy(0.dp),
-                modifier = Modifier.offset(y = (-2).dp)
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                Text("RACHEL", style = pixelStyle(16, colors.secondaryIcon))
-                Text("LV.3 APPRENTICE", style = pixelStyle(8, colors.secondaryIconSoft))
+                Text("RACHEL", style = pixelStyle(16, colors.secondaryIcon), modifier = Modifier.offset(y = (-2).dp))
+                Text("LV.3 APPRENTICE", style = pixelStyle(8, colors.secondaryIconSoft), modifier = Modifier.offset(y = (-2).dp))
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -525,10 +524,10 @@ fun PixelInputBar(
                     .drawPixelArrowButton(
                         fillColor  = Coral,
                         cutColor   = bubbleColor,
-                        arrowColor = SecondaryIcon,
+                        arrowColor = colors.secondaryIcon,
                         direction  = 1f
                     )
-                    .pixelRoundedClickable(interactionSource = sendInteraction, onClick = onSubmit)
+                    .pixelRounded8Clickable(interactionSource = sendInteraction, onClick = onSubmit)
             )
         }
     }

@@ -158,6 +158,48 @@ fun Modifier.pixelCircleClickable(
         .drawWithContent { if (pressed) drawPressOverlay(cuts) else drawContent() }
 }
 
+// For small icons that should stay at their natural layout size but show a larger
+// press overlay matching the send button shape (pixelRounded8, 32dp).
+// The icon stays exactly where layout puts it; the overlay expands outward from centre.
+@Composable
+fun Modifier.pixelRounded8ClickableOversize(
+    interactionSource: MutableInteractionSource,
+    overlayDp: Dp = 32.dp,
+    onClick: () -> Unit
+): Modifier {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val cuts = floatArrayOf(5f, 3f, 2f, 1f, 1f)
+    return this
+        .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+        .drawWithContent {
+            drawContent()
+            if (pressed) {
+                val p = PixelSize.toPx()
+                val overlayPx = overlayDp.toPx()
+                // Centre the overlay on the icon
+                val ox = (size.width  - overlayPx) / 2f
+                val oy = (size.height - overlayPx) / 2f
+                val c = PressOverlay
+                val w = overlayPx
+                val h = overlayPx
+                // R=8 staircase: cuts 5,3,2,1,1
+                for (i in cuts.indices) {
+                    val cut = cuts[i] * p
+                    drawRect(c, Offset(ox + cut, oy + i * p), Size(w - cut * 2, p))
+                }
+                val straightTop = cuts.size * p
+                val straightBot = h - cuts.size * p
+                if (straightBot > straightTop) {
+                    drawRect(c, Offset(ox, oy + straightTop), Size(w, straightBot - straightTop))
+                }
+                for (i in cuts.indices) {
+                    val cut = cuts[i] * p
+                    drawRect(c, Offset(ox + cut, oy + h - (i + 1) * p), Size(w - cut * 2, p))
+                }
+            }
+        }
+}
+
 // For PixelCornerStyle.Circle (64dp AgentScrollBar) — cuts: 16,13,10,8,7,6,5,4,3,3,2,2,2,1,1,1,1
 @Composable
 fun Modifier.pixelLargeCircleClickable(
@@ -1178,7 +1220,7 @@ fun PixelButtonSmall(
 ) {
     val colors = LocalWizairdColors.current
     val fillColor  = if (primary) Coral else colors.secondaryButton
-    val textColor  = if (primary) SecondaryIcon else colors.secondaryIcon
+    val textColor  = if (primary) colors.secondaryIcon else colors.secondaryIcon
     val interactionSource = remember { MutableInteractionSource() }
     PixelBox(
         modifier = modifier
@@ -1207,7 +1249,7 @@ fun PixelButtonMedium(
 ) {
     val colors = LocalWizairdColors.current
     val fillColor  = if (primary) Coral else colors.secondaryButton
-    val textColor  = if (primary) SecondaryIcon else colors.secondaryIcon
+    val textColor  = if (primary) colors.secondaryIcon else colors.secondaryIcon
     val interactionSource = remember { MutableInteractionSource() }
     PixelBox(
         modifier = modifier
@@ -1235,7 +1277,7 @@ fun PixelButtonLarge(
 ) {
     val colors = LocalWizairdColors.current
     val fillColor  = if (primary) Coral else colors.secondaryButton
-    val textColor  = if (primary) SecondaryIcon else colors.secondaryIcon
+    val textColor  = if (primary) colors.secondaryIcon else colors.secondaryIcon
     val interactionSource = remember { MutableInteractionSource() }
     PixelBox(
         modifier = modifier

@@ -45,6 +45,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
+    implementation(libs.coil.svg)
     implementation(libs.okhttp)
     implementation(libs.gson)
     implementation(libs.androidx.navigation.compose)

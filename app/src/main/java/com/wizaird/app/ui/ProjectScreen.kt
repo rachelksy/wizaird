@@ -151,15 +151,15 @@ fun ProjectScreen(
             }
         }
 
-        // FAB — 64dp pixel circle primary button, bottom-right
+        // FAB — 80dp pixel circle primary button, bottom-right
         val fabInteraction = remember { MutableInteractionSource() }
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 20.dp, bottom = 16.dp)
                 .navigationBarsPadding()
-                .size(64.dp)
-                .pixelLargeCircleClickable(interactionSource = fabInteraction) {
+                .size(80.dp)
+                .pixelXLargeCircleClickable(interactionSource = fabInteraction) {
                     // TODO: navigate to new chat
                 },
             contentAlignment = Alignment.Center
@@ -168,7 +168,7 @@ fun ProjectScreen(
                 modifier = Modifier.fillMaxSize(),
                 fillColor = Coral,
                 borderColor = Coral,
-                cornerStyle = PixelCornerStyle.Circle
+                cornerStyle = PixelCornerStyle.XLargeCircle
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -180,7 +180,7 @@ fun ProjectScreen(
                         ),
                         contentDescription = "New Chat",
                         colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(SecondaryIcon),
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(28.dp)
                     )
                 }
             }

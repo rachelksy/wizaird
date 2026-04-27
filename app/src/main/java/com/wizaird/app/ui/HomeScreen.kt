@@ -5,6 +5,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
+import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.wizaird.app.data.AiSettings
 import com.wizaird.app.data.Project
@@ -397,6 +399,7 @@ fun StatBar(label: String, value: Int, max: Int, color: Color) {
 // ── Chat bubble ──────────────────────────────────────────────────
 @Composable
 fun ChatBubble(text: String, loading: Boolean, projectName: String? = null, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val colors = LocalWizairdColors.current
     var dotCount by remember { mutableIntStateOf(1) }
     LaunchedEffect(loading) {
@@ -439,13 +442,62 @@ fun ChatBubble(text: String, loading: Boolean, projectName: String? = null, modi
             }
 
             // Bubble text content
-            Box(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)) {
-                Text(
-                    text = if (loading) "thinking${".".repeat(dotCount)}" else text,
-                    style = minecraftStyle(14, colors.textHigh),
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    overflow = TextOverflow.Clip
-                )
+            Box(modifier = Modifier
+                .weight(1f)
+                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)
+                .verticalScroll(rememberScrollState())
+            ) {
+                SelectionContainer {
+                    Text(
+                        text = if (loading) "thinking${".".repeat(dotCount)}" else text,
+                        style = minecraftStyle(14, colors.textHigh),
+                        overflow = TextOverflow.Clip
+                    )
+                }
+            }
+
+            // Action icons row
+            if (!loading) {
+                val svgLoader = remember {
+                    ImageLoader.Builder(context)
+                        .components { add(SvgDecoder.Factory()) }
+                        .build()
+                }
+                Row(
+                    modifier = Modifier.padding(start = 16.dp, bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val copyInteraction = remember { MutableInteractionSource() }
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data("file:///android_asset/pixelarticons/copy.svg")
+                            .build(),
+                        imageLoader = svgLoader,
+                        contentDescription = "Copy",
+                        colorFilter = ColorFilter.tint(colors.textXLow),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .pixelRounded8ClickableOversize(
+                                interactionSource = copyInteraction
+                            ) { /* TODO: copy to clipboard */ }
+                    )
+
+                    val noteInteraction = remember { MutableInteractionSource() }
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
+                            .build(),
+                        imageLoader = svgLoader,
+                        contentDescription = "Save to note",
+                        colorFilter = ColorFilter.tint(colors.textXLow),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .pixelRounded8ClickableOversize(
+                                interactionSource = noteInteraction
+                            ) { /* TODO: save to note */ }
+                    )
+                }
             }
         }
     }

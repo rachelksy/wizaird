@@ -51,52 +51,63 @@ fun ProjectSettingsScreen(
             Spacer(modifier = Modifier.height(48.dp))
 
             // Header
-            /*
-            PixelBox(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp),
-                fillColor = colors.secondarySurface,
-                cornerStyle = PixelCornerStyle.Rounded
+                    .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-            */
-                Row(
+                val backInteraction = remember { MutableInteractionSource() }
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        .size(40.dp)
+                        .drawPixelCircle(
+                            fillColor   = colors.secondaryButton,
+                            borderColor = androidx.compose.ui.graphics.Color.Transparent,
+                            cutColor    = colors.background
+                        )
+                        .pixelCircleClickable(interactionSource = backInteraction) { onBack() },
+                    contentAlignment = Alignment.Center
                 ) {
-                    val backInteraction = remember { MutableInteractionSource() }
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
-                            .drawPixelCircle(
-                                fillColor   = colors.secondaryButton,
-                                borderColor = androidx.compose.ui.graphics.Color.Transparent,
-                                cutColor    = colors.background
+                            .size(24.dp)
+                            .drawPixelArrowButton(
+                                fillColor  = colors.secondaryButton,
+                                cutColor   = colors.secondaryButton,
+                                arrowColor = colors.secondaryIcon,
+                                direction  = -1f
                             )
-                            .pixelCircleClickable(interactionSource = backInteraction) { onBack() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .drawPixelArrowButton(
-                                    fillColor  = colors.secondaryButton,
-                                    cutColor   = colors.secondaryButton,
-                                    arrowColor = colors.secondaryIcon,
-                                    direction  = -1f
-                                )
-                        )
-                    }
-                    Text(
-                        "PROJECT SETTINGS",
-                        style = pixelStyle(14, colors.secondaryIcon),
-                        modifier = Modifier.offset(y = (-2).dp)
                     )
                 }
-            // } // end PixelBox
+                Text(
+                    "PROJECT SETTINGS",
+                    style = pixelStyle(14, colors.secondaryIcon),
+                    modifier = Modifier
+                        .weight(1f)
+                        .offset(y = (-2).dp)
+                )
+                PixelButtonSmall(
+                    label = "SAVE",
+                    primary = true,
+                    onClick = {
+                        scope.launch {
+                            project?.let {
+                                upsertProject(
+                                    context,
+                                    it.copy(
+                                        name = name,
+                                        instructions = instructions,
+                                        picturePath = picturePath
+                                    )
+                                )
+                            }
+                            onBack()
+                        }
+                    }
+                )
+            }
 
             Column(
                 modifier = Modifier
@@ -122,31 +133,31 @@ fun ProjectSettingsScreen(
                     )
                 }
 
-                // AI instructions
-                SettingsField(label = "AI INSTRUCTIONS") {
+                // AI instructions — fills remaining space
+                SettingsField(
+                    label = "AI INSTRUCTIONS"
+                ) {
                     PixelBox(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 120.dp),
+                            .height(240.dp),
                         fillColor = colors.secondarySurface,
                         cornerStyle = PixelCornerStyle.Rounded
                     ) {
                         androidx.compose.foundation.text.BasicTextField(
                             value = instructions,
                             onValueChange = { instructions = it },
-                            textStyle = pixelStyle(12, colors.secondaryIcon),
+                            textStyle = minecraftStyle(12, colors.secondaryIcon),
                             cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.secondaryIcon),
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 8.dp)
-                                .offset(y = (-2).dp),
+                                .fillMaxSize()
+                                .padding(12.dp),
                             decorationBox = { inner ->
                                 Box(contentAlignment = Alignment.TopStart) {
                                     if (instructions.isEmpty()) {
                                         Text(
-                                            "YOU ARE A HELPFUL WIZARD...",
-                                            style = pixelStyle(12, colors.secondaryIconSoft),
-                                            modifier = Modifier.offset(y = (-2).dp)
+                                            "You are a helpful wizard...",
+                                            style = minecraftStyle(12, colors.secondaryIconSoft)
                                         )
                                     }
                                     inner()
@@ -154,39 +165,6 @@ fun ProjectSettingsScreen(
                             }
                         )
                     }
-                }
-
-                // Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    PixelButtonLarge(
-                        label = "CANCEL",
-                        primary = false,
-                        modifier = Modifier.weight(1f),
-                        onClick = onBack
-                    )
-                    PixelButtonLarge(
-                        label = "SAVE",
-                        primary = true,
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            scope.launch {
-                                project?.let {
-                                    upsertProject(
-                                        context,
-                                        it.copy(
-                                            name = name,
-                                            instructions = instructions,
-                                            picturePath = picturePath
-                                        )
-                                    )
-                                }
-                                onBack()
-                            }
-                        }
-                    )
                 }
             }
         }

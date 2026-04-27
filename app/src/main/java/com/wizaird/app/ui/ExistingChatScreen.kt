@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -217,17 +218,21 @@ fun ChatBubble(message: ChatMessage) {
             cornerStyle = PixelCornerStyle.Rounded
         ) {
             if (isUser) {
-                Text(
-                    text = message.text,
-                    style = minecraftStyle(14, userBubbleText),
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
-                )
-            } else {
-                Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                SelectionContainer {
                     Text(
                         text = message.text,
-                        style = minecraftStyle(14, aiBubbleText)
+                        style = minecraftStyle(14, userBubbleText),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
                     )
+                }
+            } else {
+                Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                    SelectionContainer {
+                        Text(
+                            text = message.text,
+                            style = minecraftStyle(14, aiBubbleText)
+                        )
+                    }
                     Spacer(modifier = Modifier.height(10.dp))
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),

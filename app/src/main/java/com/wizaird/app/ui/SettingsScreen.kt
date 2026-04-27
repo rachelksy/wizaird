@@ -188,9 +188,9 @@ fun SettingsScreen(onBack: () -> Unit, initialDarkMode: Boolean = false) {
 }
 
 @Composable
-fun SettingsField(label: String, content: @Composable () -> Unit) {
+fun SettingsField(label: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val colors = LocalWizairdColors.current
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, style = pixelStyle(12, colors.secondaryIconSoft), modifier = Modifier.offset(y = (-2).dp))
         content()
     }

@@ -99,8 +99,20 @@ class MainActivity : ComponentActivity() {
                             onSettingsClick = { nav.navigate("project_settings/${id}") },
                             onNewChatClick = { nav.navigate("chat/${id}") },
                             onChatClick = { chatId -> nav.navigate("chat/${id}/${chatId}") },
-                            onNoteClick = { noteId -> nav.navigate("note/${id}/${noteId}") },
-                            onNewNoteClick = { nav.navigate("note/${id}/new") },
+                            onNoteClick = { noteId ->
+                                // Switch the back stack to the notes variant so returning
+                                // from the note lands on the Notes tab, not Chats.
+                                nav.navigate("project/${id}/notes") {
+                                    popUpTo("project/${id}") { inclusive = true }
+                                }
+                                nav.navigate("note/${id}/${noteId}")
+                            },
+                            onNewNoteClick = {
+                                nav.navigate("project/${id}/notes") {
+                                    popUpTo("project/${id}") { inclusive = true }
+                                }
+                                nav.navigate("note/${id}/new")
+                            },
                             initialTab = ProjectTab.CHATS
                         )
                     }
@@ -110,8 +122,19 @@ class MainActivity : ComponentActivity() {
                             projectId = id,
                             onBack = { nav.popBackStack() },
                             onSettingsClick = { nav.navigate("project_settings/${id}") },
-                            onNewChatClick = { nav.navigate("chat/${id}") },
-                            onChatClick = { chatId -> nav.navigate("chat/${id}/${chatId}") },
+                            onNewChatClick = {
+                                // Swap back stack to chats route so returning lands on Chats tab
+                                nav.navigate("project/${id}") {
+                                    popUpTo("project/${id}/notes") { inclusive = true }
+                                }
+                                nav.navigate("chat/${id}")
+                            },
+                            onChatClick = { chatId ->
+                                nav.navigate("project/${id}") {
+                                    popUpTo("project/${id}/notes") { inclusive = true }
+                                }
+                                nav.navigate("chat/${id}/${chatId}")
+                            },
                             onNoteClick = { noteId -> nav.navigate("note/${id}/${noteId}") },
                             onNewNoteClick = { nav.navigate("note/${id}/new") },
                             initialTab = ProjectTab.NOTES
@@ -123,11 +146,7 @@ class MainActivity : ComponentActivity() {
                         NoteScreen(
                             projectId = projectId,
                             noteId    = noteId,
-                            onBack    = {
-                                nav.navigate("project/${projectId}/notes") {
-                                    popUpTo("project/${projectId}") { inclusive = true }
-                                }
-                            }
+                            onBack    = { nav.popBackStack() }
                         )
                     }
                     composable("project_settings/{id}") { backStackEntry ->

@@ -24,8 +24,10 @@ import com.wizaird.app.ui.ChatScreen
 import com.wizaird.app.ui.ExistingChatScreen
 import com.wizaird.app.ui.HomeScreen
 import com.wizaird.app.ui.NewProjectScreen
+import com.wizaird.app.ui.NoteScreen
 import com.wizaird.app.ui.ProjectScreen
 import com.wizaird.app.ui.ProjectSettingsScreen
+import com.wizaird.app.ui.ProjectTab
 import com.wizaird.app.ui.ProjectsScreen
 import com.wizaird.app.ui.SettingsScreen
 import com.wizaird.app.ui.theme.WizairdTheme
@@ -96,7 +98,36 @@ class MainActivity : ComponentActivity() {
                             onBack = { nav.popBackStack() },
                             onSettingsClick = { nav.navigate("project_settings/${id}") },
                             onNewChatClick = { nav.navigate("chat/${id}") },
-                            onChatClick = { chatId -> nav.navigate("chat/${id}/${chatId}") }
+                            onChatClick = { chatId -> nav.navigate("chat/${id}/${chatId}") },
+                            onNoteClick = { noteId -> nav.navigate("note/${id}/${noteId}") },
+                            onNewNoteClick = { nav.navigate("note/${id}/new") },
+                            initialTab = ProjectTab.CHATS
+                        )
+                    }
+                    composable("project/{id}/notes") { backStackEntry ->
+                        val id = backStackEntry.arguments?.getString("id") ?: ""
+                        ProjectScreen(
+                            projectId = id,
+                            onBack = { nav.popBackStack() },
+                            onSettingsClick = { nav.navigate("project_settings/${id}") },
+                            onNewChatClick = { nav.navigate("chat/${id}") },
+                            onChatClick = { chatId -> nav.navigate("chat/${id}/${chatId}") },
+                            onNoteClick = { noteId -> nav.navigate("note/${id}/${noteId}") },
+                            onNewNoteClick = { nav.navigate("note/${id}/new") },
+                            initialTab = ProjectTab.NOTES
+                        )
+                    }
+                    composable("note/{projectId}/{noteId}") { backStackEntry ->
+                        val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+                        val noteId    = backStackEntry.arguments?.getString("noteId") ?: ""
+                        NoteScreen(
+                            projectId = projectId,
+                            noteId    = noteId,
+                            onBack    = {
+                                nav.navigate("project/${projectId}/notes") {
+                                    popUpTo("project/${projectId}") { inclusive = true }
+                                }
+                            }
                         )
                     }
                     composable("project_settings/{id}") { backStackEntry ->

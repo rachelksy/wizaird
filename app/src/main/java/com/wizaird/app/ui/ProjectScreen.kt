@@ -18,6 +18,8 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
+import com.wizaird.app.data.NoteData
+import com.wizaird.app.data.notesFlow
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.ui.theme.*
 
@@ -36,7 +38,10 @@ fun ProjectScreen(
     onBack: () -> Unit,
     onSettingsClick: () -> Unit,
     onNewChatClick: () -> Unit = {},
-    onChatClick: (String) -> Unit = {}
+    onChatClick: (String) -> Unit = {},
+    onNoteClick: (String) -> Unit = {},
+    onNewNoteClick: () -> Unit = {},
+    initialTab: ProjectTab = ProjectTab.CHATS
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -45,7 +50,7 @@ fun ProjectScreen(
     val project = projects.firstOrNull { it.id == projectId }
     val projectName = project?.name?.ifEmpty { "UNNAMED PROJECT" } ?: "UNNAMED PROJECT"
 
-    var activeTab by remember { mutableStateOf(ProjectTab.CHATS) }
+    var activeTab by remember { mutableStateOf(initialTab) }
 
     // Placeholder chat list — replace with real data once AI wiring is done
     val chats = remember {
@@ -67,6 +72,9 @@ fun ProjectScreen(
             )
         )
     }
+
+    // Notes — live from DataStore, filtered to this project
+    val notes by notesFlow(context, projectId).collectAsState(initial = emptyList())
 
     Box(
         modifier = Modifier
@@ -270,46 +278,64 @@ fun ProjectScreen(
                     }
                 }
                 ProjectTab.NOTES -> {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                    if (notes.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                "NO NOTES YET",
-                                style = pixelStyle(14, colors.secondaryIcon)
-                            )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    "TAP",
-                                    style = pixelStyle(10, colors.secondaryIconSoft),
-                                    modifier = Modifier.offset(y = (-2).dp)
+                                    "NO NOTES YET",
+                                    style = pixelStyle(14, colors.secondaryIcon)
                                 )
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
-                                        .build(),
-                                    imageLoader = remember {
-                                        ImageLoader.Builder(context)
-                                            .components { add(SvgDecoder.Factory()) }
-                                            .build()
-                                    },
-                                    contentDescription = null,
-                                    colorFilter = ColorFilter.tint(colors.secondaryIconSoft),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    "TO START A NEW NOTE",
-                                    style = pixelStyle(10, colors.secondaryIconSoft),
-                                    modifier = Modifier.offset(y = (-2).dp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        "TAP",
+                                        style = pixelStyle(10, colors.secondaryIconSoft),
+                                        modifier = Modifier.offset(y = (-2).dp)
+                                    )
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
+                                            .build(),
+                                        imageLoader = remember {
+                                            ImageLoader.Builder(context)
+                                                .components { add(SvgDecoder.Factory()) }
+                                                .build()
+                                        },
+                                        contentDescription = null,
+                                        colorFilter = ColorFilter.tint(colors.secondaryIconSoft),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        "TO CREATE A NEW NOTE",
+                                        style = pixelStyle(10, colors.secondaryIconSoft),
+                                        modifier = Modifier.offset(y = (-2).dp)
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = PaddingValues(top = 12.dp, bottom = 96.dp)
+                        ) {
+                            items(notes) { note ->
+                                NoteListItem(
+                                    note = note,
+                                    onClick = { onNoteClick(note.id) }
                                 )
                             }
                         }
@@ -329,7 +355,7 @@ fun ProjectScreen(
                 .clip(PixelXLargeCircleShape)
                 .pixelXLargeCircleClickable(interactionSource = fabInteraction) {
                     if (activeTab == ProjectTab.CHATS) onNewChatClick()
-                    // TODO: onNewNoteClick()
+                    else onNewNoteClick()
                 },
             fillColor = if (activeTab == ProjectTab.CHATS) Coral else colors.secondaryButton,
             borderColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -393,6 +419,44 @@ fun ChatListItem(chat: Chat, onClick: () -> Unit = {}) {
             Text(
                 text = chat.createdAt,
                 style = pixelStyle(8, colors.secondaryIconSoft),
+                modifier = Modifier.offset(y = (-2).dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun NoteListItem(note: NoteData, onClick: () -> Unit = {}) {
+    val colors = LocalWizairdColors.current
+    val interaction = remember { MutableInteractionSource() }
+    PixelBox(
+        modifier = Modifier
+            .fillMaxWidth()
+            .pixelRoundedClickable(interactionSource = interaction, onClick = onClick),
+        fillColor = colors.userBubble,
+        borderColor = androidx.compose.ui.graphics.Color.Transparent,
+        cornerStyle = PixelCornerStyle.Rounded
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Date — pixel font, small, on top
+            Text(
+                text = note.createdAt,
+                style = pixelStyle(8, colors.secondaryIconSoft),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.offset(y = (-2).dp)
+            )
+            // Body — minecraft font, same size as bubble text, max 3 lines
+            Text(
+                text = note.body,
+                style = minecraftStyle(12, colors.secondaryIcon),
+                maxLines = 3,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.offset(y = (-2).dp)
             )
         }

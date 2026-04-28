@@ -145,8 +145,8 @@ fun ProjectCard(project: Project, onClick: () -> Unit, onLongPress: (() -> Unit)
                     interactionSource = cardInteraction,
                     onClick = onClick,
                     onLongClick = {
-                        showMenu = true
-                        onLongPress?.invoke()
+                        // showMenu = true
+                        // onLongPress?.invoke()
                     }
                 ),
             fillColor = colors.secondarySurface,

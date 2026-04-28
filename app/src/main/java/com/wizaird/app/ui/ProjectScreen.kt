@@ -262,6 +262,38 @@ fun ProjectScreen(
                                         }
                                     }
 
+                                    // Bookmark option
+                                    val bookmarkInteraction = remember { MutableInteractionSource() }
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .pixelRounded8Clickable(
+                                                interactionSource = bookmarkInteraction,
+                                                onClick = { showMenu = false }
+                                            )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(context)
+                                                    .data("file:///android_asset/pixelarticons/bookmark.svg")
+                                                    .build(),
+                                                imageLoader = svgLoader,
+                                                contentDescription = "Bookmark",
+                                                colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text(
+                                                "Bookmark",
+                                                style = pixelStyle(10, colors.secondaryIcon),
+                                                modifier = Modifier.offset(y = (-2).dp)
+                                            )
+                                        }
+                                    }
+
                                     // Delete option
                                     val deleteInteraction = remember { MutableInteractionSource() }
                                     Box(

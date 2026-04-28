@@ -12,6 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -19,6 +22,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -124,7 +128,7 @@ fun HomeScreen(
                         .weight(1f)
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(0.dp))
 
                 // Wizard
                 WizardCharacter(
@@ -411,11 +415,50 @@ fun ChatBubble(text: String, loading: Boolean, projectName: String? = null, modi
         }
     }
 
+    // Outer box adds bottom space for the tail and draws it via drawWithContent AFTER the bubble
+    val tailColor = colors.secondarySurface
+    val borderColor = colors.border
+    Box(
+        modifier = modifier
+            .padding(bottom = 22.dp)  // 14dp tail + 8dp extra height
+            .drawWithContent {
+                drawContent()  // bubble first
+                val p = PixelSize.toPx()
+                val tailX = size.width / 2f - p * 7.5f
+                val tailY = size.height - p - 1f  // overlap bubble's bottom border row to kill seam
+                // Fill
+                drawRect(tailColor, Offset(tailX,       tailY + p * 0), Size(p * 15, p))
+                drawRect(tailColor, Offset(tailX + p,   tailY + p * 1), Size(p * 13, p))
+                drawRect(tailColor, Offset(tailX + p*2, tailY + p * 2), Size(p * 11, p))
+                drawRect(tailColor, Offset(tailX + p*3, tailY + p * 3), Size(p *  9, p))
+                drawRect(tailColor, Offset(tailX + p*4, tailY + p * 4), Size(p *  7, p))
+                drawRect(tailColor, Offset(tailX + p*5, tailY + p * 5), Size(p *  5, p))
+                drawRect(tailColor, Offset(tailX + p*6, tailY + p * 6), Size(p *  3, p))
+                // Left border
+                drawRect(borderColor, Offset(tailX,       tailY + p * 0), Size(p, p))
+                drawRect(borderColor, Offset(tailX + p,   tailY + p * 1), Size(p, p))
+                drawRect(borderColor, Offset(tailX + p*2, tailY + p * 2), Size(p, p))
+                drawRect(borderColor, Offset(tailX + p*3, tailY + p * 3), Size(p, p))
+                drawRect(borderColor, Offset(tailX + p*4, tailY + p * 4), Size(p, p))
+                drawRect(borderColor, Offset(tailX + p*5, tailY + p * 5), Size(p, p))
+                drawRect(borderColor, Offset(tailX + p*6, tailY + p * 6), Size(p, p))
+                // Right border
+                drawRect(borderColor, Offset(tailX + p*14, tailY + p * 0), Size(p, p))
+                drawRect(borderColor, Offset(tailX + p*13, tailY + p * 1), Size(p, p))
+                drawRect(borderColor, Offset(tailX + p*12, tailY + p * 2), Size(p, p))
+                drawRect(borderColor, Offset(tailX + p*11, tailY + p * 3), Size(p, p))
+                drawRect(borderColor, Offset(tailX + p*10, tailY + p * 4), Size(p, p))
+                drawRect(borderColor, Offset(tailX + p* 9, tailY + p * 5), Size(p, p))
+                drawRect(borderColor, Offset(tailX + p* 8, tailY + p * 6), Size(p, p))
+                // Tip
+                drawRect(borderColor, Offset(tailX + p*7,  tailY + p * 6), Size(p, p))
+            }
+    ) {
     PixelBox(
-        modifier = modifier,
+        modifier = Modifier.fillMaxWidth().fillMaxHeight(),
         fillColor = colors.secondarySurface,
         cornerStyle = PixelCornerStyle.Rounded,
-        speechTail = true
+        speechTail = false
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // ── Bubble header ──
@@ -501,6 +544,7 @@ fun ChatBubble(text: String, loading: Boolean, projectName: String? = null, modi
             }
         }
     }
+    } // end outer tail Box
 }
 
 // ── Wizard character (GIF via Coil) ──────────────────────────────

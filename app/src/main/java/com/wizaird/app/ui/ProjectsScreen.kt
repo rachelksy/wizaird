@@ -10,7 +10,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
@@ -122,6 +130,7 @@ fun ProjectCard(project: Project, onClick: () -> Unit, onLongPress: (() -> Unit)
     val cardInteraction = remember { MutableInteractionSource() }
 
     var showMenu by remember { mutableStateOf(false) }
+    var cardHeightPx by remember { mutableStateOf(0) }
 
     val svgLoader = remember {
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
@@ -131,9 +140,9 @@ fun ProjectCard(project: Project, onClick: () -> Unit, onLongPress: (() -> Unit)
         PixelBox(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(
+                .onGloballyPositioned { cardHeightPx = it.size.height }
+                .pixelRoundedCombinedClickable(
                     interactionSource = cardInteraction,
-                    indication = null,
                     onClick = onClick,
                     onLongClick = {
                         showMenu = true
@@ -188,45 +197,77 @@ fun ProjectCard(project: Project, onClick: () -> Unit, onLongPress: (() -> Unit)
                     )
                 }
             }
-        }
+        } // end PixelBox
 
         // Popover — rendered outside layout via Popup so it never shifts other cards
         if (showMenu) {
             val density = LocalDensity.current
-            val offsetPx = with(density) { 8.dp.roundToPx() }
+            val nudge = with(density) { 2.dp.roundToPx() }
+            val offsetX = with(density) { (-14.dp).roundToPx() } + nudge
+            val offsetY = with(density) { 12.dp.roundToPx() }
             Popup(
                 alignment = Alignment.TopEnd,
-                offset = IntOffset(x = -offsetPx, y = offsetPx),
+                offset = IntOffset(x = offsetX, y = offsetY),
                 onDismissRequest = { showMenu = false },
                 properties = PopupProperties(focusable = true)
             ) {
-                PixelBox(
-                    modifier = Modifier.clip(PixelRounded8Shape),
-                    fillColor = colors.secondarySurface,
-                    cutColor = colors.secondarySurface,
-                    cornerStyle = PixelCornerStyle.Rounded8
+                Box(
+                    modifier = Modifier
+                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                        .drawBehind {
+                            val p = PixelSize.toPx()
+                            val w = size.width
+                            val h = size.height
+                            val fill = colors.userBubble
+                            val cut = Color.Transparent
+
+                            // Fill entire box
+                            drawRect(fill)
+
+                            // Cut corners with BlendMode.Clear to punch through to transparent
+                            // Top-left
+                            drawRect(cut, Offset(0f, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                            // Top-right
+                            drawRect(cut, Offset(w-p*5, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*3, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*2, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*1, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*1, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                            // Bottom-left
+                            drawRect(cut, Offset(0f, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                            // Bottom-right
+                            drawRect(cut, Offset(w-p*5, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*3, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*2, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*1, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*1, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                        }
                 ) {
                     Column(modifier = Modifier
                         .width(IntrinsicSize.Max)
                         .padding(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
                         // Bookmark option
                         val bookmarkInteraction = remember { MutableInteractionSource() }
-                        PixelBox(
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .pixelRounded8Clickable(
                                     interactionSource = bookmarkInteraction,
                                     onClick = { showMenu = false }
-                                ),
-                            fillColor = colors.secondarySurface,
-                            borderColor = colors.secondarySurface,
-                            cutColor = colors.secondarySurface,
-                            cornerStyle = PixelCornerStyle.Rounded8
+                                )
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
@@ -248,21 +289,18 @@ fun ProjectCard(project: Project, onClick: () -> Unit, onLongPress: (() -> Unit)
                         }
 
                         // Delete option
+
                         val deleteInteraction = remember { MutableInteractionSource() }
-                        PixelBox(
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .pixelRounded8Clickable(
                                     interactionSource = deleteInteraction,
                                     onClick = { showMenu = false }
-                                ),
-                            fillColor = colors.secondarySurface,
-                            borderColor = colors.secondarySurface,
-                            cutColor = colors.secondarySurface,
-                            cornerStyle = PixelCornerStyle.Rounded8
+                                )
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {

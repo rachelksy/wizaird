@@ -1,7 +1,9 @@
 package com.wizaird.app.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material3.ripple
@@ -253,6 +255,20 @@ fun Modifier.pixelRoundedClickable(
         .drawWithContent { if (pressed) drawPressOverlay(cuts) else drawContent() }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun Modifier.pixelRoundedCombinedClickable(
+    interactionSource: MutableInteractionSource,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+): Modifier {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val cuts = floatArrayOf(7f, 5f, 3f, 2f, 2f, 1f, 1f)
+    return this
+        .combinedClickable(interactionSource = interactionSource, indication = null, onClick = onClick, onLongClick = onLongClick)
+        .drawWithContent { if (pressed) drawPressOverlay(cuts) else drawContent() }
+}
+
 // ── Pixel clip shapes — exact same coordinates as the draw functions ──────────
 // clip(PixelCircleButtonShape) or clip(PixelRounded8Shape) before clickable
 // ensures the ripple is bounded by the real pixel outline, not a rectangle.
@@ -306,7 +322,7 @@ object PixelCircleButtonShape : Shape {
 }
 
 // Matches drawPixelArrowButton / PixelCornerStyle.Rounded8 exactly.
-// Left-edge x per row from top: 5p,3p,2p,1p,1p,0 (then straight)
+// Cut table per row from top: row0=5p, row1=3p, row2=2p, row3=1p, row4=1p, row5+=straight
 object PixelRounded8Shape : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val p = with(density) { PixelSize.toPx() }
@@ -316,14 +332,17 @@ object PixelRounded8Shape : Shape {
             moveTo(p*5, 0f)
             lineTo(w-p*5, 0f)   // top edge
             // Top-right
-            lineTo(w-p*3, 0f);  lineTo(w-p*3, p*1)
-            lineTo(w-p*2, p*1); lineTo(w-p*2, p*2)
-            lineTo(w-p*1, p*2); lineTo(w-p*1, p*4)
+            lineTo(w-p*5, 0f);  lineTo(w-p*3, 0f)
+            lineTo(w-p*3, p*1); lineTo(w-p*2, p*1)
+            lineTo(w-p*2, p*2); lineTo(w-p*1, p*2)
+            lineTo(w-p*1, p*3)
+            lineTo(w-p*1, p*4)
             lineTo(w-p*0, p*4); lineTo(w,     p*5)
             // Right edge
             lineTo(w, h-p*5)
             // Bottom-right
             lineTo(w,     h-p*4); lineTo(w-p*1, h-p*4)
+            lineTo(w-p*1, h-p*3)
             lineTo(w-p*1, h-p*2); lineTo(w-p*2, h-p*2)
             lineTo(w-p*2, h-p*1); lineTo(w-p*3, h-p*1)
             lineTo(w-p*3, h);     lineTo(w-p*5, h)
@@ -332,12 +351,15 @@ object PixelRounded8Shape : Shape {
             // Bottom-left
             lineTo(p*3, h);    lineTo(p*3, h-p*1)
             lineTo(p*2, h-p*1); lineTo(p*2, h-p*2)
-            lineTo(p*1, h-p*2); lineTo(p*1, h-p*4)
-            lineTo(0f,  h-p*4); lineTo(0f,  h-p*5)
+            lineTo(p*1, h-p*2)
+            lineTo(p*1, h-p*3)
+            lineTo(p*1, h-p*4); lineTo(0f,  h-p*4)
+            lineTo(0f,  h-p*5)
             // Left edge
             lineTo(0f, p*5)
             // Top-left
             lineTo(0f,  p*4);  lineTo(p*1, p*4)
+            lineTo(p*1, p*3)
             lineTo(p*1, p*2);  lineTo(p*2, p*2)
             lineTo(p*2, p*1);  lineTo(p*3, p*1)
             lineTo(p*3, 0f);   lineTo(p*5, 0f)

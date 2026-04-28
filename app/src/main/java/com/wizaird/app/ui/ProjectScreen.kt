@@ -4,16 +4,28 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
@@ -41,6 +53,7 @@ fun ProjectScreen(
     onChatClick: (String) -> Unit = {},
     onNoteClick: (String) -> Unit = {},
     onNewNoteClick: () -> Unit = {},
+    onDeleteClick: () -> Unit = {},
     initialTab: ProjectTab = ProjectTab.CHATS
 ) {
     val context = LocalContext.current
@@ -51,6 +64,13 @@ fun ProjectScreen(
     val projectName = project?.name?.ifEmpty { "UNNAMED PROJECT" } ?: "UNNAMED PROJECT"
 
     var activeTab by remember { mutableStateOf(initialTab) }
+    var showMenu by remember { mutableStateOf(false) }
+    var menuButtonHeightPx by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
+
+    val svgLoader = remember {
+        ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
+    }
 
     // Placeholder chat list — replace with real data once AI wiring is done
     val chats = remember {
@@ -134,12 +154,154 @@ fun ProjectScreen(
                     )
                 }
 
-                PixelCircleIconButton(
-                    iconRes = com.wizaird.app.R.drawable.ic_settings_2,
-                    contentDescription = "Project Settings",
-                    fillColor = colors.secondaryButton,
-                    onClick = onSettingsClick
-                )
+                Box(
+                    modifier = Modifier.onGloballyPositioned { menuButtonHeightPx = it.size.height }
+                ) {
+                    PixelCircleIconButton(
+                        iconRes = com.wizaird.app.R.drawable.ic_more_vertical,
+                        contentDescription = "More options",
+                        fillColor = colors.secondaryButton,
+                        onClick = { showMenu = true }
+                    )
+
+                    if (showMenu) {
+                        val shadowDp = 8.dp
+                        val offsetX = with(density) { shadowDp.roundToPx() }
+                        val offsetY = menuButtonHeightPx + with(density) { 8.dp.roundToPx() }
+                        Popup(
+                            alignment = Alignment.TopEnd,
+                            offset = IntOffset(x = offsetX, y = offsetY),
+                            onDismissRequest = { showMenu = false },
+                            properties = PopupProperties(focusable = true)
+                        ) {
+                            // Outer box adds right padding = shadow spread so the popup's
+                            // layout width includes the shadow, keeping the visual right
+                            // edge aligned with the button while the shadow bleeds outward.
+                            Box(modifier = Modifier.padding(end = shadowDp)) {
+                            Box(
+                                modifier = Modifier
+                                    .graphicsLayer {
+                                        compositingStrategy = CompositingStrategy.Offscreen
+                                        shadowElevation = 8.dp.toPx()
+                                        shape = PixelRounded8Shape
+                                        clip = true
+                                    }
+                                    .drawBehind {
+                                        val p = PixelSize.toPx()
+                                        val w = size.width
+                                        val h = size.height
+                                        val fill = colors.userBubble
+                                        val cut = Color.Transparent
+
+                                        drawRect(fill)
+
+                                        // Top-left
+                                        drawRect(cut, Offset(0f, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        // Top-right
+                                        drawRect(cut, Offset(w-p*5, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*3, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*2, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*1, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*1, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        // Bottom-left
+                                        drawRect(cut, Offset(0f, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        // Bottom-right
+                                        drawRect(cut, Offset(w-p*5, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*3, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*2, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*1, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*1, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                                    }
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .width(IntrinsicSize.Max)
+                                        .padding(4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                                ) {
+                                    // Settings option
+                                    val settingsInteraction = remember { MutableInteractionSource() }
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .pixelRounded8Clickable(
+                                                interactionSource = settingsInteraction,
+                                                onClick = {
+                                                    showMenu = false
+                                                    onSettingsClick()
+                                                }
+                                            )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(context)
+                                                    .data("file:///android_asset/pixelarticons/settings-2.svg")
+                                                    .build(),
+                                                imageLoader = svgLoader,
+                                                contentDescription = "Settings",
+                                                colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text(
+                                                "Settings",
+                                                style = pixelStyle(10, colors.secondaryIcon),
+                                                modifier = Modifier.offset(y = (-2).dp)
+                                            )
+                                        }
+                                    }
+
+                                    // Delete option
+                                    val deleteInteraction = remember { MutableInteractionSource() }
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .pixelRounded8Clickable(
+                                                interactionSource = deleteInteraction,
+                                                onClick = {
+                                                    showMenu = false
+                                                    onDeleteClick()
+                                                }
+                                            )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(context)
+                                                    .data("file:///android_asset/pixelarticons/delete.svg")
+                                                    .build(),
+                                                imageLoader = svgLoader,
+                                                contentDescription = "Delete",
+                                                colorFilter = ColorFilter.tint(colors.coral),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text(
+                                                "Delete",
+                                                style = pixelStyle(10, colors.coral),
+                                                modifier = Modifier.offset(y = (-2).dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            } // end shadow Box wrapper
+                        }
+                    }
+                }
             }
 
             // Tab row

@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -125,20 +126,21 @@ fun ChatScreen(
                     .padding(horizontal = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Speech bubble with tail — outer box adds space for tail and draws it
+                // Speech bubble with tail, overlaps gif by 4dp via zIndex
                 val tailColor = colors.secondarySurface
                 val borderColor = colors.border
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 40.dp)
-                        .padding(bottom = 22.dp) // 14dp tail + 8dp extra
+                        .padding(bottom = 22.dp)
                         .wrapContentSize()
+                        .offset(y = 4.dp) // overlap gif by 4dp
+                        .zIndex(1f)       // render on top of gif
                         .drawWithContent {
-                            drawContent() // bubble first
+                            drawContent()
                             val p = PixelSize.toPx()
                             val tailX = size.width / 2f - p * 7.5f
-                            val tailY = size.height - p - 1f // overlap bubble's bottom border
-                            // Fill
+                            val tailY = size.height - p - 1f
                             drawRect(tailColor, androidx.compose.ui.geometry.Offset(tailX,       tailY + p * 0), androidx.compose.ui.geometry.Size(p * 15, p))
                             drawRect(tailColor, androidx.compose.ui.geometry.Offset(tailX + p,   tailY + p * 1), androidx.compose.ui.geometry.Size(p * 13, p))
                             drawRect(tailColor, androidx.compose.ui.geometry.Offset(tailX + p*2, tailY + p * 2), androidx.compose.ui.geometry.Size(p * 11, p))
@@ -146,7 +148,6 @@ fun ChatScreen(
                             drawRect(tailColor, androidx.compose.ui.geometry.Offset(tailX + p*4, tailY + p * 4), androidx.compose.ui.geometry.Size(p *  7, p))
                             drawRect(tailColor, androidx.compose.ui.geometry.Offset(tailX + p*5, tailY + p * 5), androidx.compose.ui.geometry.Size(p *  5, p))
                             drawRect(tailColor, androidx.compose.ui.geometry.Offset(tailX + p*6, tailY + p * 6), androidx.compose.ui.geometry.Size(p *  3, p))
-                            // Left border
                             drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX,       tailY + p * 0), androidx.compose.ui.geometry.Size(p, p))
                             drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p,   tailY + p * 1), androidx.compose.ui.geometry.Size(p, p))
                             drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*2, tailY + p * 2), androidx.compose.ui.geometry.Size(p, p))
@@ -154,7 +155,6 @@ fun ChatScreen(
                             drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*4, tailY + p * 4), androidx.compose.ui.geometry.Size(p, p))
                             drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*5, tailY + p * 5), androidx.compose.ui.geometry.Size(p, p))
                             drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*6, tailY + p * 6), androidx.compose.ui.geometry.Size(p, p))
-                            // Right border
                             drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*14, tailY + p * 0), androidx.compose.ui.geometry.Size(p, p))
                             drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*13, tailY + p * 1), androidx.compose.ui.geometry.Size(p, p))
                             drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*12, tailY + p * 2), androidx.compose.ui.geometry.Size(p, p))
@@ -162,7 +162,6 @@ fun ChatScreen(
                             drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*10, tailY + p * 4), androidx.compose.ui.geometry.Size(p, p))
                             drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p* 9, tailY + p * 5), androidx.compose.ui.geometry.Size(p, p))
                             drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p* 8, tailY + p * 6), androidx.compose.ui.geometry.Size(p, p))
-                            // Tip
                             drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*7,  tailY + p * 6), androidx.compose.ui.geometry.Size(p, p))
                         }
                 ) {
@@ -187,9 +186,7 @@ fun ChatScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Wizard GIF
+                // Wizard GIF sits naturally on top of the input bar
                 WizardCharacter(
                     bobOffsetY = bobY,
                     modifier = Modifier.align(Alignment.CenterHorizontally)

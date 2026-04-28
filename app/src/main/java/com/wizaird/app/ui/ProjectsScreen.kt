@@ -213,7 +213,12 @@ fun ProjectCard(project: Project, onClick: () -> Unit, onLongPress: (() -> Unit)
             ) {
                 Box(
                     modifier = Modifier
-                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                        .graphicsLayer { 
+                            compositingStrategy = CompositingStrategy.Offscreen
+                            shadowElevation = 8.dp.toPx()
+                            shape = PixelRounded8Shape
+                            clip = true
+                        }
                         .drawBehind {
                             val p = PixelSize.toPx()
                             val w = size.width

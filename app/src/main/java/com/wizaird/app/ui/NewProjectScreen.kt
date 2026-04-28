@@ -93,7 +93,26 @@ fun NewProjectScreen(onBack: () -> Unit) {
                     Text(
                         "NEW PROJECT",
                         style = pixelStyle(14, colors.secondaryIcon),
-                        modifier = Modifier.offset(y = (-2).dp)
+                        modifier = Modifier
+                            .weight(1f)
+                            .offset(y = (-2).dp)
+                    )
+                    PixelButtonSmall(
+                        label = "CREATE",
+                        primary = true,
+                        onClick = {
+                            scope.launch {
+                                upsertProject(
+                                    context,
+                                    Project(
+                                        name = projectName,
+                                        instructions = instructions,
+                                        picturePath = picturePath
+                                    )
+                                )
+                                onBack()
+                            }
+                        }
                     )
                 }
             // } // end PixelBox
@@ -123,30 +142,27 @@ fun NewProjectScreen(onBack: () -> Unit) {
                 }
 
                 // AI instructions
-                SettingsField(label = "AI INSTRUCTIONS") {
-                    PixelBox(
+                SettingsField(label = "AI INSTRUCTIONS") {                    PixelBox(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 120.dp),
+                            .height(240.dp),
                         fillColor = colors.secondarySurface,
                         cornerStyle = PixelCornerStyle.Rounded
                     ) {
                         androidx.compose.foundation.text.BasicTextField(
                             value = instructions,
                             onValueChange = { instructions = it },
-                            textStyle = pixelStyle(12, colors.secondaryIcon),
+                            textStyle = minecraftStyle(12, colors.secondaryIcon),
                             cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.secondaryIcon),
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 8.dp)
-                                .offset(y = (-2).dp),
+                                .fillMaxSize()
+                                .padding(12.dp),
                             decorationBox = { inner ->
                                 Box(contentAlignment = Alignment.TopStart) {
                                     if (instructions.isEmpty()) {
                                         Text(
-                                            "YOU ARE A HELPFUL WIZARD...",
-                                            style = pixelStyle(12, colors.secondaryIconSoft),
-                                            modifier = Modifier.offset(y = (-2).dp)
+                                            "You are a helpful wizard...",
+                                            style = minecraftStyle(12, colors.secondaryIconSoft)
                                         )
                                     }
                                     inner()
@@ -154,37 +170,6 @@ fun NewProjectScreen(onBack: () -> Unit) {
                             }
                         )
                     }
-                }
-
-                // Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    PixelButtonLarge(
-                        label = "CANCEL",
-                        primary = false,
-                        modifier = Modifier.weight(1f),
-                        onClick = onBack
-                    )
-                    PixelButtonLarge(
-                        label = "CREATE",
-                        primary = true,
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            scope.launch {
-                                upsertProject(
-                                    context,
-                                    Project(
-                                        name = projectName,
-                                        instructions = instructions,
-                                        picturePath = picturePath
-                                    )
-                                )
-                                onBack()
-                            }
-                        }
-                    )
                 }
             }
         }

@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -124,26 +125,65 @@ fun ChatScreen(
                     .padding(horizontal = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Speech bubble — hugs text, narrowed with horizontal padding
-                PixelBox(
+                // Speech bubble with tail — outer box adds space for tail and draws it
+                val tailColor = colors.secondarySurface
+                val borderColor = colors.border
+                Box(
                     modifier = Modifier
+                        .padding(horizontal = 40.dp)
+                        .padding(bottom = 22.dp) // 14dp tail + 8dp extra
                         .wrapContentSize()
-                        .padding(horizontal = 40.dp),
-                    fillColor = colors.secondarySurface,
-                    cornerStyle = PixelCornerStyle.Rounded,
-                    speechTail = true
+                        .drawWithContent {
+                            drawContent() // bubble first
+                            val p = PixelSize.toPx()
+                            val tailX = size.width / 2f - p * 7.5f
+                            val tailY = size.height - p - 1f // overlap bubble's bottom border
+                            // Fill
+                            drawRect(tailColor, androidx.compose.ui.geometry.Offset(tailX,       tailY + p * 0), androidx.compose.ui.geometry.Size(p * 15, p))
+                            drawRect(tailColor, androidx.compose.ui.geometry.Offset(tailX + p,   tailY + p * 1), androidx.compose.ui.geometry.Size(p * 13, p))
+                            drawRect(tailColor, androidx.compose.ui.geometry.Offset(tailX + p*2, tailY + p * 2), androidx.compose.ui.geometry.Size(p * 11, p))
+                            drawRect(tailColor, androidx.compose.ui.geometry.Offset(tailX + p*3, tailY + p * 3), androidx.compose.ui.geometry.Size(p *  9, p))
+                            drawRect(tailColor, androidx.compose.ui.geometry.Offset(tailX + p*4, tailY + p * 4), androidx.compose.ui.geometry.Size(p *  7, p))
+                            drawRect(tailColor, androidx.compose.ui.geometry.Offset(tailX + p*5, tailY + p * 5), androidx.compose.ui.geometry.Size(p *  5, p))
+                            drawRect(tailColor, androidx.compose.ui.geometry.Offset(tailX + p*6, tailY + p * 6), androidx.compose.ui.geometry.Size(p *  3, p))
+                            // Left border
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX,       tailY + p * 0), androidx.compose.ui.geometry.Size(p, p))
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p,   tailY + p * 1), androidx.compose.ui.geometry.Size(p, p))
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*2, tailY + p * 2), androidx.compose.ui.geometry.Size(p, p))
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*3, tailY + p * 3), androidx.compose.ui.geometry.Size(p, p))
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*4, tailY + p * 4), androidx.compose.ui.geometry.Size(p, p))
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*5, tailY + p * 5), androidx.compose.ui.geometry.Size(p, p))
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*6, tailY + p * 6), androidx.compose.ui.geometry.Size(p, p))
+                            // Right border
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*14, tailY + p * 0), androidx.compose.ui.geometry.Size(p, p))
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*13, tailY + p * 1), androidx.compose.ui.geometry.Size(p, p))
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*12, tailY + p * 2), androidx.compose.ui.geometry.Size(p, p))
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*11, tailY + p * 3), androidx.compose.ui.geometry.Size(p, p))
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*10, tailY + p * 4), androidx.compose.ui.geometry.Size(p, p))
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p* 9, tailY + p * 5), androidx.compose.ui.geometry.Size(p, p))
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p* 8, tailY + p * 6), androidx.compose.ui.geometry.Size(p, p))
+                            // Tip
+                            drawRect(borderColor, androidx.compose.ui.geometry.Offset(tailX + p*7,  tailY + p * 6), androidx.compose.ui.geometry.Size(p, p))
+                        }
                 ) {
-                    SelectionContainer {
-                        Text(
-                            text = bubbleText,
-                            style = pixelStyle(14, colors.textHigh).copy(
-                                lineHeight = (14 * 1.6f).sp
-                            ),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .padding(16.dp)
-                                .offset(y = (-2).dp)
-                        )
+                    PixelBox(
+                        modifier = Modifier.wrapContentSize(),
+                        fillColor = colors.secondarySurface,
+                        cornerStyle = PixelCornerStyle.Rounded,
+                        speechTail = false
+                    ) {
+                        SelectionContainer {
+                            Text(
+                                text = bubbleText,
+                                style = pixelStyle(14, colors.textHigh).copy(
+                                    lineHeight = (14 * 1.6f).sp
+                                ),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .offset(y = (-2).dp)
+                            )
+                        }
                     }
                 }
 

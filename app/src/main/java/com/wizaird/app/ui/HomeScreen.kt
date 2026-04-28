@@ -118,7 +118,7 @@ fun HomeScreen(
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Bubble fills all remaining space
+                // Bubble with extra 8dp height extending into wizard space
                 ChatBubble(
                     text = bubbleText,
                     loading = isLoading,
@@ -126,11 +126,21 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
+                        .layout { measurable, constraints ->
+                            // Measure with 8dp extra height
+                            val placeable = measurable.measure(
+                                constraints.copy(
+                                    maxHeight = constraints.maxHeight + 8.dp.roundToPx()
+                                )
+                            )
+                            // Layout with original height so it extends downward
+                            layout(placeable.width, constraints.maxHeight) {
+                                placeable.place(0, 0)
+                            }
+                        }
                 )
 
-                Spacer(modifier = Modifier.height(0.dp))
-
-                // Wizard
+                // Wizard overlaps the bubble from below
                 WizardCharacter(
                     bobOffsetY = bobY,
                     modifier = Modifier.align(Alignment.CenterHorizontally)

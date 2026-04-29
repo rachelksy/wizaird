@@ -213,7 +213,7 @@ fun ProjectCard(project: Project, onClick: () -> Unit, onLongPress: (() -> Unit)
                 alignment = Alignment.TopEnd,
                 offset = IntOffset(x = offsetX, y = offsetY),
                 onDismissRequest = { showMenu = false },
-                properties = PopupProperties(focusable = true)
+                properties = PopupProperties(focusable = false)
             ) {
                 Box(
                     modifier = Modifier

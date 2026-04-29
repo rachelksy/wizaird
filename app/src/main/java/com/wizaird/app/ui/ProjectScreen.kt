@@ -153,7 +153,7 @@ fun ProjectScreen(
                             alignment = Alignment.TopEnd,
                             offset = IntOffset(x = offsetX, y = offsetY),
                             onDismissRequest = { showMenu = false },
-                            properties = PopupProperties(focusable = true)
+                            properties = PopupProperties(focusable = false)
                         ) {
                             // Outer box adds right padding = shadow spread so the popup's
                             // layout width includes the shadow, keeping the visual right
@@ -708,7 +708,7 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
                             alignment = Alignment.TopEnd,
                             offset = IntOffset(x = 0, y = offsetY),
                             onDismissRequest = { showMenu = false },
-                            properties = PopupProperties(focusable = true)
+                            properties = PopupProperties(focusable = false)
                         ) {
                 Box(
                     modifier = Modifier

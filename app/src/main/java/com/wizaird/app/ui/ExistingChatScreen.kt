@@ -145,7 +145,7 @@ fun ExistingChatScreen(
                         alignment = Alignment.TopEnd,
                         offset = IntOffset(x = 0, y = offsetY),
                         onDismissRequest = { showMenu = false },
-                        properties = PopupProperties(focusable = true)
+                        properties = PopupProperties(focusable = false)
                     ) {
                         Box(
                             modifier = Modifier

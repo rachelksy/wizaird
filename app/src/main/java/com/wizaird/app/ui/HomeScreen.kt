@@ -20,7 +20,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.style.TextOverflow
@@ -490,6 +492,9 @@ fun ChatBubble(
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
+    val clipboardManager = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
+    var copied by remember { mutableStateOf(false) }
     var dotCount by remember { mutableIntStateOf(1) }
     LaunchedEffect(loading) {
         if (loading) {
@@ -639,12 +644,19 @@ fun ChatBubble(
                             .build(),
                         imageLoader = svgLoader,
                         contentDescription = "Copy",
-                        colorFilter = ColorFilter.tint(colors.textXLow),
+                        colorFilter = ColorFilter.tint(if (copied) colors.textHigh else colors.textXLow),
                         modifier = Modifier
                             .size(20.dp)
                             .pixelRounded8ClickableOversize(
                                 interactionSource = copyInteraction
-                            ) { /* TODO: copy to clipboard */ }
+                            ) {
+                                clipboardManager.setText(AnnotatedString(text))
+                                copied = true
+                                scope.launch {
+                                    delay(2000)
+                                    copied = false
+                                }
+                            }
                     )
 
                     val noteInteraction = remember { MutableInteractionSource() }

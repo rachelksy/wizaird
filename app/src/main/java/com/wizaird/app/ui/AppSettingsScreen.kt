@@ -97,8 +97,8 @@ fun AppSettingsScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Dark mode toggle
-                    SettingsField(label = "DARK MODE") {
+                    // Mode toggle
+                    SettingsField(label = "MODES") {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf(false to "LIGHT", true to "DARK").forEach { (value, label) ->
                                 PixelButtonMedium(

@@ -20,8 +20,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.ClipboardManager
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
@@ -396,12 +399,16 @@ fun ExistingChatScreen(
 fun ChatBubble(message: ChatMessage) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
+    val clipboardManager = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
     val isUser = message.sender == MessageSender.USER
 
     val userBubbleFill = colors.userBubble
     val userBubbleText = colors.secondaryIcon
     val aiBubbleFill   = colors.secondarySurface
     val aiBubbleText   = colors.textHigh
+
+    var copied by remember { mutableStateOf(false) }
 
     val svgLoader = remember {
         ImageLoader.Builder(context)
@@ -449,12 +456,19 @@ fun ChatBubble(message: ChatMessage) {
                                 .build(),
                             imageLoader = svgLoader,
                             contentDescription = "Copy",
-                            colorFilter = ColorFilter.tint(colors.textXLow),
+                            colorFilter = ColorFilter.tint(if (copied) colors.textHigh else colors.textXLow),
                             modifier = Modifier
                                 .size(20.dp)
                                 .pixelRounded8ClickableOversize(
                                     interactionSource = copyInteraction
-                                ) { /* TODO: copy to clipboard */ }
+                                ) {
+                                    clipboardManager.setText(AnnotatedString(message.text))
+                                    copied = true
+                                    scope.launch {
+                                        delay(2000)
+                                        copied = false
+                                    }
+                                }
                         )
 
                         val noteInteraction = remember { MutableInteractionSource() }

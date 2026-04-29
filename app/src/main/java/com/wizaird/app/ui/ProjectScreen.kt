@@ -363,8 +363,11 @@ fun ProjectScreen(
                             ) {
                                 when (tab) {
                                     ProjectTab.CHATS -> {
-                                        androidx.compose.foundation.Image(
-                                            painter = painterResource(id = com.wizaird.app.R.drawable.ic_comment),
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(context)
+                                                .data("file:///android_asset/pixelarticons/message.svg")
+                                                .build(),
+                                            imageLoader = svgLoader,
                                             contentDescription = null,
                                             colorFilter = ColorFilter.tint(iconColor),
                                             modifier = Modifier.size(14.dp)
@@ -442,10 +445,11 @@ fun ProjectScreen(
                                         style = pixelStyle(10, colors.secondaryIconSoft),
                                         modifier = Modifier.offset(y = (-2).dp)
                                     )
-                                    androidx.compose.foundation.Image(
-                                        painter = androidx.compose.ui.res.painterResource(
-                                            id = com.wizaird.app.R.drawable.ic_comment
-                                        ),
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data("file:///android_asset/pixelarticons/message.svg")
+                                            .build(),
+                                        imageLoader = svgLoader,
                                         contentDescription = null,
                                         colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIconSoft),
                                         modifier = Modifier.size(14.dp)
@@ -606,10 +610,11 @@ fun ProjectScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     if (activeTab == ProjectTab.CHATS) {
-                        androidx.compose.foundation.Image(
-                            painter = androidx.compose.ui.res.painterResource(
-                                id = com.wizaird.app.R.drawable.ic_comment
-                            ),
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/message.svg")
+                                .build(),
+                            imageLoader = svgLoader,
                             contentDescription = "New Chat",
                             colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIcon),
                             modifier = Modifier.size(28.dp)

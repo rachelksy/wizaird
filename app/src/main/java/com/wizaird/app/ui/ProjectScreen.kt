@@ -31,15 +31,18 @@ import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.wizaird.app.data.NoteData
+import com.wizaird.app.data.StoredInsight
 import com.wizaird.app.data.chatsFlow
+import com.wizaird.app.data.deleteInsight
 import com.wizaird.app.data.deleteNote
 import com.wizaird.app.data.deleteProject
 import com.wizaird.app.data.notesFlow
 import com.wizaird.app.data.projectsFlow
+import com.wizaird.app.data.storedInsightsFlow
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.launch
 
-enum class ProjectTab { CHATS, NOTES }
+enum class ProjectTab { CHATS, NOTES, INSIGHTS }
 
 @Composable
 fun ProjectScreen(
@@ -76,6 +79,9 @@ fun ProjectScreen(
 
     // Notes — live from DataStore, filtered to this project
     val notes by notesFlow(context, projectId).collectAsState(initial = emptyList())
+
+    // Insights — live from DataStore, filtered to this project
+    val insights by storedInsightsFlow(context, projectId).collectAsState(initial = emptyList())
 
     Box(
         modifier = Modifier
@@ -329,7 +335,11 @@ fun ProjectScreen(
                         .components { add(SvgDecoder.Factory()) }
                         .build()
                 }
-                listOf(ProjectTab.CHATS to "Chats", ProjectTab.NOTES to "Notes").forEach { (tab, label) ->
+                listOf(
+                    ProjectTab.CHATS to "Chats",
+                    ProjectTab.NOTES to "Notes",
+                    ProjectTab.INSIGHTS to "Insights"
+                ).forEach { (tab, label) ->
                     val isActive = activeTab == tab
                     val tabInteraction = remember { MutableInteractionSource() }
                     val iconColor = if (isActive) colors.textHigh else colors.textXLow
@@ -351,23 +361,37 @@ fun ProjectScreen(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                             ) {
-                                if (tab == ProjectTab.CHATS) {
-                                    androidx.compose.foundation.Image(
-                                        painter = painterResource(id = com.wizaird.app.R.drawable.ic_comment),
-                                        contentDescription = null,
-                                        colorFilter = ColorFilter.tint(iconColor),
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                } else {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(context)
-                                            .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
-                                            .build(),
-                                        imageLoader = svgLoader,
-                                        contentDescription = null,
-                                        colorFilter = ColorFilter.tint(iconColor),
-                                        modifier = Modifier.size(14.dp)
-                                    )
+                                when (tab) {
+                                    ProjectTab.CHATS -> {
+                                        androidx.compose.foundation.Image(
+                                            painter = painterResource(id = com.wizaird.app.R.drawable.ic_comment),
+                                            contentDescription = null,
+                                            colorFilter = ColorFilter.tint(iconColor),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    ProjectTab.NOTES -> {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(context)
+                                                .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
+                                                .build(),
+                                            imageLoader = svgLoader,
+                                            contentDescription = null,
+                                            colorFilter = ColorFilter.tint(iconColor),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    ProjectTab.INSIGHTS -> {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(context)
+                                                .data("file:///android_asset/pixelarticons/lightbulb-off.svg")
+                                                .build(),
+                                            imageLoader = svgLoader,
+                                            contentDescription = null,
+                                            colorFilter = ColorFilter.tint(iconColor),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
                                 }
                                 Text(
                                     text = label,
@@ -516,53 +540,95 @@ fun ProjectScreen(
                         }
                     }
                 }
+                ProjectTab.INSIGHTS -> {
+                    if (insights.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    "NO INSIGHTS YET",
+                                    style = pixelStyle(14, colors.secondaryIcon)
+                                )
+                                Text(
+                                    "INSIGHTS WILL APPEAR HERE AS THEY'RE GENERATED",
+                                    style = pixelStyle(10, colors.secondaryIconSoft),
+                                    modifier = Modifier.offset(y = (-2).dp)
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = PaddingValues(top = 12.dp, bottom = 96.dp)
+                        ) {
+                            items(insights) { insight ->
+                                InsightListItem(
+                                    insight = insight
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // FAB — switches based on active tab
-        val fabInteraction = remember { MutableInteractionSource() }
-        PixelBox(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 16.dp)
-                .navigationBarsPadding()
-                .size(80.dp)
-                .clip(PixelXLargeCircleShape)
-                .pixelXLargeCircleClickable(interactionSource = fabInteraction) {
-                    if (activeTab == ProjectTab.CHATS) onNewChatClick()
-                    else onNewNoteClick()
-                },
-            fillColor = if (activeTab == ProjectTab.CHATS) Coral else colors.secondaryButton,
-            borderColor = androidx.compose.ui.graphics.Color.Transparent,
-            cornerStyle = PixelCornerStyle.XLargeCircle
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+        // FAB — switches based on active tab (only show for CHATS and NOTES)
+        if (activeTab == ProjectTab.CHATS || activeTab == ProjectTab.NOTES) {
+            val fabInteraction = remember { MutableInteractionSource() }
+            PixelBox(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 16.dp)
+                    .navigationBarsPadding()
+                    .size(80.dp)
+                    .clip(PixelXLargeCircleShape)
+                    .pixelXLargeCircleClickable(interactionSource = fabInteraction) {
+                        if (activeTab == ProjectTab.CHATS) onNewChatClick()
+                        else onNewNoteClick()
+                    },
+                fillColor = if (activeTab == ProjectTab.CHATS) Coral else colors.secondaryButton,
+                borderColor = androidx.compose.ui.graphics.Color.Transparent,
+                cornerStyle = PixelCornerStyle.XLargeCircle
             ) {
-                if (activeTab == ProjectTab.CHATS) {
-                    androidx.compose.foundation.Image(
-                        painter = androidx.compose.ui.res.painterResource(
-                            id = com.wizaird.app.R.drawable.ic_comment
-                        ),
-                        contentDescription = "New Chat",
-                        colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIcon),
-                        modifier = Modifier.size(28.dp)
-                    )
-                } else {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
-                            .build(),
-                        imageLoader = remember {
-                            ImageLoader.Builder(context)
-                                .components { add(SvgDecoder.Factory()) }
-                                .build()
-                        },
-                        contentDescription = "New Note",
-                        colorFilter = ColorFilter.tint(colors.secondaryIcon),
-                        modifier = Modifier.size(28.dp)
-                    )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (activeTab == ProjectTab.CHATS) {
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(
+                                id = com.wizaird.app.R.drawable.ic_comment
+                            ),
+                            contentDescription = "New Chat",
+                            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIcon),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    } else {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
+                                .build(),
+                            imageLoader = remember {
+                                ImageLoader.Builder(context)
+                                    .components { add(SvgDecoder.Factory()) }
+                                    .build()
+                            },
+                            contentDescription = "New Note",
+                            colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
         }
@@ -813,6 +879,203 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
                     showDeleteDialog = false
                     scope.launch {
                         deleteNote(context, note.id)
+                    }
+                },
+                onDismiss = {
+                    showDeleteDialog = false
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun InsightListItem(insight: StoredInsight) {
+    val context = LocalContext.current
+    val colors = LocalWizairdColors.current
+    val scope = rememberCoroutineScope()
+    
+    var showMenu by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    
+    val svgLoader = remember {
+        ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
+    }
+    
+    Box {
+        PixelBox(
+            modifier = Modifier.fillMaxWidth(),
+            fillColor = colors.secondarySurface,
+            borderColor = androidx.compose.ui.graphics.Color.Transparent,
+            cornerStyle = PixelCornerStyle.Rounded
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 12.dp, end = 10.dp, bottom = 12.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 32.dp), // Leave space for the options button
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Date — pixel font, small, on top
+                    Text(
+                        text = insight.formattedCreatedAt(),
+                        style = pixelStyle(8, colors.secondaryIconSoft),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
+                    // Insight text — minecraft font, with markdown support
+                    MarkdownText(
+                        markdown = insight.text,
+                        style = minecraftStyle(12, colors.secondaryIcon),
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
+                }
+                
+                // More options button - offset so icon sits at top-right edge
+                val moreInteraction = remember { MutableInteractionSource() }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 7.dp, y = (-7).dp) // Offset to position icon at edge
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .pixelRounded8Clickable(
+                                interactionSource = moreInteraction,
+                                onClick = { showMenu = true }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/more-vertical.svg")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = "More options",
+                            colorFilter = ColorFilter.tint(colors.secondaryIconSoft),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    
+                    // Options menu popup - positioned relative to button
+                    if (showMenu) {
+                        val density = LocalDensity.current
+                        val offsetY = with(density) { (32 + 4).dp.roundToPx() } // Button height + 4dp gap
+                        Popup(
+                            alignment = Alignment.TopEnd,
+                            offset = IntOffset(x = 0, y = offsetY),
+                            onDismissRequest = { showMenu = false },
+                            properties = PopupProperties(focusable = false)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .graphicsLayer {
+                                        compositingStrategy = CompositingStrategy.Offscreen
+                                        shadowElevation = 8.dp.toPx()
+                                        shape = PixelRounded8Shape
+                                        clip = true
+                                    }
+                                    .drawBehind {
+                                        val p = PixelSize.toPx()
+                                        val w = size.width
+                                        val h = size.height
+                                        val fill = colors.secondarySurface
+                                        val cut = Color.Transparent
+
+                                        drawRect(fill)
+
+                                        // Top-left
+                                        drawRect(cut, Offset(0f, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        // Top-right
+                                        drawRect(cut, Offset(w-p*5, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*3, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*2, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*1, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*1, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        // Bottom-left
+                                        drawRect(cut, Offset(0f, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        // Bottom-right
+                                        drawRect(cut, Offset(w-p*5, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*3, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*2, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*1, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*1, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                                    }
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .width(IntrinsicSize.Max)
+                                        .padding(4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                                ) {
+                                    // Delete option
+                                    val deleteInteraction = remember { MutableInteractionSource() }
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .pixelRounded8Clickable(
+                                                interactionSource = deleteInteraction,
+                                                onClick = {
+                                                    showMenu = false
+                                                    showDeleteDialog = true
+                                                }
+                                            )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(context)
+                                                    .data("file:///android_asset/pixelarticons/delete.svg")
+                                                    .build(),
+                                                imageLoader = svgLoader,
+                                                contentDescription = "Delete",
+                                                colorFilter = ColorFilter.tint(colors.coral),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text(
+                                                "Delete",
+                                                style = pixelStyle(10, colors.coral),
+                                                modifier = Modifier.offset(y = (-2).dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Delete confirmation dialog
+        if (showDeleteDialog) {
+            PixelConfirmationDialog(
+                title = "DELETE INSIGHT",
+                message = "Are you sure you want to delete this insight? This action cannot be undone.",
+                confirmLabel = "DELETE",
+                cancelLabel = "CANCEL",
+                isDestructive = true,
+                onConfirm = {
+                    showDeleteDialog = false
+                    scope.launch {
+                        deleteInsight(context, insight.id)
                     }
                 },
                 onDismiss = {

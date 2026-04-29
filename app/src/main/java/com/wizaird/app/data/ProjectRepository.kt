@@ -24,7 +24,8 @@ data class Project(
     val chatCount: Int = 0,
     val lastInsightTimestamp: Long = 0L,
     val lastInsightText: String = "",
-    val pinnedInsight: Boolean = false  // If true, auto-generation is paused for this project
+    val pinnedInsight: Boolean = false,  // If true, auto-generation is paused for this project
+    val insightHistory: List<String> = emptyList()  // Last 10 insights, oldest first
 )
 
 private val KEY_PROJECTS = stringPreferencesKey("projects")

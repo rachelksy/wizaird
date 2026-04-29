@@ -42,11 +42,12 @@ fun buildInsightPrompt(project: Project): String {
         sb.append("What they have learned so far:\n${project.learningProgress}\n")
     }
     
-    // TODO: Add last 10 insights when memory system is implemented
-    // if (last10Insights.isNotEmpty()) {
-    //     sb.append("Recent insights (most recent last):\n")
-    //     last10Insights.forEach { sb.append("- $it\n") }
-    // }
+    if (project.insightHistory.isNotEmpty()) {
+        sb.append("Recent insights (most recent last):\n")
+        project.insightHistory.forEachIndexed { index, insight ->
+            sb.append("---\n$insight\n")
+        }
+    }
     
     sb.append("\n---\n\n")
     sb.append("Your task: Write one microlearning insight.\n\n")
@@ -115,12 +116,20 @@ suspend fun generateInsight(
         }
         
         // Update project with new insight and timestamp
+        // Keep last 20 insights in history, oldest first
+        val updatedHistory = (project.insightHistory + insight).takeLast(20)
         val updatedProject = project.copy(
             lastInsightText = insight,
-            lastInsightTimestamp = System.currentTimeMillis()
+            lastInsightTimestamp = System.currentTimeMillis(),
+            insightHistory = updatedHistory
         )
         upsertProject(context, updatedProject)
-        println("Project updated successfully")
+        println("Project updated with new insight (history size: ${updatedHistory.size})")
+        
+        // Save to permanent storage
+        saveInsight(context, project.id, insight)
+        println("Insight saved to permanent storage")
+        
         println("=== INSIGHT GENERATION SUCCESS ===")
         
         InsightResult.Success(insight)

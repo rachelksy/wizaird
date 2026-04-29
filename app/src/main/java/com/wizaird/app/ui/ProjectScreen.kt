@@ -3,6 +3,8 @@ package com.wizaird.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +26,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import coil.ImageLoader
@@ -701,6 +704,7 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
     
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showMoveDialog by remember { mutableStateOf(false) }
     
     val svgLoader = remember {
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
@@ -830,6 +834,38 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
                             .padding(4.dp),
                         verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
+                        // Move to option
+                        val moveInteraction = remember { MutableInteractionSource() }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .pixelRounded8Clickable(
+                                    interactionSource = moveInteraction,
+                                    onClick = {
+                                        showMenu = false
+                                        showMoveDialog = true
+                                    }
+                                )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                androidx.compose.foundation.Image(
+                                    painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),
+                                    contentDescription = "Move to",
+                                    colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    "Move to",
+                                    style = pixelStyle(10, colors.secondaryIcon),
+                                    modifier = Modifier.offset(y = (-2).dp)
+                                )
+                            }
+                        }
+                        
                         // Delete option
                         val deleteInteraction = remember { MutableInteractionSource() }
                         Box(
@@ -888,6 +924,22 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
                 },
                 onDismiss = {
                     showDeleteDialog = false
+                }
+            )
+        }
+        
+        // Move to project dialog
+        if (showMoveDialog) {
+            MoveNoteDialog(
+                currentProjectId = note.projectId,
+                onMove = { targetProjectId ->
+                    showMoveDialog = false
+                    scope.launch {
+                        com.wizaird.app.data.moveNoteToProject(context, note.id, targetProjectId)
+                    }
+                },
+                onDismiss = {
+                    showMoveDialog = false
                 }
             )
         }
@@ -1087,6 +1139,127 @@ fun InsightListItem(insight: StoredInsight) {
                     showDeleteDialog = false
                 }
             )
+        }
+    }
+}
+
+@Composable
+fun MoveNoteDialog(
+    currentProjectId: String,
+    onMove: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val colors = LocalWizairdColors.current
+    
+    val projects by projectsFlow(context).collectAsState(initial = emptyList())
+    val availableProjects = projects.filter { it.id != currentProjectId }
+    
+    var selectedProjectId by remember { mutableStateOf<String?>(null) }
+    
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        PixelBox(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+                .clip(PixelRoundedShape),
+            fillColor = colors.secondarySurface,
+            borderColor = colors.border,
+            cutColor = colors.secondarySurface,
+            cornerStyle = PixelCornerStyle.Rounded
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "MOVE TO",
+                    style = pixelStyle(12, colors.textHigh),
+                    modifier = Modifier.offset(y = (-2).dp)
+                )
+                
+                // Project list
+                if (availableProjects.isEmpty()) {
+                    Text(
+                        text = "No other projects available",
+                        style = minecraftStyle(14, colors.textLow).copy(
+                            lineHeight = (14 * 1.6f).sp
+                        ),
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availableProjects.forEach { project ->
+                            val isSelected = selectedProjectId == project.id
+                            val projectInteraction = remember { MutableInteractionSource() }
+                            
+                            PixelBox(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .pixelRoundedClickable(
+                                        interactionSource = projectInteraction,
+                                        onClick = { selectedProjectId = project.id }
+                                    ),
+                                fillColor = if (isSelected) colors.userBubble else colors.background,
+                                borderColor = if (isSelected) Coral else androidx.compose.ui.graphics.Color.Transparent,
+                                cornerStyle = PixelCornerStyle.Rounded
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    androidx.compose.foundation.Image(
+                                        painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),
+                                        contentDescription = null,
+                                        colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = project.name.ifEmpty { "UNNAMED PROJECT" },
+                                        style = pixelStyle(10, colors.secondaryIcon),
+                                        modifier = Modifier.offset(y = (-2).dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    PixelButtonLarge(
+                        label = "CANCEL",
+                        primary = false,
+                        modifier = Modifier.weight(1f),
+                        cutColor = colors.secondarySurface,
+                        onClick = onDismiss
+                    )
+                    PixelButtonLarge(
+                        label = "MOVE",
+                        primary = true,
+                        modifier = Modifier.weight(1f),
+                        cutColor = colors.secondarySurface,
+                        onClick = {
+                            selectedProjectId?.let { onMove(it) }
+                        }
+                    )
+                }
+            }
         }
     }
 }

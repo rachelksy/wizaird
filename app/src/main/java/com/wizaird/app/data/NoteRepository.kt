@@ -76,3 +76,17 @@ suspend fun deleteNote(context: Context, noteId: String) {
         prefs[KEY_NOTES] = noteGson.toJson(current)
     }
 }
+
+/** Move a note to a different project. */
+suspend fun moveNoteToProject(context: Context, noteId: String, newProjectId: String) {
+    context.dataStore.edit { prefs ->
+        val json = prefs[KEY_NOTES] ?: return@edit
+        val type = object : TypeToken<List<NoteData>>() {}.type
+        val current: MutableList<NoteData> = noteGson.fromJson(json, type) ?: mutableListOf()
+        val idx = current.indexOfFirst { it.id == noteId }
+        if (idx >= 0) {
+            current[idx] = current[idx].copy(projectId = newProjectId)
+            prefs[KEY_NOTES] = noteGson.toJson(current)
+        }
+    }
+}

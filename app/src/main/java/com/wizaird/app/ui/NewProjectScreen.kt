@@ -3,6 +3,8 @@ package com.wizaird.app.ui
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -32,6 +34,8 @@ fun NewProjectScreen(onBack: () -> Unit) {
 
     var projectName by remember { mutableStateOf("") }
     var instructions by remember { mutableStateOf("") }
+    var background by remember { mutableStateOf("") }
+    var learningProgress by remember { mutableStateOf("") }
     var picturePath by remember { mutableStateOf("") }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -107,6 +111,8 @@ fun NewProjectScreen(onBack: () -> Unit) {
                                     Project(
                                         name = projectName,
                                         instructions = instructions,
+                                        background = background,
+                                        learningProgress = learningProgress,
                                         picturePath = picturePath
                                     )
                                 )
@@ -120,6 +126,7 @@ fun NewProjectScreen(onBack: () -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -162,6 +169,74 @@ fun NewProjectScreen(onBack: () -> Unit) {
                                     if (instructions.isEmpty()) {
                                         Text(
                                             "You are a helpful wizard...",
+                                            style = minecraftStyle(12, colors.secondaryIconSoft)
+                                        )
+                                    }
+                                    inner()
+                                }
+                            }
+                        )
+                    }
+                }
+
+                // Background
+                SettingsField(
+                    label = "BACKGROUND"
+                ) {
+                    PixelBox(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp),
+                        fillColor = colors.secondarySurface,
+                        cornerStyle = PixelCornerStyle.Rounded
+                    ) {
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = background,
+                            onValueChange = { background = it },
+                            textStyle = minecraftStyle(12, colors.secondaryIcon),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.secondaryIcon),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp),
+                            decorationBox = { inner ->
+                                Box(contentAlignment = Alignment.TopStart) {
+                                    if (background.isEmpty()) {
+                                        Text(
+                                            "Background context the AI should know...",
+                                            style = minecraftStyle(12, colors.secondaryIconSoft)
+                                        )
+                                    }
+                                    inner()
+                                }
+                            }
+                        )
+                    }
+                }
+
+                // Learning Progress
+                SettingsField(
+                    label = "LEARNING PROGRESS"
+                ) {
+                    PixelBox(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp),
+                        fillColor = colors.secondarySurface,
+                        cornerStyle = PixelCornerStyle.Rounded
+                    ) {
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = learningProgress,
+                            onValueChange = { learningProgress = it },
+                            textStyle = minecraftStyle(12, colors.secondaryIcon),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.secondaryIcon),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp),
+                            decorationBox = { inner ->
+                                Box(contentAlignment = Alignment.TopStart) {
+                                    if (learningProgress.isEmpty()) {
+                                        Text(
+                                            "What the user has learned so far...",
                                             style = minecraftStyle(12, colors.secondaryIconSoft)
                                         )
                                     }

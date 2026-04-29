@@ -9,13 +9,29 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.zIndex
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.ui.theme.*
 
@@ -35,22 +51,18 @@ fun ChatScreen(
     var inputText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
+    var showMenu by remember { mutableStateOf(false) }
+
+    val svgLoader = remember {
+        ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
+    }
+
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
 
-    // Bob animation — same timing as HomeScreen
-    // val bobAnim = rememberInfiniteTransition(label = "bob")
-    // val bobY by bobAnim.animateFloat(
-    //     initialValue = 0f, targetValue = -2f,
-    //     animationSpec = infiniteRepeatable(
-    //         animation = tween(360, easing = LinearEasing),
-    //         repeatMode = RepeatMode.Reverse
-    //     ), label = "bobY"
-    // )
     val bobY = 0f
 
-    // Chat bubble state — independent from HomeScreen
     val bubbleText = "What can I teach you about ${project?.name?.ifEmpty { "this project" } ?: "this project"} today?"
 
     Column(
@@ -108,10 +120,169 @@ fun ChatScreen(
                     iconRes = com.wizaird.app.R.drawable.ic_more_vertical,
                     contentDescription = "More options",
                     fillColor = colors.secondaryButton,
-                    onClick = onMoreClick
+                    onClick = { showMenu = true }
                 )
+
+                // Popover — 8px below button, right-aligned to button
+                if (showMenu) {
+                    val density = LocalDensity.current
+                    val offsetY = with(density) { (40 + 8).dp.roundToPx() }
+                    Popup(
+                        alignment = Alignment.TopEnd,
+                        offset = IntOffset(x = 0, y = offsetY),
+                        onDismissRequest = { showMenu = false },
+                        properties = PopupProperties(focusable = true)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    compositingStrategy = CompositingStrategy.Offscreen
+                                    shadowElevation = 8.dp.toPx()
+                                    shape = PixelRounded8Shape
+                                    clip = true
+                                }
+                                .drawBehind {
+                                    val p = PixelSize.toPx()
+                                    val w = size.width
+                                    val h = size.height
+                                    val fill = colors.userBubble
+                                    val cut = Color.Transparent
+
+                                    drawRect(fill)
+
+                                    // Top-left
+                                    drawRect(cut, Offset(0f, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(0f, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(0f, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(0f, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(0f, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                    // Top-right
+                                    drawRect(cut, Offset(w-p*5, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(w-p*3, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(w-p*2, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(w-p*1, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(w-p*1, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                    // Bottom-left
+                                    drawRect(cut, Offset(0f, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(0f, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(0f, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(0f, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(0f, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                                    // Bottom-right
+                                    drawRect(cut, Offset(w-p*5, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(w-p*3, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(w-p*2, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(w-p*1, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                    drawRect(cut, Offset(w-p*1, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                                }
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .width(IntrinsicSize.Max)
+                                    .padding(4.dp),
+                                verticalArrangement = Arrangement.spacedBy(0.dp)
+                            ) {
+                                // Rename option
+                                val renameInteraction = remember { MutableInteractionSource() }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .pixelRounded8Clickable(
+                                            interactionSource = renameInteraction,
+                                            onClick = { showMenu = false }
+                                        )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(context)
+                                                .data("file:///android_asset/pixelarticons/pen-square.svg")
+                                                .build(),
+                                            imageLoader = svgLoader,
+                                            contentDescription = "Rename",
+                                            colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            "Rename",
+                                            style = pixelStyle(10, colors.secondaryIcon),
+                                            modifier = Modifier.offset(y = (-2).dp)
+                                        )
+                                    }
+                                }
+
+                                // Bookmark option
+                                val bookmarkInteraction = remember { MutableInteractionSource() }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .pixelRounded8Clickable(
+                                            interactionSource = bookmarkInteraction,
+                                            onClick = { showMenu = false }
+                                        )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(context)
+                                                .data("file:///android_asset/pixelarticons/bookmark.svg")
+                                                .build(),
+                                            imageLoader = svgLoader,
+                                            contentDescription = "Bookmark",
+                                            colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            "Bookmark",
+                                            style = pixelStyle(10, colors.secondaryIcon),
+                                            modifier = Modifier.offset(y = (-2).dp)
+                                        )
+                                    }
+                                }
+
+                                // Delete option
+                                val deleteInteraction = remember { MutableInteractionSource() }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .pixelRounded8Clickable(
+                                            interactionSource = deleteInteraction,
+                                            onClick = { showMenu = false }
+                                        )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(context)
+                                                .data("file:///android_asset/pixelarticons/delete.svg")
+                                                .build(),
+                                            imageLoader = svgLoader,
+                                            contentDescription = "Delete",
+                                            colorFilter = ColorFilter.tint(colors.coral),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            "Delete",
+                                            style = pixelStyle(10, colors.coral),
+                                            modifier = Modifier.offset(y = (-2).dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
-        }
+        } // end header Box
 
         // Chat content area — bubble + gif pinned to bottom
         Box(
@@ -126,7 +297,6 @@ fun ChatScreen(
                     .padding(horizontal = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Speech bubble with tail, overlaps gif by 4dp via zIndex
                 val tailColor = colors.secondarySurface
                 val borderColor = colors.border
                 Box(
@@ -134,8 +304,8 @@ fun ChatScreen(
                         .padding(horizontal = 40.dp)
                         .padding(bottom = 22.dp)
                         .wrapContentSize()
-                        .offset(y = 4.dp) // overlap gif by 4dp
-                        .zIndex(1f)       // render on top of gif
+                        .offset(y = 4.dp)
+                        .zIndex(1f)
                         .drawWithContent {
                             drawContent()
                             val p = PixelSize.toPx()
@@ -186,7 +356,6 @@ fun ChatScreen(
                     }
                 }
 
-                // Wizard GIF sits naturally on top of the input bar
                 WizardCharacter(
                     bobOffsetY = bobY,
                     modifier = Modifier.align(Alignment.CenterHorizontally)

@@ -154,13 +154,14 @@ private fun androidx.compose.ui.graphics.drawscope.ContentDrawScope.drawPressOve
 @Composable
 fun Modifier.pixelCircleClickable(
     interactionSource: MutableInteractionSource,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ): Modifier {
     val pressed by interactionSource.collectIsPressedAsState()
     val cuts = floatArrayOf(7f, 5f, 3f, 2f, 2f, 1f, 1f)
     return this
-        .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-        .drawWithContent { if (pressed) drawPressOverlay(cuts) else drawContent() }
+        .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick)
+        .drawWithContent { if (pressed && enabled) drawPressOverlay(cuts) else drawContent() }
 }
 
 // For small icons that should stay at their natural layout size but show a larger
@@ -1395,15 +1396,22 @@ fun PixelCircleIconButton(
     contentDescription: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     fillColor: Color = LocalWizairdColors.current.secondarySurface,
     borderColor: Color = Color.Transparent,
     iconTint: Color = LocalWizairdColors.current.secondaryIcon
 ) {
+    val colors = LocalWizairdColors.current
+    val resolvedTint = if (enabled) iconTint else colors.textXLow
     val interactionSource = remember { MutableInteractionSource() }
     PixelBox(
         modifier = modifier
             .size(40.dp)
-            .pixelCircleClickable(interactionSource = interactionSource, onClick = onClick),
+            .pixelCircleClickable(
+                interactionSource = interactionSource,
+                enabled = enabled,
+                onClick = onClick
+            ),
         fillColor = fillColor,
         borderColor = borderColor,
         cornerStyle = PixelCornerStyle.Rounded
@@ -1415,7 +1423,7 @@ fun PixelCircleIconButton(
             Image(
                 painter = painterResource(id = iconRes),
                 contentDescription = contentDescription,
-                colorFilter = ColorFilter.tint(iconTint),
+                colorFilter = ColorFilter.tint(resolvedTint),
                 modifier = Modifier.size(20.dp)
             )
         }

@@ -120,6 +120,7 @@ fun ChatScreen(
                     iconRes = com.wizaird.app.R.drawable.ic_more_vertical,
                     contentDescription = "More options",
                     fillColor = colors.secondaryButton,
+                    enabled = false,
                     onClick = { showMenu = true }
                 )
 

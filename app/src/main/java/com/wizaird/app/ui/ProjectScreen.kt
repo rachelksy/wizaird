@@ -574,6 +574,7 @@ fun ProjectScreen(
                 message = "Are you sure you want to delete \"$projectName\"? This will also delete all chats and notes in this project. This action cannot be undone.",
                 confirmLabel = "DELETE",
                 cancelLabel = "CANCEL",
+                isDestructive = true,
                 onConfirm = {
                     showDeleteDialog = false
                     scope.launch {
@@ -807,6 +808,7 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
                 message = "Are you sure you want to delete this note? This action cannot be undone.",
                 confirmLabel = "DELETE",
                 cancelLabel = "CANCEL",
+                isDestructive = true,
                 onConfirm = {
                     showDeleteDialog = false
                     scope.launch {

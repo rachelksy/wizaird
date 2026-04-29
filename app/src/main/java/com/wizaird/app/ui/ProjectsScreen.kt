@@ -344,6 +344,7 @@ fun ProjectCard(project: Project, onClick: () -> Unit, onLongPress: (() -> Unit)
                 message = "Are you sure you want to delete \"${project.name.ifEmpty { "UNNAMED PROJECT" }}\"? This will also delete all chats and notes in this project. This action cannot be undone.",
                 confirmLabel = "DELETE",
                 cancelLabel = "CANCEL",
+                isDestructive = true,
                 onConfirm = {
                     showDeleteDialog = false
                     scope.launch {

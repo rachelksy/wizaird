@@ -44,6 +44,7 @@ data class WizairdColors(
     val coral: Color,
     val gold: Color,
     val border: Color,
+    val warn: Color,              // warning/destructive action color
     val isDark: Boolean
 )
 
@@ -63,6 +64,7 @@ val LightColors = WizairdColors(
     coral             = Color(0xFFE0563A),
     gold              = Color(0xFFE5B14A),
     border            = Color(0xFF2A1F14),
+    warn              = Color(0xFFE0563A),
     isDark            = false
 )
 
@@ -82,6 +84,7 @@ val DarkColors = WizairdColors(
     coral             = Color(0xFFE0563A),
     gold              = Color(0xFFE5B14A),
     border            = Color(0xFF666666),
+    warn              = Color(0xFFE0563A),
     isDark            = true
 )
 

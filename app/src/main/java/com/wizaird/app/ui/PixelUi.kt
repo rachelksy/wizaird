@@ -1308,17 +1308,30 @@ fun PixelButtonSmall(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     primary: Boolean = true,
+    warn: Boolean = false,
     cutColor: Color? = null
 ) {
     val colors = LocalWizairdColors.current
-    val fillColor  = if (primary) Coral else colors.secondaryButton
-    val textColor  = if (primary) colors.secondaryIcon else colors.secondaryIcon
+    val fillColor  = when {
+        warn -> Color.Transparent
+        primary -> Coral
+        else -> colors.secondaryButton
+    }
+    val borderColor = when {
+        warn -> Color.Transparent
+        primary -> Coral
+        else -> colors.secondaryButton
+    }
+    val textColor  = when {
+        warn -> colors.warn
+        else -> colors.secondaryIcon
+    }
     val interactionSource = remember { MutableInteractionSource() }
     PixelBox(
         modifier = modifier
             .pixelRounded8Clickable(interactionSource = interactionSource, onClick = onClick),
         fillColor = fillColor,
-        borderColor = fillColor,
+        borderColor = borderColor,
         cutColor = cutColor,
         cornerStyle = PixelCornerStyle.Rounded8
     ) {
@@ -1337,17 +1350,30 @@ fun PixelButtonMedium(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    primary: Boolean = true
+    primary: Boolean = true,
+    warn: Boolean = false
 ) {
     val colors = LocalWizairdColors.current
-    val fillColor  = if (primary) Coral else colors.secondaryButton
-    val textColor  = if (primary) colors.secondaryIcon else colors.secondaryIcon
+    val fillColor  = when {
+        warn -> Color.Transparent
+        primary -> Coral
+        else -> colors.secondaryButton
+    }
+    val borderColor = when {
+        warn -> Color.Transparent
+        primary -> Coral
+        else -> colors.secondaryButton
+    }
+    val textColor  = when {
+        warn -> colors.warn
+        else -> colors.secondaryIcon
+    }
     val interactionSource = remember { MutableInteractionSource() }
     PixelBox(
         modifier = modifier
             .pixelRounded8Clickable(interactionSource = interactionSource, onClick = onClick),
         fillColor = fillColor,
-        borderColor = fillColor,
+        borderColor = borderColor,
         cornerStyle = PixelCornerStyle.Rounded8
     ) {
         Text(
@@ -1366,17 +1392,30 @@ fun PixelButtonLarge(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     primary: Boolean = true,
+    warn: Boolean = false,
     cutColor: Color? = null
 ) {
     val colors = LocalWizairdColors.current
-    val fillColor  = if (primary) Coral else colors.secondaryButton
-    val textColor  = if (primary) colors.secondaryIcon else colors.secondaryIcon
+    val fillColor  = when {
+        warn -> Color.Transparent
+        primary -> Coral
+        else -> colors.secondaryButton
+    }
+    val borderColor = when {
+        warn -> Color.Transparent
+        primary -> Coral
+        else -> colors.secondaryButton
+    }
+    val textColor  = when {
+        warn -> colors.warn
+        else -> colors.secondaryIcon
+    }
     val interactionSource = remember { MutableInteractionSource() }
     PixelBox(
         modifier = modifier
             .pixelRounded8Clickable(interactionSource = interactionSource, onClick = onClick),
         fillColor = fillColor,
-        borderColor = fillColor,
+        borderColor = borderColor,
         cutColor = cutColor,
         cornerStyle = PixelCornerStyle.Rounded8
     ) {
@@ -1443,6 +1482,7 @@ fun PixelConfirmationDialog(
     message: String,
     confirmLabel: String = "CONFIRM",
     cancelLabel: String = "CANCEL",
+    isDestructive: Boolean = false,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1494,7 +1534,8 @@ fun PixelConfirmationDialog(
                     )
                     PixelButtonLarge(
                         label = confirmLabel,
-                        primary = true,
+                        primary = !isDestructive,
+                        warn = isDestructive,
                         modifier = Modifier.weight(1f),
                         cutColor = colors.secondarySurface,
                         onClick = onConfirm

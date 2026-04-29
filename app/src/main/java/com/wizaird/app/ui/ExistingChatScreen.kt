@@ -374,6 +374,7 @@ fun ExistingChatScreen(
                 message = "Are you sure you want to delete this chat? This action cannot be undone.",
                 confirmLabel = "DELETE",
                 cancelLabel = "CANCEL",
+                isDestructive = true,
                 onConfirm = {
                     showDeleteDialog = false
                     scope.launch {

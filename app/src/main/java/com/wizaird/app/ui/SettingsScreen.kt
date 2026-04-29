@@ -140,9 +140,13 @@ fun PixelTextInput(
     onValueChange: (String) -> Unit,
     placeholder: String = "",
     isPassword: Boolean = false,
-    cornerStyle: PixelCornerStyle = PixelCornerStyle.Rounded
+    cornerStyle: PixelCornerStyle = PixelCornerStyle.Rounded,
+    textStyle: androidx.compose.ui.text.TextStyle? = null
 ) {
     val colors = LocalWizairdColors.current
+    val resolvedTextStyle = textStyle ?: pixelStyle(12, colors.secondaryIcon)
+    val placeholderStyle = textStyle?.copy(color = colors.secondaryIconSoft) ?: pixelStyle(12, colors.secondaryIconSoft)
+    
     PixelBox(
         modifier = Modifier.fillMaxWidth(),
         fillColor = colors.secondarySurface,
@@ -151,7 +155,7 @@ fun PixelTextInput(
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            textStyle = pixelStyle(12, colors.secondaryIcon),
+            textStyle = resolvedTextStyle,
             cursorBrush = SolidColor(colors.secondaryIcon),
             singleLine = true,
             visualTransformation = if (isPassword)
@@ -160,11 +164,10 @@ fun PixelTextInput(
                 VisualTransformation.None,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp)
-                .offset(y = (-2).dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterStart) {
-                    if (value.isEmpty()) Text(placeholder, style = pixelStyle(12, colors.secondaryIconSoft), modifier = Modifier.offset(y = (-2).dp))
+                    if (value.isEmpty()) Text(placeholder, style = placeholderStyle)
                     inner()
                 }
             }

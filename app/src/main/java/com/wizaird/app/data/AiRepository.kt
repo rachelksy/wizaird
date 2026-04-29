@@ -8,6 +8,8 @@ import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -19,7 +21,8 @@ val Context.dataStore by preferencesDataStore(name = "settings")
 data class AiSettings(
     val provider: String = "openai",
     val apiKey: String = "",
-    val model: String = "gpt-4o-mini",
+    val model: String = "",
+    val baseUrl: String = "",
     val temperature: Float = 0.7f,
     val darkMode: Boolean = false
 )
@@ -66,8 +69,12 @@ private data class OaiRequest(
 )
 
 fun callOpenAi(settings: AiSettings, prompt: String): String {
-    val url = if (settings.provider == "custom") settings.model else "https://api.openai.com/v1/chat/completions"
-    val model = if (settings.provider == "custom") "gpt-4o-mini" else settings.model
+    val url = if (settings.provider == "custom") {
+        settings.baseUrl.ifBlank { "https://api.openai.com/v1/chat/completions" }
+    } else {
+        "https://api.openai.com/v1/chat/completions"
+    }
+    val model = settings.model.ifBlank { "gpt-4o-mini" }
     val body = gson.toJson(OaiRequest(
         model = model,
         messages = listOf(OaiMessage("system", SYSTEM_PROMPT), OaiMessage("user", prompt)),
@@ -122,4 +129,125 @@ private fun callClaude(settings: AiSettings, prompt: String): String {
     @Suppress("UNCHECKED_CAST")
     val content = json["content"] as? List<Map<String, Any>> ?: return "No response."
     return (content[0]["text"] as? String)?.trim() ?: "No response."
+}
+
+// ── Test API Connection ──────────────────────────────────────────
+suspend fun testApiConnection(settings: AiSettings): Result<String> = withContext(Dispatchers.IO) {
+    return@withContext try {
+        println("Testing API connection for provider: ${settings.provider}")
+        
+        // For custom provider, just test the models endpoint
+        if (settings.provider == "custom") {
+            val modelsUrl = if (settings.baseUrl.endsWith("/chat/completions")) {
+                settings.baseUrl.replace("/chat/completions", "/models")
+            } else if (settings.baseUrl.endsWith("/")) {
+                "${settings.baseUrl}models"
+            } else {
+                "${settings.baseUrl}/models"
+            }
+            
+            val req = Request.Builder()
+                .url(modelsUrl)
+                .addHeader("Authorization", "Bearer ${settings.apiKey}")
+                .get()
+                .build()
+            
+            val resp = client.newCall(req).execute()
+            return@withContext if (resp.isSuccessful) {
+                Result.success("Connection successful!")
+            } else {
+                Result.failure(Exception("Connection failed: ${resp.code} ${resp.message}"))
+            }
+        }
+        
+        // For standard providers, test with a simple API call
+        val testUrl = when (settings.provider) {
+            "openai" -> "https://api.openai.com/v1/models"
+            "claude" -> "https://api.anthropic.com/v1/messages"
+            "gemini" -> "https://generativelanguage.googleapis.com/v1beta/models?key=${settings.apiKey}"
+            else -> return@withContext Result.failure(Exception("Unknown provider"))
+        }
+        
+        val reqBuilder = Request.Builder().url(testUrl)
+        
+        when (settings.provider) {
+            "openai" -> reqBuilder.addHeader("Authorization", "Bearer ${settings.apiKey}")
+            "claude" -> {
+                reqBuilder.addHeader("x-api-key", settings.apiKey)
+                reqBuilder.addHeader("anthropic-version", "2023-06-01")
+            }
+            // Gemini uses API key in URL
+        }
+        
+        val resp = client.newCall(reqBuilder.get().build()).execute()
+        
+        println("Test response code: ${resp.code}")
+        
+        return@withContext if (resp.isSuccessful || resp.code == 400) {
+            // 400 is ok for Claude because we're not sending a proper request body
+            Result.success("Connection successful!")
+        } else {
+            Result.failure(Exception("Connection failed: ${resp.code} ${resp.message}"))
+        }
+    } catch (e: Exception) {
+        println("Test connection failed: ${e.javaClass.simpleName} - ${e.message}")
+        e.printStackTrace()
+        Result.failure(Exception("Connection failed: ${e.message}"))
+    }
+}
+
+// ── Load Models from API ─────────────────────────────────────────
+suspend fun loadModels(baseUrl: String, apiKey: String): Result<List<String>> = withContext(Dispatchers.IO) {
+    return@withContext try {
+        println("loadModels called with baseUrl: $baseUrl")
+        
+        val modelsUrl = if (baseUrl.endsWith("/chat/completions")) {
+            baseUrl.replace("/chat/completions", "/models")
+        } else if (baseUrl.endsWith("/")) {
+            "${baseUrl}models"
+        } else {
+            "$baseUrl/models"
+        }
+        
+        println("Fetching models from: $modelsUrl")
+        
+        val req = Request.Builder()
+            .url(modelsUrl)
+            .addHeader("Authorization", "Bearer $apiKey")
+            .get()
+            .build()
+        
+        val resp = client.newCall(req).execute()
+        println("Response code: ${resp.code}")
+        
+        if (!resp.isSuccessful) {
+            val errorBody = resp.body?.string()
+            println("Error response body: $errorBody")
+            return@withContext Result.failure(Exception("Failed to load models: ${resp.code} ${resp.message}"))
+        }
+        
+        val responseBody = resp.body?.string()
+        println("Response body: $responseBody")
+        
+        val json = gson.fromJson(responseBody, Map::class.java)
+        @Suppress("UNCHECKED_CAST")
+        val data = json["data"] as? List<Map<String, Any>>
+        
+        if (data == null) {
+            println("No 'data' field in response")
+            return@withContext Result.failure(Exception("Invalid response format - no data field"))
+        }
+        
+        val models = data.mapNotNull { it["id"] as? String }
+        println("Extracted ${models.size} models: $models")
+        
+        if (models.isEmpty()) {
+            return@withContext Result.failure(Exception("No models found in response"))
+        }
+        Result.success(models)
+    } catch (e: Exception) {
+        println("Exception in loadModels: ${e.javaClass.simpleName} - ${e.message}")
+        e.printStackTrace()
+        Result.failure(e)
+    }
 }

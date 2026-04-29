@@ -31,18 +31,12 @@ import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.wizaird.app.data.NoteData
+import com.wizaird.app.data.chatsFlow
 import com.wizaird.app.data.notesFlow
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.ui.theme.*
 
 enum class ProjectTab { CHATS, NOTES }
-
-// Placeholder data class for a chat entry
-data class Chat(
-    val id: String,
-    val title: String,
-    val createdAt: String   // formatted date + time string, e.g. "Nov 12, 2024  •  9:41 AM"
-)
 
 @Composable
 fun ProjectScreen(
@@ -72,26 +66,8 @@ fun ProjectScreen(
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
     }
 
-    // Placeholder chat list — replace with real data once AI wiring is done
-    val chats = remember {
-        listOf(
-            Chat(
-                id = "1",
-                title = "Brainstorming session",
-                createdAt = "Nov 12, 2024  •  9:41 AM"
-            ),
-            Chat(
-                id = "2",
-                title = "Feature planning",
-                createdAt = "Nov 14, 2024  •  2:15 PM"
-            ),
-            Chat(
-                id = "3",
-                title = "Bug investigation",
-                createdAt = "Nov 18, 2024  •  11:03 AM"
-            )
-        )
-    }
+    // Chats — live from DataStore, filtered to this project
+    val chats by chatsFlow(context, projectId).collectAsState(initial = emptyList())
 
     // Notes — live from DataStore, filtered to this project
     val notes by notesFlow(context, projectId).collectAsState(initial = emptyList())
@@ -589,7 +565,7 @@ fun ProjectScreen(
 }
 
 @Composable
-fun ChatListItem(chat: Chat, onClick: () -> Unit = {}) {
+fun ChatListItem(chat: com.wizaird.app.data.ChatData, onClick: () -> Unit = {}) {
     val colors = LocalWizairdColors.current
     val interaction = remember { MutableInteractionSource() }
     PixelBox(
@@ -611,7 +587,7 @@ fun ChatListItem(chat: Chat, onClick: () -> Unit = {}) {
                 modifier = Modifier.offset(y = (-2).dp)
             )
             Text(
-                text = chat.createdAt,
+                text = chat.formattedCreatedAt(),
                 style = pixelStyle(8, colors.secondaryIconSoft),
                 modifier = Modifier.offset(y = (-2).dp)
             )

@@ -160,7 +160,13 @@ class MainActivity : ComponentActivity() {
                         val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
                         ChatScreen(
                             projectId = projectId,
-                            onBack = { nav.popBackStack() }
+                            onBack = { nav.popBackStack() },
+                            onChatCreated = { chatId ->
+                                // Navigate to the newly created chat
+                                nav.navigate("chat/${projectId}/${chatId}") {
+                                    popUpTo("chat/${projectId}") { inclusive = true }
+                                }
+                            }
                         )
                     }
                     composable("chat/{projectId}/{chatId}") { backStackEntry ->

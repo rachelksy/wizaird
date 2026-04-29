@@ -30,43 +30,14 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
+import com.wizaird.app.data.ChatMessage
+import com.wizaird.app.data.MessageSender
+import com.wizaird.app.data.addMessageToChat
+import com.wizaird.app.data.chatFlow
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.ui.theme.*
-
-// ── Data ─────────────────────────────────────────────────────────────────────
-
-enum class MessageSender { USER, AI }
-
-data class ChatMessage(
-    val id: String,
-    val sender: MessageSender,
-    val text: String
-)
-
-// ── Placeholder messages ──────────────────────────────────────────────────────
-
-private val placeholderMessages = listOf(
-    ChatMessage(
-        id = "1",
-        sender = MessageSender.USER,
-        text = "Can you help me plan out the architecture for this project?"
-    ),
-    ChatMessage(
-        id = "2",
-        sender = MessageSender.AI,
-        text = "Sure! Let's start with the high-level structure. What kind of app are you building — mobile, web, or something else?"
-    ),
-    ChatMessage(
-        id = "3",
-        sender = MessageSender.USER,
-        text = "It's an Android app. I want to keep it clean and easy to maintain."
-    ),
-    ChatMessage(
-        id = "4",
-        sender = MessageSender.AI,
-        text = "Great choice. For a clean Android app I'd recommend a single-activity setup with Jetpack Compose for the UI, a ViewModel per screen, and a repository layer to abstract your data sources. Want me to sketch out the folder structure?"
-    )
-)
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -79,14 +50,20 @@ fun ExistingChatScreen(
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
+    val scope = rememberCoroutineScope()
 
     val projects by projectsFlow(context).collectAsState(initial = emptyList())
     val project = projects.firstOrNull { it.id == projectId }
     val projectName = project?.name?.ifEmpty { "UNNAMED PROJECT" } ?: "UNNAMED PROJECT"
 
+    // Load chat from repository
+    val chat by chatFlow(context, chatId).collectAsState(initial = null)
+    val messages = chat?.messages ?: emptyList()
+
     var inputText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
+    var isSendingMessage by remember { mutableStateOf(false) }
 
     var showMenu by remember { mutableStateOf(false) }
 
@@ -94,9 +71,9 @@ fun ExistingChatScreen(
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
     }
 
-    LaunchedEffect(placeholderMessages.size) {
-        if (placeholderMessages.isNotEmpty()) {
-            listState.animateScrollToItem(placeholderMessages.lastIndex)
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.lastIndex)
         }
     }
 
@@ -333,7 +310,7 @@ fun ExistingChatScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(placeholderMessages) { message ->
+            items(messages, key = { it.id }) { message ->
                 ChatBubble(message = message)
             }
         }
@@ -344,9 +321,37 @@ fun ExistingChatScreen(
             onValueChange = { inputText = it },
             onSubmit = {
                 val q = inputText.trim()
-                if (q.isNotEmpty()) {
+                if (q.isNotEmpty() && !isSendingMessage) {
                     inputText = ""
-                    // TODO: send message
+                    isSendingMessage = true
+                    
+                    scope.launch {
+                        // Create and add user message
+                        val userMessage = ChatMessage(
+                            sender = MessageSender.USER,
+                            text = q
+                        )
+                        addMessageToChat(context, chatId, userMessage)
+                        
+                        // Scroll to bottom
+                        listState.animateScrollToItem(messages.size)
+                        
+                        // Simulate AI response delay
+                        delay(800)
+                        
+                        // Add AI response
+                        val aiMessage = ChatMessage(
+                            sender = MessageSender.AI,
+                            text = "This is a placeholder response. The AI integration will be added later to provide real responses based on your question."
+                        )
+                        addMessageToChat(context, chatId, aiMessage)
+                        
+                        // Scroll to show AI response
+                        delay(100)
+                        listState.animateScrollToItem(messages.size + 1)
+                        
+                        isSendingMessage = false
+                    }
                 }
             },
             focusRequester = focusRequester,

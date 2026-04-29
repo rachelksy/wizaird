@@ -32,17 +32,25 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
+import com.wizaird.app.data.ChatData
+import com.wizaird.app.data.ChatMessage
+import com.wizaird.app.data.MessageSender
 import com.wizaird.app.data.projectsFlow
+import com.wizaird.app.data.upsertChat
 import com.wizaird.app.ui.theme.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun ChatScreen(
     projectId: String,
     onBack: () -> Unit,
+    onChatCreated: (String) -> Unit = {},
     onMoreClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
+    val scope = rememberCoroutineScope()
 
     val projects by projectsFlow(context).collectAsState(initial = emptyList())
     val project = projects.firstOrNull { it.id == projectId }
@@ -50,6 +58,7 @@ fun ChatScreen(
 
     var inputText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
+    var isCreatingChat by remember { mutableStateOf(false) }
 
     var showMenu by remember { mutableStateOf(false) }
 
@@ -370,9 +379,44 @@ fun ChatScreen(
             onValueChange = { inputText = it },
             onSubmit = {
                 val q = inputText.trim()
-                if (q.isNotEmpty()) {
+                if (q.isNotEmpty() && !isCreatingChat) {
                     inputText = ""
-                    // TODO: send message
+                    isCreatingChat = true
+                    
+                    scope.launch {
+                        // Create user message
+                        val userMessage = ChatMessage(
+                            sender = MessageSender.USER,
+                            text = q
+                        )
+                        
+                        // Create new chat with placeholder title
+                        val newChat = ChatData(
+                            projectId = projectId,
+                            title = "Generated Title",
+                            messages = listOf(userMessage)
+                        )
+                        
+                        // Save the chat
+                        upsertChat(context, newChat)
+                        
+                        // Simulate AI response delay
+                        delay(500)
+                        
+                        // Add AI response
+                        val aiMessage = ChatMessage(
+                            sender = MessageSender.AI,
+                            text = "This is a placeholder response. The AI integration will be added later to provide real responses based on your question."
+                        )
+                        
+                        val updatedChat = newChat.copy(
+                            messages = newChat.messages + aiMessage
+                        )
+                        upsertChat(context, updatedChat)
+                        
+                        // Navigate to the existing chat screen
+                        onChatCreated(newChat.id)
+                    }
                 }
             },
             focusRequester = focusRequester,

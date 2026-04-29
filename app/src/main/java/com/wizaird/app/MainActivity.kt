@@ -20,6 +20,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.wizaird.app.data.AiSettings
 import com.wizaird.app.data.settingsFlow
+import com.wizaird.app.ui.AccountSettingsScreen
+import com.wizaird.app.ui.ApiSettingsScreen
+import com.wizaird.app.ui.AppSettingsScreen
 import com.wizaird.app.ui.ChatScreen
 import com.wizaird.app.ui.ExistingChatScreen
 import com.wizaird.app.ui.HomeScreen
@@ -78,7 +81,9 @@ class MainActivity : ComponentActivity() {
                     composable("settings") {
                         SettingsScreen(
                             onBack = { nav.popBackStack() },
-                            initialDarkMode = darkMode
+                            onAccountSettings = { nav.navigate("account_settings") },
+                            onAppSettings = { nav.navigate("app_settings") },
+                            onApiSettings = { nav.navigate("api_settings") }
                         )
                     }
                     composable("projects") {
@@ -154,6 +159,23 @@ class MainActivity : ComponentActivity() {
                         ProjectSettingsScreen(
                             projectId = id,
                             onBack = { nav.popBackStack() }
+                        )
+                    }
+                    composable("account_settings") {
+                        AccountSettingsScreen(
+                            onBack = { nav.popBackStack() }
+                        )
+                    }
+                    composable("app_settings") {
+                        AppSettingsScreen(
+                            onBack = { nav.popBackStack() },
+                            initialDarkMode = darkMode
+                        )
+                    }
+                    composable("api_settings") {
+                        ApiSettingsScreen(
+                            onBack = { nav.popBackStack() },
+                            initialDarkMode = darkMode
                         )
                     }
                     composable("chat/{projectId}") { backStackEntry ->

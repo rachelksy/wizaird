@@ -18,6 +18,7 @@ data class Project(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "",
     val instructions: String = "",
+    val priorKnowledge: String = "",
     val picturePath: String = "",   // absolute path to file in internal storage, empty = none
     val chatCount: Int = 0
 )

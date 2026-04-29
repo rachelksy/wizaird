@@ -32,6 +32,7 @@ fun ProjectSettingsScreen(
 
     var name by remember(project) { mutableStateOf(project?.name ?: "") }
     var instructions by remember(project) { mutableStateOf(project?.instructions ?: "") }
+    var priorKnowledge by remember(project) { mutableStateOf(project?.priorKnowledge ?: "") }
     var picturePath by remember(project) { mutableStateOf(project?.picturePath ?: "") }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -99,6 +100,7 @@ fun ProjectSettingsScreen(
                                     it.copy(
                                         name = name,
                                         instructions = instructions,
+                                        priorKnowledge = priorKnowledge,
                                         picturePath = picturePath
                                     )
                                 )
@@ -157,6 +159,40 @@ fun ProjectSettingsScreen(
                                     if (instructions.isEmpty()) {
                                         Text(
                                             "You are a helpful wizard...",
+                                            style = minecraftStyle(12, colors.secondaryIconSoft)
+                                        )
+                                    }
+                                    inner()
+                                }
+                            }
+                        )
+                    }
+                }
+
+                // Prior knowledge
+                SettingsField(
+                    label = "PRIOR KNOWLEDGE"
+                ) {
+                    PixelBox(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp),
+                        fillColor = colors.secondarySurface,
+                        cornerStyle = PixelCornerStyle.Rounded
+                    ) {
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = priorKnowledge,
+                            onValueChange = { priorKnowledge = it },
+                            textStyle = minecraftStyle(12, colors.secondaryIcon),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.secondaryIcon),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp),
+                            decorationBox = { inner ->
+                                Box(contentAlignment = Alignment.TopStart) {
+                                    if (priorKnowledge.isEmpty()) {
+                                        Text(
+                                            "Background context the AI should know...",
                                             style = minecraftStyle(12, colors.secondaryIconSoft)
                                         )
                                     }

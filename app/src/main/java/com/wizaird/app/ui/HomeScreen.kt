@@ -36,6 +36,10 @@ import com.wizaird.app.data.Project
 import com.wizaird.app.data.askAi
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.data.settingsFlow
+import com.wizaird.app.data.shouldGenerateNewInsight
+import com.wizaird.app.data.generateInsight
+import com.wizaird.app.data.InsightResult
+import com.wizaird.app.data.upsertProject
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -56,19 +60,66 @@ fun HomeScreen(
     var activeProjectIndex by remember { mutableIntStateOf(0) }
     val activeProject = projects.getOrNull(activeProjectIndex)
 
-    var bubbleText by remember { mutableStateOf("Artificial Intelligence experience, or AI UX, is the practice of designing interactions between humans and intelligent systems in ways that feel natural, trustworthy, and useful.\n\nUnlike traditional software, AI systems are probabilistic — they don't always produce the same output for the same input. This introduces a new design challenge: how do you build trust with a system that is inherently unpredictable? The answer lies in transparency. Users need to understand what the AI can and cannot do, when it is confident versus uncertain, and how to correct it when it goes wrong.\n\nGood AI experience design starts with setting the right expectations. Onboarding flows should communicate the AI's capabilities honestly, without overpromising. In-product cues — like confidence indicators, source citations, or simple disclaimers — help users calibrate their trust appropriately.\n\nFeedback loops are equally important. When a user can rate a response, flag an error, or regenerate an answer, they feel in control. This sense of agency is critical: AI should feel like a powerful tool the user wields, not an opaque oracle they must blindly trust.\n\nLatency is another unique challenge. AI responses often take longer than traditional software actions. Thoughtful loading states — like streaming text, animated indicators, or progress cues — transform waiting from frustration into anticipation.\n\nFinally, the best AI experiences are deeply contextual. They remember who the user is, adapt to their preferences over time, and surface the right information at the right moment. The goal is not to replace human judgment, but to augment it — making people feel smarter, faster, and more capable than they would be alone.") }
+    var bubbleText by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var inputText by remember { mutableStateOf("") }
+    
+    // Track current generation job to allow cancellation
+    var currentGenerationJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
-    // Bob animation — matches HTML: sin(t/3)*2 at 120ms tick, ±2px float
-    // val bobAnim = rememberInfiniteTransition(label = "bob")
-    // val bobY by bobAnim.animateFloat(
-    //     initialValue = 0f, targetValue = -2f,
-    //     animationSpec = infiniteRepeatable(
-    //         animation = tween(360, easing = LinearEasing), // 3 ticks × 120ms = 360ms half-period
-    //         repeatMode = RepeatMode.Reverse
-    //     ), label = "bobY"
-    // )
+    // Function to generate insight for a project
+    fun generateInsightForProject(project: Project) {
+        // Cancel any existing generation
+        currentGenerationJob?.cancel()
+        
+        currentGenerationJob = scope.launch {
+            isLoading = true
+            bubbleText = ""
+            
+            println("HomeScreen: Starting insight generation for project: ${project.name}")
+            val result = generateInsight(context, project, settings)
+            
+            when (result) {
+                is InsightResult.Success -> {
+                    println("HomeScreen: Insight generation successful")
+                    isLoading = false
+                    // Type-out effect
+                    val insight = result.insight
+                    for (i in insight.indices) {
+                        bubbleText = insight.substring(0, i + 1)
+                        delay(18)
+                    }
+                }
+                is InsightResult.Error -> {
+                    println("HomeScreen: Insight generation failed - ${result.message}")
+                    isLoading = false
+                    bubbleText = "My scroll is torn! ${result.message}"
+                }
+            }
+        }
+    }
+
+    // Auto-generate insight when active project changes or on first load
+    LaunchedEffect(activeProject?.id, projects.size) {
+        if (projects.isEmpty()) {
+            // No projects yet
+            bubbleText = "Create a project to start your learning journey!"
+            isLoading = false
+        } else {
+            activeProject?.let { project ->
+                if (shouldGenerateNewInsight(project)) {
+                    generateInsightForProject(project)
+                } else {
+                    // Show existing insight
+                    isLoading = false
+                    bubbleText = project.lastInsightText.ifBlank {
+                        "Welcome back! Let me think of something new to teach you..."
+                    }
+                }
+            }
+        }
+    }
+
     val bobY = 0f
 
     fun askQuestion(prompt: String) {
@@ -123,6 +174,22 @@ fun HomeScreen(
                     text = bubbleText,
                     loading = isLoading,
                     projectName = activeProject?.name,
+                    isPinned = activeProject?.pinnedInsight ?: false,
+                    onTogglePin = {
+                        activeProject?.let { project ->
+                            scope.launch {
+                                val updatedProject = project.copy(pinnedInsight = !project.pinnedInsight)
+                                upsertProject(context, updatedProject)
+                                println("Insight ${if (updatedProject.pinnedInsight) "pinned" else "unpinned"} for project: ${project.name}")
+                            }
+                        }
+                    },
+                    onRegenerate = {
+                        activeProject?.let { project ->
+                            println("User triggered manual regeneration")
+                            generateInsightForProject(project)
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
@@ -412,7 +479,15 @@ fun StatBar(label: String, value: Int, max: Int, color: Color) {
 
 // ── Chat bubble ──────────────────────────────────────────────────
 @Composable
-fun ChatBubble(text: String, loading: Boolean, projectName: String? = null, modifier: Modifier = Modifier) {
+fun ChatBubble(
+    text: String, 
+    loading: Boolean, 
+    projectName: String? = null,
+    isPinned: Boolean = false,
+    onTogglePin: () -> Unit = {},
+    onRegenerate: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
     var dotCount by remember { mutableIntStateOf(1) }
@@ -478,19 +553,47 @@ fun ChatBubble(text: String, loading: Boolean, projectName: String? = null, modi
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Image(
-                        painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(colors.textXLow),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = projectName.uppercase(),
-                        style = pixelStyle(12, colors.textXLow),
-                        modifier = Modifier.offset(y = (-2).dp)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),
+                            contentDescription = null,
+                            colorFilter = ColorFilter.tint(colors.textXLow),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = projectName.uppercase(),
+                            style = pixelStyle(12, colors.textXLow),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                    }
+                    
+                    // Heart pin button
+                    if (!loading) {
+                        val svgLoader = remember {
+                            ImageLoader.Builder(context)
+                                .components { add(SvgDecoder.Factory()) }
+                                .build()
+                        }
+                        val heartInteraction = remember { MutableInteractionSource() }
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(if (isPinned) "file:///android_asset/pixelarticons/heart-filled.svg" else "file:///android_asset/pixelarticons/heart.svg")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = if (isPinned) "Unpin insight" else "Pin insight",
+                            colorFilter = ColorFilter.tint(if (isPinned) Coral else colors.textXLow),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .pixelRounded8ClickableOversize(
+                                    interactionSource = heartInteraction
+                                ) { onTogglePin() }
+                        )
+                    }
                 }
             }
 
@@ -500,12 +603,20 @@ fun ChatBubble(text: String, loading: Boolean, projectName: String? = null, modi
                 .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)
                 .verticalScroll(rememberScrollState())
             ) {
-                SelectionContainer {
+                if (loading) {
                     Text(
-                        text = if (loading) "thinking${".".repeat(dotCount)}" else text,
+                        text = "Please wait while I think of what to teach you today...",
                         style = minecraftStyle(14, colors.textHigh),
                         overflow = TextOverflow.Clip
                     )
+                } else {
+                    SelectionContainer {
+                        MarkdownText(
+                            markdown = text,
+                            style = minecraftStyle(14, colors.textHigh),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
 
@@ -518,7 +629,7 @@ fun ChatBubble(text: String, loading: Boolean, projectName: String? = null, modi
                 }
                 Row(
                     modifier = Modifier.padding(start = 16.dp, bottom = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val copyInteraction = remember { MutableInteractionSource() }
@@ -549,6 +660,21 @@ fun ChatBubble(text: String, loading: Boolean, projectName: String? = null, modi
                             .pixelRounded8ClickableOversize(
                                 interactionSource = noteInteraction
                             ) { /* TODO: save to note */ }
+                    )
+                    
+                    val zapInteraction = remember { MutableInteractionSource() }
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data("file:///android_asset/pixelarticons/zap.svg")
+                            .build(),
+                        imageLoader = svgLoader,
+                        contentDescription = "Regenerate",
+                        colorFilter = ColorFilter.tint(colors.textXLow),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .pixelRounded8ClickableOversize(
+                                interactionSource = zapInteraction
+                            ) { onRegenerate() }
                     )
                 }
             }

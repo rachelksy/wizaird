@@ -47,17 +47,38 @@ private val client = OkHttpClient.Builder()
     .readTimeout(30, TimeUnit.SECONDS)
     .build()
 
-suspend fun askAi(settings: AiSettings, userPrompt: String): String {
+suspend fun askAi(settings: AiSettings, systemPrompt: String, userPrompt: String): String {
     return when (settings.provider) {
-        "openai"  -> callOpenAi(settings, userPrompt)
-        "gemini"  -> callGemini(settings, userPrompt)
-        "claude"  -> callClaude(settings, userPrompt)
-        else      -> callOpenAi(settings, userPrompt) // custom uses openai-compatible format
+        "openai"  -> callOpenAi(settings, systemPrompt, userPrompt)
+        "gemini"  -> callGemini(settings, systemPrompt, userPrompt)
+        "claude"  -> callClaude(settings, systemPrompt, userPrompt)
+        "custom"  -> {
+            // For custom provider, detect which format to use based on model name or base URL
+            when {
+                settings.model.contains("gemini", ignoreCase = true) -> {
+                    println("Custom provider detected Gemini model, using Gemini API format")
+                    callGemini(settings, systemPrompt, userPrompt)
+                }
+                settings.model.contains("claude", ignoreCase = true) -> {
+                    println("Custom provider detected Claude model, using Claude API format")
+                    callClaude(settings, systemPrompt, userPrompt)
+                }
+                else -> {
+                    println("Custom provider using OpenAI-compatible format")
+                    callOpenAi(settings, systemPrompt, userPrompt)
+                }
+            }
+        }
+        else      -> callOpenAi(settings, systemPrompt, userPrompt)
     }
 }
 
-private val SYSTEM_PROMPT = "You are a playful pixel-art wizard tutor inside an Android learning app called Wizaird. " +
-        "Give ONE bite-sized fact or explanation. Max 160 characters. No emoji. No preamble. Plain text only."
+// Legacy function for backward compatibility
+suspend fun askAi(settings: AiSettings, userPrompt: String): String {
+    val defaultPrompt = "You are a playful pixel-art wizard tutor inside an Android learning app called Wizaird. " +
+            "Give ONE bite-sized fact or explanation. Max 160 characters. No emoji. No preamble. Plain text only."
+    return askAi(settings, defaultPrompt, userPrompt)
+}
 
 // OpenAI-compatible (also works for custom endpoints)
 private data class OaiMessage(@SerializedName("role") val role: String, @SerializedName("content") val content: String)
@@ -68,7 +89,7 @@ private data class OaiRequest(
     @SerializedName("max_tokens") val maxTokens: Int = 120
 )
 
-fun callOpenAi(settings: AiSettings, prompt: String): String {
+fun callOpenAi(settings: AiSettings, systemPrompt: String, userPrompt: String): String {
     val url = if (settings.provider == "custom") {
         settings.baseUrl.ifBlank { "https://api.openai.com/v1/chat/completions" }
     } else {
@@ -77,8 +98,9 @@ fun callOpenAi(settings: AiSettings, prompt: String): String {
     val model = settings.model.ifBlank { "gpt-4o-mini" }
     val body = gson.toJson(OaiRequest(
         model = model,
-        messages = listOf(OaiMessage("system", SYSTEM_PROMPT), OaiMessage("user", prompt)),
-        temperature = settings.temperature
+        messages = listOf(OaiMessage("system", systemPrompt), OaiMessage("user", userPrompt)),
+        temperature = settings.temperature,
+        maxTokens = 500
     ))
     val req = Request.Builder()
         .url(url)
@@ -87,36 +109,106 @@ fun callOpenAi(settings: AiSettings, prompt: String): String {
         .post(body.toRequestBody("application/json".toMediaType()))
         .build()
     val resp = client.newCall(req).execute()
-    val json = gson.fromJson(resp.body?.string(), Map::class.java)
-    @Suppress("UNCHECKED_CAST")
-    val choices = json["choices"] as? List<Map<String, Any>> ?: return "No response."
-    val msg = choices[0]["message"] as? Map<String, Any> ?: return "No response."
-    return (msg["content"] as? String)?.trim() ?: "No response."
+    val responseBody = resp.body?.string() ?: return "No response."
+    
+    println("OpenAI Response Code: ${resp.code}")
+    println("OpenAI Response Body: $responseBody")
+    
+    // Check for HTTP errors
+    if (!resp.isSuccessful) {
+        return "API Error (${resp.code}): $responseBody"
+    }
+    
+    // Try to parse JSON response
+    try {
+        val json = gson.fromJson(responseBody, Map::class.java)
+        @Suppress("UNCHECKED_CAST")
+        val choices = json["choices"] as? List<Map<String, Any>> ?: return "No response."
+        val msg = choices[0]["message"] as? Map<String, Any> ?: return "No response."
+        return (msg["content"] as? String)?.trim() ?: "No response."
+    } catch (e: Exception) {
+        println("Failed to parse OpenAI response: ${e.message}")
+        return "Failed to parse API response: $responseBody"
+    }
 }
 
 // Gemini
-private fun callGemini(settings: AiSettings, prompt: String): String {
+private fun callGemini(settings: AiSettings, systemPrompt: String, userPrompt: String): String {
     val model = settings.model.ifBlank { "gemini-1.5-flash" }
-    val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=${settings.apiKey}"
-    val body = """{"contents":[{"parts":[{"text":"$SYSTEM_PROMPT\n\n$prompt"}]}],"generationConfig":{"maxOutputTokens":120}}"""
+    
+    // Use custom base URL if provider is custom, otherwise use Google's API
+    val url = if (settings.provider == "custom" && settings.baseUrl.isNotBlank()) {
+        // Custom endpoint - check if it already includes the path structure
+        val baseUrl = settings.baseUrl.trimEnd('/')
+        if (baseUrl.contains("/models/") || baseUrl.endsWith(":generateContent")) {
+            // Base URL already has the full path, just append key
+            "$baseUrl?key=${settings.apiKey}"
+        } else {
+            // Base URL is just the domain, add the full Gemini path
+            "$baseUrl/v1beta/models/$model:generateContent?key=${settings.apiKey}"
+        }
+    } else {
+        // Standard Gemini API
+        "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=${settings.apiKey}"
+    }
+    
+    println("Gemini URL: $url")
+    
+    // Properly construct JSON using Gson to avoid escaping issues
+    val combinedPrompt = "$systemPrompt\n\n$userPrompt"
+    val requestBody = mapOf(
+        "contents" to listOf(
+            mapOf(
+                "parts" to listOf(
+                    mapOf("text" to combinedPrompt)
+                )
+            )
+        )
+    )
+    val body = gson.toJson(requestBody)
+    
+    println("Gemini Request Body length: ${body.length} chars")
+    
     val req = Request.Builder()
         .url(url)
         .addHeader("Content-Type", "application/json")
         .post(body.toRequestBody("application/json".toMediaType()))
         .build()
     val resp = client.newCall(req).execute()
-    val json = gson.fromJson(resp.body?.string(), Map::class.java)
-    @Suppress("UNCHECKED_CAST")
-    val candidates = json["candidates"] as? List<Map<String, Any>> ?: return "No response."
-    val content = candidates[0]["content"] as? Map<String, Any> ?: return "No response."
-    val parts = content["parts"] as? List<Map<String, Any>> ?: return "No response."
-    return (parts[0]["text"] as? String)?.trim() ?: "No response."
+    val responseBody = resp.body?.string() ?: return "No response."
+    
+    println("Gemini Response Code: ${resp.code}")
+    println("Gemini Response Body: $responseBody")
+    
+    // Check for HTTP errors
+    if (!resp.isSuccessful) {
+        return "API Error (${resp.code}): $responseBody"
+    }
+    
+    // Try to parse JSON response
+    try {
+        val json = gson.fromJson(responseBody, Map::class.java)
+        @Suppress("UNCHECKED_CAST")
+        val candidates = json["candidates"] as? List<Map<String, Any>> ?: return "No response."
+        val content = candidates[0]["content"] as? Map<String, Any> ?: return "No response."
+        val parts = content["parts"] as? List<Map<String, Any>> ?: return "No response."
+        val text = (parts[0]["text"] as? String)?.trim() ?: "No response."
+        
+        println("Gemini extracted text length: ${text.length} chars")
+        println("Gemini extracted text (first 200 chars): ${text.take(200)}")
+        println("Gemini extracted text (last 200 chars): ${text.takeLast(200)}")
+        
+        return text
+    } catch (e: Exception) {
+        println("Failed to parse Gemini response: ${e.message}")
+        return "Failed to parse API response: $responseBody"
+    }
 }
 
 // Claude (Anthropic)
-private fun callClaude(settings: AiSettings, prompt: String): String {
+private fun callClaude(settings: AiSettings, systemPrompt: String, userPrompt: String): String {
     val model = settings.model.ifBlank { "claude-haiku-4-5" }
-    val body = """{"model":"$model","max_tokens":120,"system":"$SYSTEM_PROMPT","messages":[{"role":"user","content":"$prompt"}]}"""
+    val body = """{"model":"$model","max_tokens":500,"system":"$systemPrompt","messages":[{"role":"user","content":"$userPrompt"}]}"""
     val req = Request.Builder()
         .url("https://api.anthropic.com/v1/messages")
         .addHeader("x-api-key", settings.apiKey)
@@ -125,10 +217,26 @@ private fun callClaude(settings: AiSettings, prompt: String): String {
         .post(body.toRequestBody("application/json".toMediaType()))
         .build()
     val resp = client.newCall(req).execute()
-    val json = gson.fromJson(resp.body?.string(), Map::class.java)
-    @Suppress("UNCHECKED_CAST")
-    val content = json["content"] as? List<Map<String, Any>> ?: return "No response."
-    return (content[0]["text"] as? String)?.trim() ?: "No response."
+    val responseBody = resp.body?.string() ?: return "No response."
+    
+    println("Claude Response Code: ${resp.code}")
+    println("Claude Response Body: $responseBody")
+    
+    // Check for HTTP errors
+    if (!resp.isSuccessful) {
+        return "API Error (${resp.code}): $responseBody"
+    }
+    
+    // Try to parse JSON response
+    try {
+        val json = gson.fromJson(responseBody, Map::class.java)
+        @Suppress("UNCHECKED_CAST")
+        val content = json["content"] as? List<Map<String, Any>> ?: return "No response."
+        return (content[0]["text"] as? String)?.trim() ?: "No response."
+    } catch (e: Exception) {
+        println("Failed to parse Claude response: ${e.message}")
+        return "Failed to parse API response: $responseBody"
+    }
 }
 
 // ── Test API Connection ──────────────────────────────────────────

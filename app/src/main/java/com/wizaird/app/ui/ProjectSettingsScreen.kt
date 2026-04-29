@@ -32,7 +32,8 @@ fun ProjectSettingsScreen(
 
     var name by remember(project) { mutableStateOf(project?.name ?: "") }
     var instructions by remember(project) { mutableStateOf(project?.instructions ?: "") }
-    var priorKnowledge by remember(project) { mutableStateOf(project?.priorKnowledge ?: "") }
+    var background by remember(project) { mutableStateOf(project?.background ?: "") }
+    var learningProgress by remember(project) { mutableStateOf(project?.learningProgress ?: "") }
     var picturePath by remember(project) { mutableStateOf(project?.picturePath ?: "") }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -100,7 +101,8 @@ fun ProjectSettingsScreen(
                                     it.copy(
                                         name = name,
                                         instructions = instructions,
-                                        priorKnowledge = priorKnowledge,
+                                        background = background,
+                                        learningProgress = learningProgress,
                                         picturePath = picturePath
                                     )
                                 )
@@ -169,9 +171,9 @@ fun ProjectSettingsScreen(
                     }
                 }
 
-                // Prior knowledge
+                // Background
                 SettingsField(
-                    label = "PRIOR KNOWLEDGE"
+                    label = "BACKGROUND"
                 ) {
                     PixelBox(
                         modifier = Modifier
@@ -181,8 +183,8 @@ fun ProjectSettingsScreen(
                         cornerStyle = PixelCornerStyle.Rounded
                     ) {
                         androidx.compose.foundation.text.BasicTextField(
-                            value = priorKnowledge,
-                            onValueChange = { priorKnowledge = it },
+                            value = background,
+                            onValueChange = { background = it },
                             textStyle = minecraftStyle(12, colors.secondaryIcon),
                             cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.secondaryIcon),
                             modifier = Modifier
@@ -190,9 +192,43 @@ fun ProjectSettingsScreen(
                                 .padding(12.dp),
                             decorationBox = { inner ->
                                 Box(contentAlignment = Alignment.TopStart) {
-                                    if (priorKnowledge.isEmpty()) {
+                                    if (background.isEmpty()) {
                                         Text(
                                             "Background context the AI should know...",
+                                            style = minecraftStyle(12, colors.secondaryIconSoft)
+                                        )
+                                    }
+                                    inner()
+                                }
+                            }
+                        )
+                    }
+                }
+
+                // Learning Progress
+                SettingsField(
+                    label = "LEARNING PROGRESS"
+                ) {
+                    PixelBox(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp),
+                        fillColor = colors.secondarySurface,
+                        cornerStyle = PixelCornerStyle.Rounded
+                    ) {
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = learningProgress,
+                            onValueChange = { learningProgress = it },
+                            textStyle = minecraftStyle(12, colors.secondaryIcon),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.secondaryIcon),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp),
+                            decorationBox = { inner ->
+                                Box(contentAlignment = Alignment.TopStart) {
+                                    if (learningProgress.isEmpty()) {
+                                        Text(
+                                            "What the user has learned so far...",
                                             style = minecraftStyle(12, colors.secondaryIconSoft)
                                         )
                                     }

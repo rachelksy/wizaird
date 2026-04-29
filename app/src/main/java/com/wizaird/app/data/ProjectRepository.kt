@@ -18,9 +18,13 @@ data class Project(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "",
     val instructions: String = "",
-    val priorKnowledge: String = "",
+    val background: String = "",
+    val learningProgress: String = "",
     val picturePath: String = "",   // absolute path to file in internal storage, empty = none
-    val chatCount: Int = 0
+    val chatCount: Int = 0,
+    val lastInsightTimestamp: Long = 0L,
+    val lastInsightText: String = "",
+    val pinnedInsight: Boolean = false  // If true, auto-generation is paused for this project
 )
 
 private val KEY_PROJECTS = stringPreferencesKey("projects")

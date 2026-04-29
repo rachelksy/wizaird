@@ -50,5 +50,6 @@ dependencies {
     implementation(libs.gson)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
+    implementation("io.noties.markwon:core:4.6.2")
     debugImplementation(libs.androidx.ui.tooling)
 }

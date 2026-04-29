@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+  <!-- Outline (same as original) -->
+  <path d="M13 22h-2v-2h2v2Zm-2-2H9v-2h2v2Zm4 0h-2v-2h2v2Zm-6-2H7v-2h2v2Zm8 0h-2v-2h2v2ZM7 16H5v-2h2v2Zm12 0h-2v-2h2v2ZM5 14H3v-2h2v2Zm16 0h-2v-2h2v2ZM3 12H1V6h2v6Zm20 0h-2V6h2v6ZM13 8h-2V6h2v2ZM5 6H3V4h2v2Zm6 0H9V4h2v2Zm4 0h-2V4h2v2Zm6 0h-2V4h2v2ZM9 4H5V2h4v2Zm10 0h-4V2h4v2Z"/>
+  
+  <!-- Fill all interior pixels -->
+  <!-- Row at y=2-4 (top lobes) -->
+  <path d="M9 4H5V2h4v2Zm10 0h-4V2h4v2Z"/>
+  
+  <!-- Row at y=4-6 -->
+  <path d="M11 6H5V4h6v2Zm8 0h-6V4h6v2Z"/>
+  
+  <!-- Row at y=6-8 -->
+  <path d="M21 8H3V6h18v2Z"/>
+  
+  <!-- Row at y=8-10 -->
+  <path d="M21 10H3V8h18v2Z"/>
+  
+  <!-- Row at y=10-12 -->
+  <path d="M21 12H3v-2h18v2Z"/>
+  
+  <!-- Row at y=12-14 -->
+  <path d="M19 14H5v-2h14v2Z"/>
+  
+  <!-- Row at y=14-16 -->
+  <path d="M17 16H7v-2h10v2Z"/>
+  
+  <!-- Row at y=16-18 -->
+  <path d="M15 18H9v-2h6v2Z"/>
+  
+  <!-- Row at y=18-20 -->
+  <path d="M13 20h-2v-2h2v2Z"/>
+</svg>

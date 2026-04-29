@@ -32,9 +32,12 @@ import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.wizaird.app.data.NoteData
 import com.wizaird.app.data.chatsFlow
+import com.wizaird.app.data.deleteNote
+import com.wizaird.app.data.deleteProject
 import com.wizaird.app.data.notesFlow
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.ui.theme.*
+import kotlinx.coroutines.launch
 
 enum class ProjectTab { CHATS, NOTES }
 
@@ -52,6 +55,7 @@ fun ProjectScreen(
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
+    val scope = rememberCoroutineScope()
 
     val projects by projectsFlow(context).collectAsState(initial = emptyList())
     val project = projects.firstOrNull { it.id == projectId }
@@ -59,6 +63,7 @@ fun ProjectScreen(
 
     var activeTab by remember { mutableStateOf(initialTab) }
     var showMenu by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     var menuButtonHeightPx by remember { mutableStateOf(0) }
     val density = LocalDensity.current
 
@@ -279,7 +284,7 @@ fun ProjectScreen(
                                                 interactionSource = deleteInteraction,
                                                 onClick = {
                                                     showMenu = false
-                                                    onDeleteClick()
+                                                    showDeleteDialog = true
                                                 }
                                             )
                                     ) {
@@ -561,6 +566,26 @@ fun ProjectScreen(
                 }
             }
         }
+
+        // Delete confirmation dialog
+        if (showDeleteDialog) {
+            PixelConfirmationDialog(
+                title = "DELETE PROJECT",
+                message = "Are you sure you want to delete \"$projectName\"? This will also delete all chats and notes in this project. This action cannot be undone.",
+                confirmLabel = "DELETE",
+                cancelLabel = "CANCEL",
+                onConfirm = {
+                    showDeleteDialog = false
+                    scope.launch {
+                        deleteProject(context, projectId)
+                        onBack()
+                    }
+                },
+                onDismiss = {
+                    showDeleteDialog = false
+                }
+            )
+        }
     }
 }
 
@@ -596,38 +621,201 @@ fun ChatListItem(chat: com.wizaird.app.data.ChatData, onClick: () -> Unit = {}) 
 }
 
 @Composable
-fun NoteListItem(note: NoteData, onClick: () -> Unit = {}) {
+fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit = {}) {
+    val context = LocalContext.current
     val colors = LocalWizairdColors.current
+    val scope = rememberCoroutineScope()
     val interaction = remember { MutableInteractionSource() }
-    PixelBox(
-        modifier = Modifier
-            .fillMaxWidth()
-            .pixelRoundedClickable(interactionSource = interaction, onClick = onClick),
-        fillColor = colors.userBubble,
-        borderColor = androidx.compose.ui.graphics.Color.Transparent,
-        cornerStyle = PixelCornerStyle.Rounded
-    ) {
-        Column(
+    
+    var showMenu by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    
+    val svgLoader = remember {
+        ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
+    }
+    
+    Box {
+        PixelBox(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                .pixelRoundedClickable(interactionSource = interaction, onClick = onClick),
+            fillColor = colors.userBubble,
+            borderColor = androidx.compose.ui.graphics.Color.Transparent,
+            cornerStyle = PixelCornerStyle.Rounded
         ) {
-            // Date — pixel font, small, on top
-            Text(
-                text = note.createdAt,
-                style = pixelStyle(8, colors.secondaryIconSoft),
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.offset(y = (-2).dp)
-            )
-            // Body — minecraft font, same size as bubble text, max 3 lines
-            Text(
-                text = note.body,
-                style = minecraftStyle(12, colors.secondaryIcon),
-                maxLines = 3,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.offset(y = (-2).dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 12.dp, end = 10.dp, bottom = 12.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 32.dp), // Leave space for the options button
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Date — pixel font, small, on top
+                    Text(
+                        text = note.createdAt,
+                        style = pixelStyle(8, colors.secondaryIconSoft),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
+                    // Body — minecraft font, same size as bubble text, max 3 lines
+                    Text(
+                        text = note.body,
+                        style = minecraftStyle(12, colors.secondaryIcon),
+                        maxLines = 3,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
+                }
+                
+                // More options button - offset so icon sits at top-right edge
+                val moreInteraction = remember { MutableInteractionSource() }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 7.dp, y = (-7).dp) // Offset to position icon at edge
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .pixelRounded8Clickable(
+                                interactionSource = moreInteraction,
+                                onClick = { showMenu = true }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/more-vertical.svg")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = "More options",
+                            colorFilter = ColorFilter.tint(colors.secondaryIconSoft),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    
+                    // Options menu popup - positioned relative to button
+                    if (showMenu) {
+                        val density = LocalDensity.current
+                        val offsetY = with(density) { (32 + 4).dp.roundToPx() } // Button height + 4dp gap
+                        Popup(
+                            alignment = Alignment.TopEnd,
+                            offset = IntOffset(x = 0, y = offsetY),
+                            onDismissRequest = { showMenu = false },
+                            properties = PopupProperties(focusable = true)
+                        ) {
+                Box(
+                    modifier = Modifier
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                            shadowElevation = 8.dp.toPx()
+                            shape = PixelRounded8Shape
+                            clip = true
+                        }
+                        .drawBehind {
+                            val p = PixelSize.toPx()
+                            val w = size.width
+                            val h = size.height
+                            val fill = colors.userBubble
+                            val cut = Color.Transparent
+
+                            drawRect(fill)
+
+                            // Top-left
+                            drawRect(cut, Offset(0f, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                            // Top-right
+                            drawRect(cut, Offset(w-p*5, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*3, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*2, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*1, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*1, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                            // Bottom-left
+                            drawRect(cut, Offset(0f, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(0f, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                            // Bottom-right
+                            drawRect(cut, Offset(w-p*5, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*3, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*2, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*1, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                            drawRect(cut, Offset(w-p*1, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                        }
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .width(IntrinsicSize.Max)
+                            .padding(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        // Delete option
+                        val deleteInteraction = remember { MutableInteractionSource() }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .pixelRounded8Clickable(
+                                    interactionSource = deleteInteraction,
+                                    onClick = {
+                                        showMenu = false
+                                        showDeleteDialog = true
+                                    }
+                                )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data("file:///android_asset/pixelarticons/delete.svg")
+                                        .build(),
+                                    imageLoader = svgLoader,
+                                    contentDescription = "Delete",
+                                    colorFilter = ColorFilter.tint(colors.coral),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    "Delete",
+                                    style = pixelStyle(10, colors.coral),
+                                    modifier = Modifier.offset(y = (-2).dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Delete confirmation dialog
+        if (showDeleteDialog) {
+            PixelConfirmationDialog(
+                title = "DELETE NOTE",
+                message = "Are you sure you want to delete this note? This action cannot be undone.",
+                confirmLabel = "DELETE",
+                cancelLabel = "CANCEL",
+                onConfirm = {
+                    showDeleteDialog = false
+                    scope.launch {
+                        deleteNote(context, note.id)
+                    }
+                },
+                onDismiss = {
+                    showDeleteDialog = false
+                }
             )
         }
     }

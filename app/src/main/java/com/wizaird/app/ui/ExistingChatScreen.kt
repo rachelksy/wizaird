@@ -34,6 +34,7 @@ import com.wizaird.app.data.ChatMessage
 import com.wizaird.app.data.MessageSender
 import com.wizaird.app.data.addMessageToChat
 import com.wizaird.app.data.chatFlow
+import com.wizaird.app.data.deleteChat
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.delay
@@ -66,6 +67,7 @@ fun ExistingChatScreen(
     var isSendingMessage by remember { mutableStateOf(false) }
 
     var showMenu by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     val svgLoader = remember {
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
@@ -265,7 +267,10 @@ fun ExistingChatScreen(
                                         .fillMaxWidth()
                                         .pixelRounded8Clickable(
                                             interactionSource = deleteInteraction,
-                                            onClick = { showMenu = false }
+                                            onClick = {
+                                                showMenu = false
+                                                showDeleteDialog = true
+                                            }
                                         )
                                 ) {
                                     Row(
@@ -361,6 +366,26 @@ fun ExistingChatScreen(
         )
 
         Spacer(modifier = Modifier.height(20.dp).navigationBarsPadding())
+
+        // Delete confirmation dialog
+        if (showDeleteDialog) {
+            PixelConfirmationDialog(
+                title = "DELETE CHAT",
+                message = "Are you sure you want to delete this chat? This action cannot be undone.",
+                confirmLabel = "DELETE",
+                cancelLabel = "CANCEL",
+                onConfirm = {
+                    showDeleteDialog = false
+                    scope.launch {
+                        deleteChat(context, chatId)
+                        onBack()
+                    }
+                },
+                onDismiss = {
+                    showDeleteDialog = false
+                }
+            )
+        }
     }
 }
 

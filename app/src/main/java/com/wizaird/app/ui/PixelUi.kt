@@ -6,6 +6,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.ripple
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -43,11 +48,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.wizaird.app.ui.theme.Coral
-import com.wizaird.app.ui.theme.SecondaryIcon
 import com.wizaird.app.ui.theme.LocalWizairdColors
 import com.wizaird.app.ui.theme.Paper
 import com.wizaird.app.ui.theme.PixelFont
+import com.wizaird.app.ui.theme.SecondaryIcon
 import com.wizaird.app.ui.theme.PixeloidFont
 
 fun pixelStyle(size: Int, color: Color = SecondaryIcon) = TextStyle(
@@ -1426,6 +1432,75 @@ fun PixelCircleIconButton(
                 colorFilter = ColorFilter.tint(resolvedTint),
                 modifier = Modifier.size(20.dp)
             )
+        }
+    }
+}
+
+// ── Confirmation Dialog ──────────────────────────────────────────────────────
+@Composable
+fun PixelConfirmationDialog(
+    title: String,
+    message: String,
+    confirmLabel: String = "CONFIRM",
+    cancelLabel: String = "CANCEL",
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = LocalWizairdColors.current
+
+    Dialog(onDismissRequest = onDismiss) {
+        PixelBox(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+                .clip(PixelRoundedShape),
+            fillColor = colors.secondarySurface,
+            borderColor = colors.border,
+            cutColor = colors.secondarySurface,
+            cornerStyle = PixelCornerStyle.Rounded
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = pixelStyle(12, colors.textHigh),
+                    modifier = Modifier.offset(y = (-2).dp)
+                )
+
+                Text(
+                    text = message,
+                    style = minecraftStyle(14, colors.textLow).copy(
+                        lineHeight = (14 * 1.6f).sp
+                    ),
+                    modifier = Modifier.offset(y = (-2).dp)
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    PixelButtonLarge(
+                        label = cancelLabel,
+                        primary = false,
+                        modifier = Modifier.weight(1f),
+                        cutColor = colors.secondarySurface,
+                        onClick = onDismiss
+                    )
+                    PixelButtonLarge(
+                        label = confirmLabel,
+                        primary = true,
+                        modifier = Modifier.weight(1f),
+                        cutColor = colors.secondarySurface,
+                        onClick = onConfirm
+                    )
+                }
+            }
         }
     }
 }

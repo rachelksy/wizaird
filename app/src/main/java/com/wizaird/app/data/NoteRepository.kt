@@ -65,3 +65,14 @@ fun newNote(projectId: String): NoteData = NoteData(
     createdAt = formattedDate(),
     updatedAt = formattedDate()
 )
+
+/** Delete a note by ID. */
+suspend fun deleteNote(context: Context, noteId: String) {
+    context.dataStore.edit { prefs ->
+        val json = prefs[KEY_NOTES] ?: return@edit
+        val type = object : TypeToken<List<NoteData>>() {}.type
+        val current: MutableList<NoteData> = noteGson.fromJson(json, type) ?: mutableListOf()
+        current.removeAll { it.id == noteId }
+        prefs[KEY_NOTES] = noteGson.toJson(current)
+    }
+}

@@ -61,3 +61,22 @@ suspend fun copyPictureToInternal(context: Context, uri: Uri): String =
         }
         dest.absolutePath
     }
+
+/** Delete a project by ID. */
+suspend fun deleteProject(context: Context, projectId: String) {
+    val prefs = context.dataStore.data.first()
+    val json = prefs[KEY_PROJECTS] ?: return
+    val type = object : TypeToken<List<Project>>() {}.type
+    val current: MutableList<Project> = projectGson.fromJson(json, type) ?: mutableListOf()
+    
+    // Delete the project's picture file if it exists
+    val project = current.firstOrNull { it.id == projectId }
+    if (project != null && project.picturePath.isNotEmpty()) {
+        withContext(Dispatchers.IO) {
+            File(project.picturePath).delete()
+        }
+    }
+    
+    current.removeAll { it.id == projectId }
+    saveProjects(context, current)
+}

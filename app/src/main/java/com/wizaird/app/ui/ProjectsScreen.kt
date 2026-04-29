@@ -31,8 +31,10 @@ import coil.decode.GifDecoder
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.wizaird.app.data.Project
+import com.wizaird.app.data.deleteProject
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.ui.theme.*
+import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
@@ -128,8 +130,10 @@ fun ProjectCard(project: Project, onClick: () -> Unit, onLongPress: (() -> Unit)
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
     val cardInteraction = remember { MutableInteractionSource() }
+    val scope = rememberCoroutineScope()
 
     var showMenu by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     var cardHeightPx by remember { mutableStateOf(0) }
 
     val svgLoader = remember {
@@ -301,7 +305,10 @@ fun ProjectCard(project: Project, onClick: () -> Unit, onLongPress: (() -> Unit)
                                 .fillMaxWidth()
                                 .pixelRounded8Clickable(
                                     interactionSource = deleteInteraction,
-                                    onClick = { showMenu = false }
+                                    onClick = {
+                                        showMenu = false
+                                        showDeleteDialog = true
+                                    }
                                 )
                         ) {
                             Row(
@@ -328,6 +335,25 @@ fun ProjectCard(project: Project, onClick: () -> Unit, onLongPress: (() -> Unit)
                     }
                 }
             }
+        }
+
+        // Delete confirmation dialog
+        if (showDeleteDialog) {
+            PixelConfirmationDialog(
+                title = "DELETE PROJECT",
+                message = "Are you sure you want to delete \"${project.name.ifEmpty { "UNNAMED PROJECT" }}\"? This will also delete all chats and notes in this project. This action cannot be undone.",
+                confirmLabel = "DELETE",
+                cancelLabel = "CANCEL",
+                onConfirm = {
+                    showDeleteDialog = false
+                    scope.launch {
+                        deleteProject(context, project.id)
+                    }
+                },
+                onDismiss = {
+                    showDeleteDialog = false
+                }
+            )
         }
     }
 }

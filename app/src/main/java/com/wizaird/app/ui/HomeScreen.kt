@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -603,18 +604,51 @@ fun ChatBubble(
             }
 
             // Bubble text content
-            Box(modifier = Modifier
-                .weight(1f)
-                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)
-                .verticalScroll(rememberScrollState())
-            ) {
-                if (loading) {
-                    Text(
-                        text = "Please wait while I think of what to teach you today...",
-                        style = minecraftStyle(14, colors.textHigh),
-                        overflow = TextOverflow.Clip
-                    )
-                } else {
+            if (loading) {
+                val coffeeLoader = remember {
+                    ImageLoader.Builder(context)
+                        .components { add(GifDecoder.Factory()) }
+                        .build()
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/coffee.gif")
+                                .build(),
+                            imageLoader = coffeeLoader,
+                            contentDescription = "Loading",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.width(400.dp)
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "Please wait while I think of what to teach you today...",
+                            style = pixelStyle(14, colors.textHigh).copy(
+                                lineHeight = (14 * 1.6f).sp
+                            ),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .widthIn(max = 240.dp)
+                                .offset(y = (-2).dp)
+                        )
+                    }
+                }
+            } else {
+                Box(modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)
+                    .verticalScroll(rememberScrollState())
+                ) {
                     SelectionContainer {
                         MarkdownText(
                             markdown = text,

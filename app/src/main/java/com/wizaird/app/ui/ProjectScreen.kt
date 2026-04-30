@@ -340,8 +340,8 @@ fun ProjectScreen(
                 }
                 listOf(
                     ProjectTab.CHATS to "Chats",
-                    ProjectTab.NOTES to "Notes",
-                    ProjectTab.INSIGHTS to "Insights"
+                    ProjectTab.INSIGHTS to "Insights",
+                    ProjectTab.NOTES to "Notes"
                 ).forEach { (tab, label) ->
                     val isActive = activeTab == tab
                     val tabInteraction = remember { MutableInteractionSource() }
@@ -376,10 +376,10 @@ fun ProjectScreen(
                                             modifier = Modifier.size(14.dp)
                                         )
                                     }
-                                    ProjectTab.NOTES -> {
+                                    ProjectTab.INSIGHTS -> {
                                         AsyncImage(
                                             model = ImageRequest.Builder(context)
-                                                .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
+                                                .data("file:///android_asset/pixelarticons/lightbulb-off.svg")
                                                 .build(),
                                             imageLoader = svgLoader,
                                             contentDescription = null,
@@ -387,10 +387,10 @@ fun ProjectScreen(
                                             modifier = Modifier.size(14.dp)
                                         )
                                     }
-                                    ProjectTab.INSIGHTS -> {
+                                    ProjectTab.NOTES -> {
                                         AsyncImage(
                                             model = ImageRequest.Builder(context)
-                                                .data("file:///android_asset/pixelarticons/lightbulb-off.svg")
+                                                .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
                                                 .build(),
                                             imageLoader = svgLoader,
                                             contentDescription = null,
@@ -954,6 +954,8 @@ fun InsightListItem(insight: StoredInsight) {
     
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showPreview by remember { mutableStateOf(false) }
+    val cardInteraction = remember { MutableInteractionSource() }
     
     val svgLoader = remember {
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
@@ -961,7 +963,12 @@ fun InsightListItem(insight: StoredInsight) {
     
     Box {
         PixelBox(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .pixelRoundedClickable(
+                    interactionSource = cardInteraction,
+                    onClick = { showPreview = true }
+                ),
             fillColor = colors.secondarySurface,
             borderColor = androidx.compose.ui.graphics.Color.Transparent,
             cornerStyle = PixelCornerStyle.Rounded
@@ -985,11 +992,12 @@ fun InsightListItem(insight: StoredInsight) {
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier.offset(y = (-2).dp)
                     )
-                    // Insight text — minecraft font, with markdown support
+                    // Insight text — minecraft font, with markdown support, max 5 lines
                     MarkdownText(
                         markdown = insight.text,
                         style = minecraftStyle(12, colors.secondaryIcon),
-                        modifier = Modifier.offset(y = (-2).dp)
+                        modifier = Modifier.offset(y = (-2).dp),
+                        maxLines = 5
                     )
                 }
                 
@@ -1139,6 +1147,133 @@ fun InsightListItem(insight: StoredInsight) {
                     showDeleteDialog = false
                 }
             )
+        }
+        
+        // Preview overlay
+        if (showPreview) {
+            InsightPreviewOverlay(
+                insight = insight,
+                onDismiss = { showPreview = false }
+            )
+        }
+    }
+}
+
+@Composable
+fun InsightPreviewOverlay(
+    insight: StoredInsight,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val colors = LocalWizairdColors.current
+    val scrollState = rememberScrollState()
+    
+    val svgLoader = remember {
+        ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
+    }
+    
+    // Full-screen dialog
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 48.dp)
+                .padding(8.dp)
+        ) {
+            PixelBox(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(PixelRoundedShape),
+                fillColor = colors.secondarySurface,
+                borderColor = colors.border,
+                cutColor = colors.secondarySurface,
+                cornerStyle = PixelCornerStyle.Rounded
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Fixed header with date and close button
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Date on the left
+                        Text(
+                            text = insight.formattedCreatedAt(),
+                            style = pixelStyle(10, colors.secondaryIconSoft),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                        
+                        // Close button (X) - using existing button pattern
+                        val closeInteraction = remember { MutableInteractionSource() }
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .pixelRounded8Clickable(
+                                    interactionSource = closeInteraction,
+                                    onClick = onDismiss
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .drawBehind {
+                                        val p = PixelSize.toPx()
+                                        val color = colors.secondaryIcon
+                                        
+                                        // Draw X with diagonal pixel steps
+                                        // Top-left to bottom-right diagonal
+                                        drawRect(color, Offset(p * 1, p * 1), Size(p, p))
+                                        drawRect(color, Offset(p * 2, p * 2), Size(p, p))
+                                        drawRect(color, Offset(p * 3, p * 3), Size(p, p))
+                                        drawRect(color, Offset(p * 4, p * 4), Size(p, p))
+                                        drawRect(color, Offset(p * 5, p * 5), Size(p, p))
+                                        
+                                        // Top-right to bottom-left diagonal
+                                        drawRect(color, Offset(p * 5, p * 1), Size(p, p))
+                                        drawRect(color, Offset(p * 4, p * 2), Size(p, p))
+                                        drawRect(color, Offset(p * 3, p * 3), Size(p, p))
+                                        drawRect(color, Offset(p * 2, p * 4), Size(p, p))
+                                        drawRect(color, Offset(p * 1, p * 5), Size(p, p))
+                                    }
+                            )
+                        }
+                    }
+                    
+                    // Scrollable content area
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(scrollState)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .padding(bottom = 16.dp)
+                        ) {
+                            MarkdownText(
+                                markdown = insight.text,
+                                style = minecraftStyle(14, colors.textHigh).copy(
+                                    lineHeight = (14 * 1.6f).sp
+                                ),
+                                modifier = Modifier.offset(y = (-2).dp)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

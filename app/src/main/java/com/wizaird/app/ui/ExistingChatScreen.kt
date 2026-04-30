@@ -430,8 +430,8 @@ fun ChatBubble(message: ChatMessage) {
         ) {
             if (isUser) {
                 SelectionContainer {
-                    Text(
-                        text = message.text,
+                    MarkdownText(
+                        markdown = message.text,
                         style = minecraftStyle(14, userBubbleText),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
                     )
@@ -439,8 +439,8 @@ fun ChatBubble(message: ChatMessage) {
             } else {
                 Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
                     SelectionContainer {
-                        Text(
-                            text = message.text,
+                        MarkdownText(
+                            markdown = message.text,
                             style = minecraftStyle(14, aiBubbleText)
                         )
                     }

@@ -352,12 +352,12 @@ fun ChatScreen(
                         speechTail = false
                     ) {
                         SelectionContainer {
-                            Text(
-                                text = bubbleText,
+                            MarkdownText(
+                                markdown = bubbleText,
                                 style = pixelStyle(14, colors.textHigh).copy(
-                                    lineHeight = (14 * 1.6f).sp
+                                    lineHeight = (14 * 1.6f).sp,
+                                    textAlign = TextAlign.Center
                                 ),
-                                textAlign = TextAlign.Center,
                                 modifier = Modifier
                                     .padding(16.dp)
                                     .offset(y = (-2).dp)

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -15,6 +16,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 
@@ -26,44 +28,49 @@ import androidx.compose.ui.unit.dp
 fun MarkdownText(
     markdown: String,
     style: androidx.compose.ui.text.TextStyle,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE
 ) {
-    val lines = markdown.lines()
+    // Parse the entire markdown into a single AnnotatedString
+    val annotatedText = parseMarkdown(markdown, style)
     
-    Column(modifier = modifier) {
+    // Use Text which properly handles maxLines with text wrapping
+    Text(
+        text = annotatedText,
+        style = style,
+        modifier = modifier,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis
+    )
+}
+
+private fun parseMarkdown(markdown: String, baseStyle: androidx.compose.ui.text.TextStyle): AnnotatedString {
+    return buildAnnotatedString {
+        val lines = markdown.lines()
+        
         lines.forEachIndexed { index, line ->
             when {
                 // Bullet point: * item or - item
                 line.trimStart().startsWith("* ") || line.trimStart().startsWith("- ") -> {
-                    val indent = line.takeWhile { it == ' ' }.length
                     val content = line.trimStart().substring(2) // Remove "* " or "- "
-                    Row(modifier = Modifier.fillMaxWidth().padding(start = (indent * 4).dp, bottom = 6.dp)) {
-                        BasicText(
-                            text = "• ",
-                            style = style
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        BasicText(
-                            text = parseInlineMarkdown(content, style),
-                            style = style,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    append("• ")
+                    append(parseInlineMarkdown(content))
                 }
                 // Regular line
                 else -> {
-                    BasicText(
-                        text = parseInlineMarkdown(line, style),
-                        style = style,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    append(parseInlineMarkdown(line))
                 }
+            }
+            
+            // Add newline between lines (but not after the last line)
+            if (index < lines.lastIndex) {
+                append("\n")
             }
         }
     }
 }
 
-private fun parseInlineMarkdown(text: String, baseStyle: androidx.compose.ui.text.TextStyle): AnnotatedString {
+private fun parseInlineMarkdown(text: String): AnnotatedString {
     return buildAnnotatedString {
         var i = 0
         while (i < text.length) {

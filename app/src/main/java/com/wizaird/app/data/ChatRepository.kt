@@ -29,7 +29,9 @@ data class ChatData(
     val projectId: String,
     val title: String = "",
     val messages: List<ChatMessage> = emptyList(),
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val insightId: String? = null,  // Link to the insight that started this chat
+    val contextWindowSize: Int = 50  // Number of last messages to send to AI for context
 ) {
     fun formattedCreatedAt(): String {
         val date = Date(createdAt)

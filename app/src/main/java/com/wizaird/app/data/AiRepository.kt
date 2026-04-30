@@ -43,8 +43,8 @@ suspend fun saveSettings(context: Context, settings: AiSettings) {
 
 // ── AI call ──────────────────────────────────────────────────────
 private val client = OkHttpClient.Builder()
-    .connectTimeout(15, TimeUnit.SECONDS)
-    .readTimeout(30, TimeUnit.SECONDS)
+    .connectTimeout(60, TimeUnit.SECONDS)
+    .readTimeout(120, TimeUnit.SECONDS)
     .build()
 
 suspend fun askAi(settings: AiSettings, systemPrompt: String, userPrompt: String): String {
@@ -85,8 +85,7 @@ private data class OaiMessage(@SerializedName("role") val role: String, @Seriali
 private data class OaiRequest(
     @SerializedName("model") val model: String,
     @SerializedName("messages") val messages: List<OaiMessage>,
-    @SerializedName("temperature") val temperature: Float,
-    @SerializedName("max_tokens") val maxTokens: Int = 120
+    @SerializedName("temperature") val temperature: Float
 )
 
 fun callOpenAi(settings: AiSettings, systemPrompt: String, userPrompt: String): String {
@@ -99,8 +98,7 @@ fun callOpenAi(settings: AiSettings, systemPrompt: String, userPrompt: String): 
     val body = gson.toJson(OaiRequest(
         model = model,
         messages = listOf(OaiMessage("system", systemPrompt), OaiMessage("user", userPrompt)),
-        temperature = settings.temperature,
-        maxTokens = 500
+        temperature = settings.temperature
     ))
     val req = Request.Builder()
         .url(url)
@@ -208,7 +206,7 @@ private fun callGemini(settings: AiSettings, systemPrompt: String, userPrompt: S
 // Claude (Anthropic)
 private fun callClaude(settings: AiSettings, systemPrompt: String, userPrompt: String): String {
     val model = settings.model.ifBlank { "claude-haiku-4-5" }
-    val body = """{"model":"$model","max_tokens":500,"system":"$systemPrompt","messages":[{"role":"user","content":"$userPrompt"}]}"""
+    val body = """{"model":"$model","max_tokens":4096,"system":"$systemPrompt","messages":[{"role":"user","content":"$userPrompt"}]}"""
     val req = Request.Builder()
         .url("https://api.anthropic.com/v1/messages")
         .addHeader("x-api-key", settings.apiKey)

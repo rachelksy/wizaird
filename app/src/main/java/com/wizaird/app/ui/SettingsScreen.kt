@@ -164,7 +164,8 @@ fun PixelTextInput(
                 VisualTransformation.None,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp)
+                .offset(y = (-2).dp),
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterStart) {
                     if (value.isEmpty()) Text(placeholder, style = placeholderStyle)

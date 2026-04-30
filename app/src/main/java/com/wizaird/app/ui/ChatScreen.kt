@@ -35,7 +35,11 @@ import coil.request.ImageRequest
 import com.wizaird.app.data.ChatData
 import com.wizaird.app.data.ChatMessage
 import com.wizaird.app.data.MessageSender
+import com.wizaird.app.data.buildChatSystemPrompt
+import com.wizaird.app.data.askAi
 import com.wizaird.app.data.projectsFlow
+import com.wizaird.app.data.settingsFlow
+import com.wizaird.app.data.AiSettings
 import com.wizaird.app.data.upsertChat
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.delay
@@ -55,6 +59,8 @@ fun ChatScreen(
     val projects by projectsFlow(context).collectAsState(initial = emptyList())
     val project = projects.firstOrNull { it.id == projectId }
     val projectName = project?.name?.ifEmpty { "UNNAMED PROJECT" } ?: "UNNAMED PROJECT"
+    
+    val settings by settingsFlow(context).collectAsState(initial = AiSettings())
 
     var inputText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -379,7 +385,7 @@ fun ChatScreen(
             onValueChange = { inputText = it },
             onSubmit = {
                 val q = inputText.trim()
-                if (q.isNotEmpty() && !isCreatingChat) {
+                if (q.isNotEmpty() && !isCreatingChat && project != null) {
                     inputText = ""
                     isCreatingChat = true
                     
@@ -390,29 +396,16 @@ fun ChatScreen(
                             text = q
                         )
                         
-                        // Create new chat with placeholder title
+                        // Create new chat (title will be generated after AI responds)
                         val newChat = ChatData(
                             projectId = projectId,
                             title = "Generated Title",
-                            messages = listOf(userMessage)
+                            messages = listOf(userMessage),
+                            insightId = null  // No insight when starting from ChatScreen
                         )
                         
                         // Save the chat
                         upsertChat(context, newChat)
-                        
-                        // Simulate AI response delay
-                        delay(500)
-                        
-                        // Add AI response
-                        val aiMessage = ChatMessage(
-                            sender = MessageSender.AI,
-                            text = "This is a placeholder response. The AI integration will be added later to provide real responses based on your question."
-                        )
-                        
-                        val updatedChat = newChat.copy(
-                            messages = newChat.messages + aiMessage
-                        )
-                        upsertChat(context, updatedChat)
                         
                         // Navigate to the existing chat screen
                         onChatCreated(newChat.id)

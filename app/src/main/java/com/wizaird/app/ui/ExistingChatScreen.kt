@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import coil.ImageLoader
@@ -36,9 +37,16 @@ import coil.request.ImageRequest
 import com.wizaird.app.data.ChatMessage
 import com.wizaird.app.data.MessageSender
 import com.wizaird.app.data.addMessageToChat
+import com.wizaird.app.data.buildChatSystemPrompt
+import com.wizaird.app.data.askAi
 import com.wizaird.app.data.chatFlow
 import com.wizaird.app.data.deleteChat
 import com.wizaird.app.data.projectsFlow
+import com.wizaird.app.data.settingsFlow
+import com.wizaird.app.data.AiSettings
+import com.wizaird.app.data.generateChatTitle
+import com.wizaird.app.data.upsertChat
+import kotlinx.coroutines.flow.first
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -50,7 +58,7 @@ fun ExistingChatScreen(
     projectId: String,
     chatId: String,
     onBack: () -> Unit,
-    onMoreClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -59,6 +67,8 @@ fun ExistingChatScreen(
     val projects by projectsFlow(context).collectAsState(initial = emptyList())
     val project = projects.firstOrNull { it.id == projectId }
     val projectName = project?.name?.ifEmpty { "UNNAMED PROJECT" } ?: "UNNAMED PROJECT"
+    
+    val settings by settingsFlow(context).collectAsState(initial = AiSettings())
 
     // Load chat from repository
     val chat by chatFlow(context, chatId).collectAsState(initial = null)
@@ -68,6 +78,8 @@ fun ExistingChatScreen(
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
     var isSendingMessage by remember { mutableStateOf(false) }
+    var isGeneratingResponse by remember { mutableStateOf(false) }
+    var responseError by remember { mutableStateOf<String?>(null) }
 
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -79,6 +91,102 @@ fun ExistingChatScreen(
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.lastIndex)
+        }
+    }
+    
+    // Auto-generate AI response when last message is from user
+    LaunchedEffect(messages.size, messages.lastOrNull()?.id) {
+        if (messages.isNotEmpty() && 
+            messages.last().sender == MessageSender.USER && 
+            !isGeneratingResponse &&
+            project != null) {
+            
+            isGeneratingResponse = true
+            responseError = null
+            
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    println("=== CHAT AI RESPONSE START ===")
+                    println("Chat ID: $chatId")
+                    println("Project: ${project.name}")
+                    println("Project ID: ${project.id}")
+                    println("User message: ${messages.last().text}")
+                    println("Total messages in chat: ${messages.size}")
+                    
+                    val systemPrompt = buildChatSystemPrompt(project)
+                    println("System prompt built (${systemPrompt.length} chars)")
+                    println("--- SYSTEM PROMPT START ---")
+                    println(systemPrompt)
+                    println("--- SYSTEM PROMPT END ---")
+                    
+                    // Build conversation history for context using chat's context window size
+                    val contextWindowSize = chat?.contextWindowSize ?: 50
+                    val messagesToSend = messages.takeLast(contextWindowSize)
+                    println("Using context window size: $contextWindowSize (sending ${messagesToSend.size} messages)")
+                    
+                    val conversationHistory = messagesToSend.joinToString("\n") { msg ->
+                        "${if (msg.sender == MessageSender.USER) "User" else "Assistant"}: ${msg.text}"
+                    }
+                    println("--- CONVERSATION HISTORY START ---")
+                    println(conversationHistory)
+                    println("--- CONVERSATION HISTORY END ---")
+                    
+                    println("Calling askAi with settings:")
+                    println("  Provider: ${settings.provider}")
+                    println("  Model: ${settings.model}")
+                    println("  API Key length: ${settings.apiKey.length}")
+                    println("  Base URL: ${settings.baseUrl}")
+                    
+                    val aiResponse = askAi(settings, systemPrompt, conversationHistory)
+                    println("AI response received (${aiResponse.length} chars)")
+                    println("--- AI RESPONSE START ---")
+                    println(aiResponse)
+                    println("--- AI RESPONSE END ---")
+                    
+                    val aiMessage = ChatMessage(
+                        sender = MessageSender.AI,
+                        text = aiResponse
+                    )
+                    addMessageToChat(context, chatId, aiMessage)
+                    
+                    println("=== CHAT AI RESPONSE SUCCESS ===")
+                    
+                    // Generate title in background (don't block or show loading)
+                    if (chat?.title == "Generated Title" && messages.size <= 2) {
+                        // Launch in application scope so it continues even if user navigates away
+                        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            try {
+                                println("Generating chat title in background...")
+                                val firstUserMessage = messages.firstOrNull { it.sender == MessageSender.USER }?.text ?: ""
+                                val title = generateChatTitle(context, settings, aiResponse, firstUserMessage)
+                                println("Generated title: $title")
+                                
+                                // Update chat with new title
+                                val currentChat = chatFlow(context, chatId).first()
+                                currentChat?.let {
+                                    val updatedChat = it.copy(title = title)
+                                    upsertChat(context, updatedChat)
+                                }
+                            } catch (e: Exception) {
+                                println("Failed to generate title in background: ${e.message}")
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    println("=== CHAT AI RESPONSE FAILED ===")
+                    println("Error type: ${e.javaClass.simpleName}")
+                    println("Error message: ${e.message}")
+                    println("Stack trace:")
+                    e.printStackTrace()
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        responseError = "Failed to get response: ${e.message}"
+                    }
+                } finally {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        isGeneratingResponse = false
+                    }
+                }
+            }
         }
     }
 
@@ -199,14 +307,17 @@ fun ExistingChatScreen(
                                     .padding(4.dp),
                                 verticalArrangement = Arrangement.spacedBy(0.dp)
                             ) {
-                                // Rename option
-                                val renameInteraction = remember { MutableInteractionSource() }
+                                // Settings option
+                                val settingsInteraction = remember { MutableInteractionSource() }
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .pixelRounded8Clickable(
-                                            interactionSource = renameInteraction,
-                                            onClick = { showMenu = false }
+                                            interactionSource = settingsInteraction,
+                                            onClick = { 
+                                                showMenu = false
+                                                onSettingsClick()
+                                            }
                                         )
                                 ) {
                                     Row(
@@ -216,15 +327,15 @@ fun ExistingChatScreen(
                                     ) {
                                         AsyncImage(
                                             model = ImageRequest.Builder(context)
-                                                .data("file:///android_asset/pixelarticons/pen-square.svg")
+                                                .data("file:///android_asset/pixelarticons/settings-2.svg")
                                                 .build(),
                                             imageLoader = svgLoader,
-                                            contentDescription = "Rename",
+                                            contentDescription = "Settings",
                                             colorFilter = ColorFilter.tint(colors.secondaryIcon),
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Text(
-                                            "Rename",
+                                            "Settings",
                                             style = pixelStyle(10, colors.secondaryIcon),
                                             modifier = Modifier.offset(y = (-2).dp)
                                         )
@@ -321,6 +432,80 @@ fun ExistingChatScreen(
             items(messages, key = { it.id }) { message ->
                 ChatBubble(message = message)
             }
+            
+            // Show loading indicator when generating response
+            if (isGeneratingResponse) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        PixelBox(
+                            modifier = Modifier.padding(end = 32.dp),
+                            fillColor = colors.secondarySurface,
+                            borderColor = androidx.compose.ui.graphics.Color.Transparent,
+                            cornerStyle = PixelCornerStyle.Rounded
+                        ) {
+                            Text(
+                                text = "Thinking...",
+                                style = minecraftStyle(14, colors.textXLow),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Show error in AI chat bubble with retry icon
+            if (responseError != null) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        PixelBox(
+                            modifier = Modifier.padding(end = 32.dp),
+                            fillColor = colors.secondarySurface,
+                            borderColor = androidx.compose.ui.graphics.Color.Transparent,
+                            cornerStyle = PixelCornerStyle.Rounded
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                                Text(
+                                    text = responseError ?: "Unknown error",
+                                    style = minecraftStyle(14, colors.coral)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val retryInteraction = remember { MutableInteractionSource() }
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data("file:///android_asset/pixelarticons/zap.svg")
+                                            .build(),
+                                        imageLoader = svgLoader,
+                                        contentDescription = "Retry",
+                                        colorFilter = ColorFilter.tint(colors.textXLow),
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .pixelRounded8ClickableOversize(
+                                                interactionSource = retryInteraction
+                                            ) {
+                                                // Retry by resetting error state
+                                                responseError = null
+                                                scope.launch {
+                                                    delay(100)
+                                                    isGeneratingResponse = false
+                                                }
+                                            }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // ── Input bar ─────────────────────────────────────────────────────────
@@ -342,23 +527,12 @@ fun ExistingChatScreen(
                         addMessageToChat(context, chatId, userMessage)
                         
                         // Scroll to bottom
+                        delay(100)
                         listState.animateScrollToItem(messages.size)
                         
-                        // Simulate AI response delay
-                        delay(800)
-                        
-                        // Add AI response
-                        val aiMessage = ChatMessage(
-                            sender = MessageSender.AI,
-                            text = "This is a placeholder response. The AI integration will be added later to provide real responses based on your question."
-                        )
-                        addMessageToChat(context, chatId, aiMessage)
-                        
-                        // Scroll to show AI response
-                        delay(100)
-                        listState.animateScrollToItem(messages.size + 1)
-                        
                         isSendingMessage = false
+                        
+                        // AI response will be generated automatically by LaunchedEffect
                     }
                 }
             },

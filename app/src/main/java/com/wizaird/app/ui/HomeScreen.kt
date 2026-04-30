@@ -35,6 +35,9 @@ import coil.decode.GifDecoder
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.wizaird.app.data.AiSettings
+import com.wizaird.app.data.ChatData
+import com.wizaird.app.data.ChatMessage
+import com.wizaird.app.data.MessageSender
 import com.wizaird.app.data.Project
 import com.wizaird.app.data.askAi
 import com.wizaird.app.data.projectsFlow
@@ -43,6 +46,7 @@ import com.wizaird.app.data.shouldGenerateNewInsight
 import com.wizaird.app.data.generateInsight
 import com.wizaird.app.data.InsightResult
 import com.wizaird.app.data.upsertProject
+import com.wizaird.app.data.upsertChat
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -53,7 +57,8 @@ fun HomeScreen(
     onSettingsClick: () -> Unit,
     onProjectsClick: () -> Unit = {},
     onNewProjectClick: () -> Unit = {},
-    onProjectClick: (String) -> Unit = {}
+    onProjectClick: (String) -> Unit = {},
+    onChatCreated: (projectId: String, chatId: String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -219,11 +224,49 @@ fun HomeScreen(
                 PixelInputBar(
                     value = inputText,
                     onValueChange = { inputText = it },
+                    placeholder = if (!isLoading && bubbleText.isNotEmpty()) 
+                        "Ask the wizaird about the insight" 
+                        else 
+                        "Ask the wizaird...",
                     onSubmit = {
                         val q = inputText.trim()
-                        if (q.isNotEmpty()) {
+                        if (q.isNotEmpty() && activeProject != null) {
                             inputText = ""
-                            askQuestion(q)
+                            
+                            scope.launch {
+                                // Check if there's an insight to include
+                                val hasInsight = !isLoading && bubbleText.isNotEmpty()
+                                val currentInsightId = activeProject.insightHistory.lastOrNull()?.id
+                                
+                                // Build messages list
+                                val messages = mutableListOf<ChatMessage>()
+                                
+                                // If there's an insight, add it as first AI message
+                                if (hasInsight) {
+                                    messages.add(ChatMessage(
+                                        sender = MessageSender.AI,
+                                        text = bubbleText
+                                    ))
+                                }
+                                
+                                // Add user message
+                                messages.add(ChatMessage(
+                                    sender = MessageSender.USER,
+                                    text = q
+                                ))
+                                
+                                // Create chat (title will be generated after AI responds)
+                                val chat = ChatData(
+                                    projectId = activeProject.id,
+                                    title = "Generated Title",
+                                    messages = messages,
+                                    insightId = if (hasInsight) currentInsightId else null
+                                )
+                                
+                                // Save and navigate
+                                upsertChat(context, chat)
+                                onChatCreated(activeProject.id, chat.id)
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -759,7 +802,8 @@ fun PixelInputBar(
     onValueChange: (String) -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
-    focusRequester: androidx.compose.ui.focus.FocusRequester? = null
+    focusRequester: androidx.compose.ui.focus.FocusRequester? = null,
+    placeholder: String = "ASK THE WIZAIRD..."
 ) {
     val colors = LocalWizairdColors.current
     PixelBox(
@@ -785,7 +829,7 @@ fun PixelInputBar(
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty()) {
-                            Text("ASK THE WIZAIRD...", style = pixelStyle(12, colors.textXLow), modifier = Modifier.offset(y = (-2).dp))
+                            Text(placeholder.uppercase(), style = pixelStyle(12, colors.textXLow), modifier = Modifier.offset(y = (-2).dp))
                         }
                         inner()
                     }

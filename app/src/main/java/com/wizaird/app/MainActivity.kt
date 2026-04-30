@@ -24,6 +24,7 @@ import com.wizaird.app.ui.AccountSettingsScreen
 import com.wizaird.app.ui.ApiSettingsScreen
 import com.wizaird.app.ui.AppSettingsScreen
 import com.wizaird.app.ui.ChatScreen
+import com.wizaird.app.ui.ChatSettingsScreen
 import com.wizaird.app.ui.ExistingChatScreen
 import com.wizaird.app.ui.HomeScreen
 import com.wizaird.app.ui.NewProjectScreen
@@ -75,7 +76,10 @@ class MainActivity : ComponentActivity() {
                             onSettingsClick = { nav.navigate("settings") },
                             onProjectsClick = { nav.navigate("projects") },
                             onNewProjectClick = { nav.navigate("new_project") },
-                            onProjectClick = { id -> nav.navigate("project/${id}") }
+                            onProjectClick = { id -> nav.navigate("project/${id}") },
+                            onChatCreated = { projectId, chatId ->
+                                nav.navigate("chat/${projectId}/${chatId}")
+                            }
                         )
                     }
                     composable("settings") {
@@ -195,6 +199,16 @@ class MainActivity : ComponentActivity() {
                         val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
                         val chatId    = backStackEntry.arguments?.getString("chatId") ?: ""
                         ExistingChatScreen(
+                            projectId = projectId,
+                            chatId    = chatId,
+                            onBack    = { nav.popBackStack() },
+                            onSettingsClick = { nav.navigate("chat_settings/${projectId}/${chatId}") }
+                        )
+                    }
+                    composable("chat_settings/{projectId}/{chatId}") { backStackEntry ->
+                        val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+                        val chatId    = backStackEntry.arguments?.getString("chatId") ?: ""
+                        ChatSettingsScreen(
                             projectId = projectId,
                             chatId    = chatId,
                             onBack    = { nav.popBackStack() }

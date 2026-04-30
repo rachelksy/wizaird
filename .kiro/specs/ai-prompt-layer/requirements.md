@@ -29,7 +29,7 @@ The AI Prompt Layer is a system that constructs context-aware prompts for AI int
 3. WHEN prior knowledge is empty, THE Prompt_Builder SHALL omit the prior knowledge section from the prompt
 4. WHEN no knowledge map exists, THE Prompt_Builder SHALL omit the knowledge map section from the prompt
 5. WHEN fewer than 10 nuggets exist, THE Prompt_Builder SHALL include all available nuggets in the prompt
-6. THE Prompt_Builder SHALL include instructions specifying the nugget format: 150-250 words, conversational tone, ending with a thought or question
+6. THE Prompt_Builder SHALL include instructions specifying the nugget format: typically 150-250 words (up to 500 when needed for clarity), conversational tone, ending with a thought or question
 
 ### Requirement 2: Prompt Construction for Project Chats
 

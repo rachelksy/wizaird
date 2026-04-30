@@ -53,7 +53,7 @@ fun buildInsightPrompt(project: Project): String {
     sb.append("Your task: Write one microlearning insight.\n\n")
     sb.append("RULES:\n")
     sb.append("1. One clear focus — a single idea, pattern, or insight the user can walk away having genuinely absorbed. Supporting ideas are fine if they serve that focus. Competing ideas are not.\n")
-    sb.append("2. 150–250 words.\n")
+    sb.append("2. Typically 150–250 words, but use whatever length is needed to fully explain the idea. If clarity requires more space, extend up to 500 words. Don't let word count constrain what needs to be said.\n")
     sb.append("3. Tone: clear, direct, substantive.\n")
     sb.append("4. Use whatever format best serves the content — prose, a short list, a comparison. Do not default to any one format.\n")
     sb.append("5. Do not repeat ground already covered in the learning progress or recent insights. You may revisit a topic if you are approaching it from a genuinely different angle that adds new understanding.\n")

@@ -41,6 +41,7 @@ import com.wizaird.app.data.buildChatSystemPrompt
 import com.wizaird.app.data.askAi
 import com.wizaird.app.data.chatFlow
 import com.wizaird.app.data.deleteChat
+import com.wizaird.app.data.removeLastAiMessage
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.data.AiSettings
@@ -430,7 +431,18 @@ fun ExistingChatScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(messages, key = { it.id }) { message ->
-                ChatBubble(message = message)
+                val isLastAiMessage = message.sender == MessageSender.AI && 
+                    message.id == messages.lastOrNull { it.sender == MessageSender.AI }?.id
+                ChatBubble(
+                    message = message,
+                    onRegenerate = if (isLastAiMessage) {
+                        {
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                removeLastAiMessage(context, chatId)
+                            }
+                        }
+                    } else null
+                )
             }
             
             // Show loading indicator when generating response
@@ -570,7 +582,7 @@ fun ExistingChatScreen(
 // ── Bubble ────────────────────────────────────────────────────────────────────
 
 @Composable
-fun ChatBubble(message: ChatMessage) {
+fun ChatBubble(message: ChatMessage, onRegenerate: (() -> Unit)? = null) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
     val clipboardManager = LocalClipboardManager.current
@@ -659,6 +671,24 @@ fun ChatBubble(message: ChatMessage) {
                                     interactionSource = noteInteraction
                                 ) { /* TODO: save to note */ }
                         )
+                        
+                        // Regenerate icon — only on last AI message
+                        if (onRegenerate != null) {
+                            val regenInteraction = remember { MutableInteractionSource() }
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data("file:///android_asset/pixelarticons/zap.svg")
+                                    .build(),
+                                imageLoader = svgLoader,
+                                contentDescription = "Regenerate",
+                                colorFilter = ColorFilter.tint(colors.textXLow),
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .pixelRounded8ClickableOversize(
+                                        interactionSource = regenInteraction
+                                    ) { onRegenerate() }
+                            )
+                        }
                     }
                 }
             }

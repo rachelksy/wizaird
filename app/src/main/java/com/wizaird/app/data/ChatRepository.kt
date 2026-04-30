@@ -96,7 +96,20 @@ suspend fun deleteChat(context: Context, chatId: String) {
     saveChats(context, current)
 }
 
-/** Add a message to an existing chat. */
+/** Remove the last AI message from a chat (used for regeneration). */
+suspend fun removeLastAiMessage(context: Context, chatId: String) {
+    val prefs = context.dataStore.data.first()
+    val json = prefs[KEY_CHATS] ?: return
+    val type = object : TypeToken<List<ChatData>>() {}.type
+    val current: MutableList<ChatData> = chatGson.fromJson(json, type) ?: mutableListOf()
+    val idx = current.indexOfFirst { it.id == chatId }
+    if (idx >= 0) {
+        val chat = current[idx]
+        val updatedMessages = chat.messages.dropLastWhile { it.sender == MessageSender.AI }
+        current[idx] = chat.copy(messages = updatedMessages)
+        saveChats(context, current)
+    }
+}
 suspend fun addMessageToChat(context: Context, chatId: String, message: ChatMessage) {
     val prefs = context.dataStore.data.first()
     val json = prefs[KEY_CHATS] ?: return

@@ -18,7 +18,8 @@ data class NoteData(
     val projectId: String = "",
     val body: String = "",
     val createdAt: String = "",   // formatted display string, e.g. "Nov 12, 2024"
-    val updatedAt: String = ""
+    val updatedAt: String = "",
+    val createdAtMs: Long = 0L    // epoch millis for sorting
 )
 
 private val KEY_NOTES = stringPreferencesKey("notes")
@@ -33,6 +34,7 @@ fun notesFlow(context: Context, projectId: String): Flow<List<NoteData>> =
         val type = object : TypeToken<List<NoteData>>() {}.type
         val all: List<NoteData> = noteGson.fromJson(json, type) ?: emptyList()
         all.filter { it.projectId == projectId }
+            .sortedByDescending { it.createdAtMs }
     }
 
 suspend fun getNoteById(context: Context, noteId: String): NoteData? {
@@ -58,13 +60,17 @@ suspend fun upsertNote(context: Context, note: NoteData) {
 }
 
 /** Creates a new note and returns it. */
-fun newNote(projectId: String): NoteData = NoteData(
-    id = UUID.randomUUID().toString(),
-    projectId = projectId,
-    body = "",
-    createdAt = formattedDate(),
-    updatedAt = formattedDate()
-)
+fun newNote(projectId: String): NoteData {
+    val now = System.currentTimeMillis()
+    return NoteData(
+        id = UUID.randomUUID().toString(),
+        projectId = projectId,
+        body = "",
+        createdAt = formattedDate(),
+        updatedAt = formattedDate(),
+        createdAtMs = now
+    )
+}
 
 /** Delete a note by ID. */
 suspend fun deleteNote(context: Context, noteId: String) {

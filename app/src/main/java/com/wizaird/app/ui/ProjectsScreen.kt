@@ -31,8 +31,11 @@ import coil.decode.GifDecoder
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.wizaird.app.data.Project
+import com.wizaird.app.data.chatsFlow
 import com.wizaird.app.data.deleteProject
+import com.wizaird.app.data.notesFlow
 import com.wizaird.app.data.projectsFlow
+import com.wizaird.app.data.storedInsightsFlow
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -136,6 +139,11 @@ fun ProjectCard(project: Project, onClick: () -> Unit, onLongPress: (() -> Unit)
     var showDeleteDialog by remember { mutableStateOf(false) }
     var cardHeightPx by remember { mutableStateOf(0) }
 
+    // Collect actual counts for this project
+    val chats by chatsFlow(context, project.id).collectAsState(initial = emptyList())
+    val notes by notesFlow(context, project.id).collectAsState(initial = emptyList())
+    val insights by storedInsightsFlow(context, project.id).collectAsState(initial = emptyList())
+
     val svgLoader = remember {
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
     }
@@ -194,11 +202,36 @@ fun ProjectCard(project: Project, onClick: () -> Unit, onLongPress: (() -> Unit)
                         modifier = Modifier.offset(y = (-2).dp)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "${project.chatCount} CHATS",
-                        style = pixelStyle(8, colors.secondaryIconSoft),
-                        modifier = Modifier.offset(y = (-2).dp)
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "${chats.size} CHATS",
+                            style = pixelStyle(8, colors.secondaryIconSoft),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                        Text(
+                            "•",
+                            style = pixelStyle(8, colors.secondaryIconSoft),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                        Text(
+                            "${insights.size} INSIGHTS",
+                            style = pixelStyle(8, colors.secondaryIconSoft),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                        Text(
+                            "•",
+                            style = pixelStyle(8, colors.secondaryIconSoft),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                        Text(
+                            "${notes.size} NOTES",
+                            style = pixelStyle(8, colors.secondaryIconSoft),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                    }
                 }
             }
         } // end PixelBox

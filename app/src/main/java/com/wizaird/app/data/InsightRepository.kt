@@ -44,8 +44,8 @@ fun buildInsightPrompt(project: Project): String {
     
     if (project.insightHistory.isNotEmpty()) {
         sb.append("Recent insights (most recent last):\n")
-        project.insightHistory.forEachIndexed { index, insight ->
-            sb.append("---\n$insight\n")
+        project.insightHistory.forEach { entry ->
+            sb.append("---\n${entry.text}\n")
         }
     }
     
@@ -115,9 +115,13 @@ suspend fun generateInsight(
             return@withContext InsightResult.Error("AI returned empty response. Try again.")
         }
         
+        // Generate ID for this insight
+        val insightId = java.util.UUID.randomUUID().toString()
+        
         // Update project with new insight and timestamp
         // Keep last 20 insights in history, oldest first
-        val updatedHistory = (project.insightHistory + insight).takeLast(20)
+        val newEntry = InsightHistoryEntry(id = insightId, text = insight)
+        val updatedHistory = (project.insightHistory + newEntry).takeLast(20)
         val updatedProject = project.copy(
             lastInsightText = insight,
             lastInsightTimestamp = System.currentTimeMillis(),
@@ -126,9 +130,9 @@ suspend fun generateInsight(
         upsertProject(context, updatedProject)
         println("Project updated with new insight (history size: ${updatedHistory.size})")
         
-        // Save to permanent storage
-        saveInsight(context, project.id, insight)
-        println("Insight saved to permanent storage")
+        // Save to permanent storage with the same ID
+        saveInsight(context, project.id, insight, insightId)
+        println("Insight saved to permanent storage with ID: $insightId")
         
         println("=== INSIGHT GENERATION SUCCESS ===")
         

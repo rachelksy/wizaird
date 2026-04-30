@@ -5,14 +5,98 @@ import android.net.Uri
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonDeserializationContext
+import com.google.gson.JsonDeserializer
+import com.google.gson.JsonElement
 import com.google.gson.reflect.TypeToken
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonToken
+import com.google.gson.stream.JsonWriter
 import kotlinx.coroutines.Dispatchers
+import java.lang.reflect.Type
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
+
+/**
+ * Represents an insight in the project's history with its ID for tracking.
+ * This allows us to match insights between Project.insightHistory and StoredInsight.
+ */
+data class InsightHistoryEntry(
+    val id: String,
+    val text: String
+)
+
+/**
+ * Custom deserializer for Project that handles migration of insightHistory field
+ * from old List<String> format to new List<InsightHistoryEntry> format.
+ */
+class ProjectDeserializer : JsonDeserializer<Project> {
+    override fun deserialize(
+        json: JsonElement,
+        typeOfT: Type,
+        context: JsonDeserializationContext
+    ): Project {
+        val jsonObject = json.asJsonObject
+        
+        // Deserialize all fields normally except insightHistory
+        val id = jsonObject.get("id")?.asString ?: UUID.randomUUID().toString()
+        val name = jsonObject.get("name")?.asString ?: ""
+        val instructions = jsonObject.get("instructions")?.asString ?: ""
+        val background = jsonObject.get("background")?.asString ?: ""
+        val learningProgress = jsonObject.get("learningProgress")?.asString ?: ""
+        val picturePath = jsonObject.get("picturePath")?.asString ?: ""
+        val chatCount = jsonObject.get("chatCount")?.asInt ?: 0
+        val lastInsightTimestamp = jsonObject.get("lastInsightTimestamp")?.asLong ?: 0L
+        val lastInsightText = jsonObject.get("lastInsightText")?.asString ?: ""
+        val pinnedInsight = jsonObject.get("pinnedInsight")?.asBoolean ?: false
+        
+        // Handle insightHistory migration
+        val insightHistory = mutableListOf<InsightHistoryEntry>()
+        val historyElement = jsonObject.get("insightHistory")
+        
+        if (historyElement != null && historyElement.isJsonArray) {
+            val historyArray = historyElement.asJsonArray
+            
+            for (element in historyArray) {
+                when {
+                    element.isJsonPrimitive && element.asJsonPrimitive.isString -> {
+                        // Old format: plain string - migrate to new format
+                        insightHistory.add(InsightHistoryEntry(
+                            id = UUID.randomUUID().toString(),
+                            text = element.asString
+                        ))
+                    }
+                    element.isJsonObject -> {
+                        // New format: object with id and text
+                        val obj = element.asJsonObject
+                        val entryId = obj.get("id")?.asString ?: UUID.randomUUID().toString()
+                        val entryText = obj.get("text")?.asString ?: ""
+                        insightHistory.add(InsightHistoryEntry(id = entryId, text = entryText))
+                    }
+                }
+            }
+        }
+        
+        return Project(
+            id = id,
+            name = name,
+            instructions = instructions,
+            background = background,
+            learningProgress = learningProgress,
+            picturePath = picturePath,
+            chatCount = chatCount,
+            lastInsightTimestamp = lastInsightTimestamp,
+            lastInsightText = lastInsightText,
+            pinnedInsight = pinnedInsight,
+            insightHistory = insightHistory
+        )
+    }
+}
 
 data class Project(
     val id: String = UUID.randomUUID().toString(),
@@ -25,11 +109,13 @@ data class Project(
     val lastInsightTimestamp: Long = 0L,
     val lastInsightText: String = "",
     val pinnedInsight: Boolean = false,  // If true, auto-generation is paused for this project
-    val insightHistory: List<String> = emptyList()  // Last 10 insights, oldest first
+    val insightHistory: List<InsightHistoryEntry> = emptyList()  // Last 20 insights with IDs, oldest first
 )
 
 private val KEY_PROJECTS = stringPreferencesKey("projects")
-private val projectGson = Gson()
+private val projectGson = GsonBuilder()
+    .registerTypeAdapter(Project::class.java, ProjectDeserializer())
+    .create()
 
 fun projectsFlow(context: Context): Flow<List<Project>> =
     context.dataStore.data.map { prefs ->

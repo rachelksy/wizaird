@@ -102,6 +102,17 @@ fun ExistingChatScreen(
     var showEditMessageSheet by remember { mutableStateOf(false) }
     var editingMessageId by remember { mutableStateOf<String?>(null) }
     
+    var showToast by remember { mutableStateOf(false) }
+    var toastMessage by remember { mutableStateOf("") }
+    
+    // Auto-hide toast after 2 seconds
+    LaunchedEffect(showToast) {
+        if (showToast) {
+            delay(2000)
+            showToast = false
+        }
+    }
+    
     // Get the current message from the messages list when editing
     val editingMessage = editingMessageId?.let { id ->
         messages.firstOrNull { it.id == id }
@@ -458,6 +469,7 @@ fun ExistingChatScreen(
                     message.id == messages.lastOrNull { it.sender == MessageSender.AI }?.id
                 ChatBubble(
                     message = message,
+                    projectId = projectId,
                     onRegenerate = if (isLastAiMessage) {
                         {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
@@ -477,7 +489,11 @@ fun ExistingChatScreen(
                         }
                         showMessageActions = true
                     },
-                    onDelete = { /* Not used - onEdit triggers the bottom sheet */ }
+                    onDelete = { /* Not used - onEdit triggers the bottom sheet */ },
+                    onShowToast = { msg ->
+                        toastMessage = msg
+                        showToast = true
+                    }
                 )
             }
             
@@ -666,6 +682,13 @@ fun ExistingChatScreen(
                 }
             )
         }
+        
+        // Toast overlay
+        PixelToast(
+            message = toastMessage,
+            visible = showToast,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
@@ -675,9 +698,11 @@ fun ExistingChatScreen(
 @Composable
 fun ChatBubble(
     message: ChatMessage,
+    projectId: String,
     onRegenerate: (() -> Unit)? = null,
     onEdit: () -> Unit = {},
-    onDelete: () -> Unit = {}
+    onDelete: () -> Unit = {},
+    onShowToast: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -691,6 +716,7 @@ fun ChatBubble(
     val aiBubbleText   = colors.textHigh
 
     var copied by remember { mutableStateOf(false) }
+    var noteSaved by remember { mutableStateOf(false) }
     // Bumped on tap to clear any active text selection
     var selectionResetKey by remember { mutableStateOf(0) }
 
@@ -759,6 +785,7 @@ fun ChatBubble(
                                 ) {
                                     clipboardManager.setText(AnnotatedString(message.text))
                                     copied = true
+                                    onShowToast("COPIED TO CLIPBOARD")
                                     scope.launch {
                                         delay(2000)
                                         copied = false
@@ -773,12 +800,29 @@ fun ChatBubble(
                                 .build(),
                             imageLoader = svgLoader,
                             contentDescription = "Save to note",
-                            colorFilter = ColorFilter.tint(colors.textXLow),
+                            colorFilter = ColorFilter.tint(if (noteSaved) colors.textHigh else colors.textXLow),
                             modifier = Modifier
                                 .size(20.dp)
                                 .pixelRounded8ClickableOversize(
                                     interactionSource = noteInteraction
-                                ) { /* TODO: save to note */ }
+                                ) {
+                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        // Create a new note with the message text
+                                        val note = com.wizaird.app.data.newNote(projectId).copy(
+                                            body = message.text
+                                        )
+                                        com.wizaird.app.data.upsertNote(context, note)
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            noteSaved = true
+                                            onShowToast("NOTE CREATED")
+                                            // Reset the saved state after 2 seconds
+                                            scope.launch {
+                                                delay(2000)
+                                                noteSaved = false
+                                            }
+                                        }
+                                    }
+                                }
                         )
                         
                         // Regenerate icon — only on last AI message

@@ -1565,3 +1565,38 @@ fun PixelConfirmationDialog(
         }
     }
 }
+
+// ── Pixel Toast ──────────────────────────────────────────────────────────────
+
+@Composable
+fun PixelToast(
+    message: String,
+    visible: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val colors = LocalWizairdColors.current
+    
+    if (visible) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 32.dp, vertical = 80.dp),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            PixelBox(
+                fillColor = if (colors.isDark) colors.textHigh.copy(alpha = 0.65f) else colors.textHigh.copy(alpha = 0.65f),
+                borderColor = Color.Transparent,
+                cornerStyle = PixelCornerStyle.Rounded
+            ) {
+                Text(
+                    text = message,
+                    style = pixelStyle(12, if (colors.isDark) colors.secondarySurface else colors.secondarySurface).copy(
+                        baselineShift = androidx.compose.ui.text.style.BaselineShift(0.2f)
+                    ),
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 2.dp)
+                )
+            }
+        }
+    }
+}

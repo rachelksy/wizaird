@@ -131,6 +131,17 @@ fun HomeScreen(
 
     val bobY = 0f
 
+    var showToast by remember { mutableStateOf(false) }
+    var toastMessage by remember { mutableStateOf("") }
+
+    // Auto-hide toast after 2 seconds
+    LaunchedEffect(showToast) {
+        if (showToast) {
+            delay(2000)
+            showToast = false
+        }
+    }
+
     fun askQuestion(prompt: String) {
         scope.launch {
             isLoading = true
@@ -183,6 +194,7 @@ fun HomeScreen(
                     text = bubbleText,
                     loading = isLoading,
                     projectName = activeProject?.name,
+                    projectId = activeProject?.id,
                     isPinned = activeProject?.pinnedInsight ?: false,
                     onTogglePin = {
                         activeProject?.let { project ->
@@ -201,6 +213,10 @@ fun HomeScreen(
                     },
                     onProjectClick = {
                         activeProject?.let { project -> onProjectClick(project.id) }
+                    },
+                    onShowToast = { message ->
+                        toastMessage = message
+                        showToast = true
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -279,6 +295,13 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(20.dp).navigationBarsPadding())
             }
         }
+        
+        // Toast overlay
+        PixelToast(
+            message = toastMessage,
+            visible = showToast,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
@@ -535,10 +558,12 @@ fun ChatBubble(
     text: String, 
     loading: Boolean, 
     projectName: String? = null,
+    projectId: String? = null,
     isPinned: Boolean = false,
     onTogglePin: () -> Unit = {},
     onRegenerate: () -> Unit = {},
     onProjectClick: () -> Unit = {},
+    onShowToast: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -546,6 +571,7 @@ fun ChatBubble(
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     var copied by remember { mutableStateOf(false) }
+    var noteSaved by remember { mutableStateOf(false) }
     var dotCount by remember { mutableIntStateOf(1) }
     LaunchedEffect(loading) {
         if (loading) {
@@ -743,6 +769,7 @@ fun ChatBubble(
                             ) {
                                 clipboardManager.setText(AnnotatedString(text))
                                 copied = true
+                                onShowToast("COPIED TO CLIPBOARD")
                                 scope.launch {
                                     delay(2000)
                                     copied = false
@@ -757,12 +784,31 @@ fun ChatBubble(
                             .build(),
                         imageLoader = svgLoader,
                         contentDescription = "Save to note",
-                        colorFilter = ColorFilter.tint(colors.textXLow),
+                        colorFilter = ColorFilter.tint(if (noteSaved) colors.textHigh else colors.textXLow),
                         modifier = Modifier
                             .size(20.dp)
                             .pixelRounded8ClickableOversize(
                                 interactionSource = noteInteraction
-                            ) { /* TODO: save to note */ }
+                            ) {
+                                if (projectId != null) {
+                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        // Create a new note with the insight text
+                                        val note = com.wizaird.app.data.newNote(projectId).copy(
+                                            body = text
+                                        )
+                                        com.wizaird.app.data.upsertNote(context, note)
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            noteSaved = true
+                                            onShowToast("NOTE CREATED")
+                                            // Reset the saved state after 2 seconds
+                                            scope.launch {
+                                                delay(2000)
+                                                noteSaved = false
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                     )
                     
                     val zapInteraction = remember { MutableInteractionSource() }

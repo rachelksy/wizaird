@@ -98,41 +98,68 @@ suspend fun deleteChat(context: Context, chatId: String) {
 
 /** Remove the last AI message from a chat (used for regeneration). */
 suspend fun removeLastAiMessage(context: Context, chatId: String) {
-    val prefs = context.dataStore.data.first()
-    val json = prefs[KEY_CHATS] ?: return
-    val type = object : TypeToken<List<ChatData>>() {}.type
-    val current: MutableList<ChatData> = chatGson.fromJson(json, type) ?: mutableListOf()
-    val idx = current.indexOfFirst { it.id == chatId }
-    if (idx >= 0) {
-        val chat = current[idx]
-        val updatedMessages = chat.messages.dropLastWhile { it.sender == MessageSender.AI }
-        current[idx] = chat.copy(messages = updatedMessages)
-        saveChats(context, current)
+    context.dataStore.edit { prefs ->
+        val json = prefs[KEY_CHATS] ?: return@edit
+        val type = object : TypeToken<List<ChatData>>() {}.type
+        val current: MutableList<ChatData> = chatGson.fromJson(json, type) ?: mutableListOf()
+        val idx = current.indexOfFirst { it.id == chatId }
+        if (idx >= 0) {
+            val chat = current[idx]
+            val updatedMessages = chat.messages.dropLastWhile { it.sender == MessageSender.AI }
+            current[idx] = chat.copy(messages = updatedMessages)
+            prefs[KEY_CHATS] = chatGson.toJson(current)
+        }
     }
 }
 suspend fun addMessageToChat(context: Context, chatId: String, message: ChatMessage) {
-    val prefs = context.dataStore.data.first()
-    val json = prefs[KEY_CHATS] ?: return
-    val type = object : TypeToken<List<ChatData>>() {}.type
-    val current: MutableList<ChatData> = chatGson.fromJson(json, type) ?: mutableListOf()
-    val idx = current.indexOfFirst { it.id == chatId }
-    if (idx >= 0) {
-        val chat = current[idx]
-        current[idx] = chat.copy(messages = chat.messages + message)
-        saveChats(context, current)
+    context.dataStore.edit { prefs ->
+        val json = prefs[KEY_CHATS] ?: return@edit
+        val type = object : TypeToken<List<ChatData>>() {}.type
+        val current: MutableList<ChatData> = chatGson.fromJson(json, type) ?: mutableListOf()
+        val idx = current.indexOfFirst { it.id == chatId }
+        if (idx >= 0) {
+            val chat = current[idx]
+            current[idx] = chat.copy(messages = chat.messages + message)
+            prefs[KEY_CHATS] = chatGson.toJson(current)
+        }
     }
 }
 
 /** Delete a single message from a chat by message ID. */
 suspend fun deleteMessageFromChat(context: Context, chatId: String, messageId: String) {
-    val prefs = context.dataStore.data.first()
-    val json = prefs[KEY_CHATS] ?: return
-    val type = object : TypeToken<List<ChatData>>() {}.type
-    val current: MutableList<ChatData> = chatGson.fromJson(json, type) ?: mutableListOf()
-    val idx = current.indexOfFirst { it.id == chatId }
-    if (idx >= 0) {
-        val chat = current[idx]
-        current[idx] = chat.copy(messages = chat.messages.filter { it.id != messageId })
-        saveChats(context, current)
+    context.dataStore.edit { prefs ->
+        val json = prefs[KEY_CHATS] ?: return@edit
+        val type = object : TypeToken<List<ChatData>>() {}.type
+        val current: MutableList<ChatData> = chatGson.fromJson(json, type) ?: mutableListOf()
+        val idx = current.indexOfFirst { it.id == chatId }
+        if (idx >= 0) {
+            val chat = current[idx]
+            current[idx] = chat.copy(messages = chat.messages.filter { it.id != messageId })
+            prefs[KEY_CHATS] = chatGson.toJson(current)
+        }
+    }
+}
+
+/** Update a single message's text in a chat by message ID. */
+suspend fun updateMessageInChat(context: Context, chatId: String, messageId: String, newText: String) {
+    context.dataStore.edit { prefs ->
+        val json = prefs[KEY_CHATS] ?: return@edit
+        val type = object : TypeToken<List<ChatData>>() {}.type
+        val current: MutableList<ChatData> = chatGson.fromJson(json, type) ?: mutableListOf()
+        val idx = current.indexOfFirst { it.id == chatId }
+        
+        if (idx >= 0) {
+            val chat = current[idx]
+            val updatedMessages = chat.messages.map { message ->
+                if (message.id == messageId) {
+                    // Update timestamp to force UI refresh
+                    message.copy(text = newText, timestamp = System.currentTimeMillis())
+                } else {
+                    message
+                }
+            }
+            current[idx] = chat.copy(messages = updatedMessages)
+            prefs[KEY_CHATS] = chatGson.toJson(current)
+        }
     }
 }

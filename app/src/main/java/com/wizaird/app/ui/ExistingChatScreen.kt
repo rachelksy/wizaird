@@ -8,19 +8,24 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -45,6 +50,7 @@ import com.wizaird.app.data.chatFlow
 import com.wizaird.app.data.deleteChat
 import com.wizaird.app.data.deleteMessageFromChat
 import com.wizaird.app.data.removeLastAiMessage
+import com.wizaird.app.data.updateMessageInChat
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.data.AiSettings
@@ -92,6 +98,14 @@ fun ExistingChatScreen(
     var selectedMessageEdit by remember { mutableStateOf<(() -> Unit)?>(null) }
     var selectedMessageDelete by remember { mutableStateOf<(() -> Unit)?>(null) }
     var showDeleteMessageDialog by remember { mutableStateOf(false) }
+    
+    var showEditMessageSheet by remember { mutableStateOf(false) }
+    var editingMessageId by remember { mutableStateOf<String?>(null) }
+    
+    // Get the current message from the messages list when editing
+    val editingMessage = editingMessageId?.let { id ->
+        messages.firstOrNull { it.id == id }
+    }
 
     val svgLoader = remember {
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
@@ -439,7 +453,7 @@ fun ExistingChatScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(messages, key = { it.id }) { message ->
+            items(messages, key = { "${it.id}-${it.timestamp}" }) { message ->
                 val isLastAiMessage = message.sender == MessageSender.AI && 
                     message.id == messages.lastOrNull { it.sender == MessageSender.AI }?.id
                 ChatBubble(
@@ -452,7 +466,10 @@ fun ExistingChatScreen(
                         }
                     } else null,
                     onEdit = {
-                        selectedMessageEdit = { /* TODO: implement edit for message ${message.id} */ }
+                        selectedMessageEdit = {
+                            editingMessageId = message.id
+                            showEditMessageSheet = true
+                        }
                         selectedMessageDelete = {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 deleteMessageFromChat(context, chatId, message.id)
@@ -626,6 +643,26 @@ fun ExistingChatScreen(
                 },
                 onDismiss = {
                     showDeleteMessageDialog = false
+                }
+            )
+        }
+
+        // Edit message bottom sheet
+        if (showEditMessageSheet && editingMessage != null) {
+            EditMessageBottomSheet(
+                message = editingMessage!!,
+                onSave = { updatedText ->
+                    val messageId = editingMessage!!.id
+                    scope.launch {
+                        updateMessageInChat(context, chatId, messageId, updatedText)
+                        // Close sheet after update completes
+                        showEditMessageSheet = false
+                        editingMessageId = null
+                    }
+                },
+                onDismiss = {
+                    showEditMessageSheet = false
+                    editingMessageId = null
                 }
             )
         }
@@ -905,6 +942,167 @@ fun MessageActionsBottomSheet(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+// ── Edit Message Bottom Sheet ─────────────────────────────────────────────────
+
+@Composable
+fun EditMessageBottomSheet(
+    message: ChatMessage,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = LocalWizairdColors.current
+    val context = LocalContext.current
+    
+    var editedText by remember { mutableStateOf(message.text) }
+    val hasChanges = editedText != message.text
+    
+    val focusRequester = remember { FocusRequester() }
+    val scrollState = rememberScrollState()
+    
+    val svgLoader = remember {
+        ImageLoader.Builder(context)
+            .components { add(SvgDecoder.Factory()) }
+            .build()
+    }
+    
+    // Request focus when sheet opens
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    // Scrim background with darkened overlay
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.6f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss
+            )
+    ) {
+        // Bottom sheet taking up most of the screen
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f)
+                .graphicsLayer {
+                    compositingStrategy = CompositingStrategy.Offscreen
+                }
+                .drawBehind {
+                    val p = PixelSize.toPx()
+                    val w = size.width
+                    val h = size.height
+                    val fill = colors.background
+
+                    // Fill the sheet
+                    drawRect(fill)
+
+                    // Top-left corner cuts (R=10 pixel corners)
+                    drawRect(Color.Transparent, Offset(0f, p*0), Size(p*7, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*4), Size(p*2, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*6), Size(p*1, p), blendMode = BlendMode.Clear)
+                    
+                    // Top-right corner cuts (R=10 pixel corners)
+                    drawRect(Color.Transparent, Offset(w-p*7, p*0), Size(p*7, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*5, p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*3, p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*2, p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*2, p*4), Size(p*2, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*1, p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*1, p*6), Size(p*1, p), blendMode = BlendMode.Clear)
+                }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {} // Prevent clicks from passing through to scrim
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .imePadding()
+            ) {
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Header — back button | "EDIT MESSAGE" title | save button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    // Back button — left
+                    val backInteraction = remember { MutableInteractionSource() }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .size(40.dp)
+                            .drawPixelCircle(
+                                fillColor   = colors.secondaryButton,
+                                borderColor = Color.Transparent,
+                                cutColor    = colors.background
+                            )
+                            .pixelCircleClickable(interactionSource = backInteraction) { onDismiss() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .drawPixelArrowButton(
+                                    fillColor  = colors.secondaryButton,
+                                    cutColor   = colors.secondaryButton,
+                                    arrowColor = colors.secondaryIcon,
+                                    direction  = -1f
+                                )
+                        )
+                    }
+
+                    // Title — centered
+                    Text(
+                        text = "EDIT MESSAGE",
+                        style = pixelStyle(10, colors.secondaryIcon),
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .offset(y = (-2).dp)
+                    )
+
+                    // Save button — turns primary when there are changes
+                    PixelButtonSmall(
+                        label = "SAVE",
+                        primary = hasChanges,
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        cutColor = colors.background,
+                        onClick = { if (hasChanges) onSave(editedText) }
+                    )
+                }
+
+                // Text editor — fills remaining space
+                BasicTextField(
+                    value = editedText,
+                    onValueChange = { editedText = it },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .focusRequester(focusRequester)
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    textStyle = minecraftStyle(14, colors.textHigh).copy(
+                        lineHeight = (14 * 1.6f).sp
+                    ),
+                    cursorBrush = SolidColor(Coral)
+                )
+
+                Spacer(modifier = Modifier.navigationBarsPadding())
             }
         }
     }

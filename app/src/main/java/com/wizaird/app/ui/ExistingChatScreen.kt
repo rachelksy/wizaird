@@ -1,6 +1,8 @@
 package com.wizaird.app.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -84,6 +86,10 @@ fun ExistingChatScreen(
 
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    
+    var showMessageActions by remember { mutableStateOf(false) }
+    var selectedMessageEdit by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var selectedMessageDelete by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     val svgLoader = remember {
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
@@ -191,13 +197,14 @@ fun ExistingChatScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(colors.background)
-            .imePadding()
-    ) {
-        Spacer(modifier = Modifier.height(48.dp))
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(colors.background)
+                .imePadding()
+        ) {
+            Spacer(modifier = Modifier.height(48.dp))
 
         // ── Header ────────────────────────────────────────────────────────────
         Box(
@@ -441,7 +448,13 @@ fun ExistingChatScreen(
                                 removeLastAiMessage(context, chatId)
                             }
                         }
-                    } else null
+                    } else null,
+                    onEdit = {
+                        selectedMessageEdit = { /* TODO: implement edit for message ${message.id} */ }
+                        selectedMessageDelete = { /* TODO: implement delete for message ${message.id} */ }
+                        showMessageActions = true
+                    },
+                    onDelete = { /* Not used - onEdit triggers the bottom sheet */ }
                 )
             }
             
@@ -554,26 +567,42 @@ fun ExistingChatScreen(
                 .padding(horizontal = 12.dp)
         )
 
-        Spacer(modifier = Modifier.height(20.dp).navigationBarsPadding())
+            Spacer(modifier = Modifier.height(20.dp).navigationBarsPadding())
 
-        // Delete confirmation dialog
-        if (showDeleteDialog) {
-            PixelConfirmationDialog(
-                title = "DELETE CHAT",
-                message = "Are you sure you want to delete this chat? This action cannot be undone.",
-                confirmLabel = "DELETE",
-                cancelLabel = "CANCEL",
-                isDestructive = true,
-                onConfirm = {
-                    showDeleteDialog = false
-                    scope.launch {
-                        deleteChat(context, chatId)
-                        onBack()
+            // Delete confirmation dialog
+            if (showDeleteDialog) {
+                PixelConfirmationDialog(
+                    title = "DELETE CHAT",
+                    message = "Are you sure you want to delete this chat? This action cannot be undone.",
+                    confirmLabel = "DELETE",
+                    cancelLabel = "CANCEL",
+                    isDestructive = true,
+                    onConfirm = {
+                        showDeleteDialog = false
+                        scope.launch {
+                            deleteChat(context, chatId)
+                            onBack()
+                        }
+                    },
+                    onDismiss = {
+                        showDeleteDialog = false
                     }
+                )
+            }
+        }
+
+        // Message actions bottom sheet (outside Column, overlaying everything)
+        if (showMessageActions) {
+            MessageActionsBottomSheet(
+                onEdit = {
+                    showMessageActions = false
+                    selectedMessageEdit?.invoke()
                 },
-                onDismiss = {
-                    showDeleteDialog = false
-                }
+                onDelete = {
+                    showMessageActions = false
+                    selectedMessageDelete?.invoke()
+                },
+                onDismiss = { showMessageActions = false }
             )
         }
     }
@@ -581,8 +610,14 @@ fun ExistingChatScreen(
 
 // ── Bubble ────────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ChatBubble(message: ChatMessage, onRegenerate: (() -> Unit)? = null) {
+fun ChatBubble(
+    message: ChatMessage,
+    onRegenerate: (() -> Unit)? = null,
+    onEdit: () -> Unit = {},
+    onDelete: () -> Unit = {}
+) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
     val clipboardManager = LocalClipboardManager.current
@@ -606,10 +641,17 @@ fun ChatBubble(message: ChatMessage, onRegenerate: (() -> Unit)? = null) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
+        val bubbleInteraction = remember { MutableInteractionSource() }
         PixelBox(
-            modifier = Modifier.then(
-                if (isUser) Modifier.padding(start = 32.dp) else Modifier.padding(end = 32.dp)
-            ),
+            modifier = Modifier
+                .then(
+                    if (isUser) Modifier.padding(start = 32.dp) else Modifier.padding(end = 32.dp)
+                )
+                .pixelRoundedCombinedClickable(
+                    interactionSource = bubbleInteraction,
+                    onClick = {},
+                    onLongClick = { onEdit() }
+                ),
             fillColor = if (isUser) userBubbleFill else aiBubbleFill,
             borderColor = androidx.compose.ui.graphics.Color.Transparent,
             cornerStyle = PixelCornerStyle.Rounded
@@ -689,6 +731,154 @@ fun ChatBubble(message: ChatMessage, onRegenerate: (() -> Unit)? = null) {
                                     ) { onRegenerate() }
                             )
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Message Actions Bottom Sheet ──────────────────────────────────────────────
+
+@Composable
+fun MessageActionsBottomSheet(
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = LocalWizairdColors.current
+    val context = LocalContext.current
+    
+    val svgLoader = remember {
+        ImageLoader.Builder(context)
+            .components { add(SvgDecoder.Factory()) }
+            .build()
+    }
+
+    // Scrim background with darkened overlay
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.6f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss
+            )
+    ) {
+        // Bottom sheet with upper rounded pixel corners (R=10)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .graphicsLayer {
+                    compositingStrategy = CompositingStrategy.Offscreen
+                }
+                .drawBehind {
+                    val p = PixelSize.toPx()
+                    val w = size.width
+                    val h = size.height
+                    val fill = colors.secondaryButton
+
+                    // Fill the sheet
+                    drawRect(fill)
+
+                    // Top-left corner cuts (R=10 pixel corners)
+                    drawRect(Color.Transparent, Offset(0f, p*0), Size(p*7, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*4), Size(p*2, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*6), Size(p*1, p), blendMode = BlendMode.Clear)
+                    
+                    // Top-right corner cuts (R=10 pixel corners)
+                    drawRect(Color.Transparent, Offset(w-p*7, p*0), Size(p*7, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*5, p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*3, p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*2, p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*2, p*4), Size(p*2, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*1, p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*1, p*6), Size(p*1, p), blendMode = BlendMode.Clear)
+                }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {} // Prevent clicks from passing through to scrim
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 4.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                // Edit button
+                val editInteraction = remember { MutableInteractionSource() }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .pixelRoundedClickable(
+                            interactionSource = editInteraction,
+                            onClick = onEdit
+                        ),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/pen-square.svg")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = "Edit",
+                            colorFilter = ColorFilter.tint(colors.textLow),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Text(
+                            text = "Edit",
+                            style = pixelStyle(14, colors.textLow),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                    }
+                }
+
+                // Delete button
+                val deleteInteraction = remember { MutableInteractionSource() }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .pixelRoundedClickable(
+                            interactionSource = deleteInteraction,
+                            onClick = onDelete
+                        ),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/delete.svg")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = "Delete",
+                            colorFilter = ColorFilter.tint(colors.coral),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Text(
+                            text = "Delete",
+                            style = pixelStyle(14, colors.coral),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
                     }
                 }
             }

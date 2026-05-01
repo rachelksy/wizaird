@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -1221,6 +1222,21 @@ fun InsightPreviewOverlay(
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
     val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    
+    var copied by remember { mutableStateOf(false) }
+    var noteSaved by remember { mutableStateOf(false) }
+    var showToast by remember { mutableStateOf(false) }
+    var toastMessage by remember { mutableStateOf("") }
+    
+    // Auto-hide toast after 2 seconds
+    LaunchedEffect(showToast) {
+        if (showToast) {
+            kotlinx.coroutines.delay(2000)
+            showToast = false
+        }
+    }
     
     val svgLoader = remember {
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
@@ -1317,16 +1333,112 @@ fun InsightPreviewOverlay(
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                                 .padding(bottom = 16.dp)
                         ) {
-                            MarkdownText(
-                                markdown = insight.text,
-                                style = minecraftStyle(14, colors.textHigh).copy(
-                                    lineHeight = (14 * 1.6f).sp
-                                ),
-                                modifier = Modifier.offset(y = (-2).dp)
-                            )
+                            SelectionContainer {
+                                MarkdownText(
+                                    markdown = insight.text,
+                                    style = minecraftStyle(14, colors.textHigh).copy(
+                                        lineHeight = (14 * 1.6f).sp
+                                    ),
+                                    modifier = Modifier.offset(y = (-2).dp)
+                                )
+                            }
                         }
                     }
+                    
+                    // Action icons row
+                    Row(
+                        modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Copy icon
+                        val copyInteraction = remember { MutableInteractionSource() }
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/copy.svg")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = "Copy",
+                            colorFilter = ColorFilter.tint(if (copied) colors.textHigh else colors.textXLow),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .pixelRounded8ClickableOversize(
+                                    interactionSource = copyInteraction
+                                ) {
+                                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(insight.text))
+                                    copied = true
+                                    toastMessage = "COPIED TO CLIPBOARD"
+                                    showToast = true
+                                    scope.launch {
+                                        kotlinx.coroutines.delay(2000)
+                                        copied = false
+                                    }
+                                }
+                        )
+
+                        // Create note icon
+                        val noteInteraction = remember { MutableInteractionSource() }
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = "Save to note",
+                            colorFilter = ColorFilter.tint(if (noteSaved) colors.textHigh else colors.textXLow),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .pixelRounded8ClickableOversize(
+                                    interactionSource = noteInteraction
+                                ) {
+                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        // Create a new note with the insight text
+                                        val note = com.wizaird.app.data.newNote(insight.projectId).copy(
+                                            body = insight.text
+                                        )
+                                        com.wizaird.app.data.upsertNote(context, note)
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            noteSaved = true
+                                            toastMessage = "NOTE CREATED"
+                                            showToast = true
+                                            scope.launch {
+                                                kotlinx.coroutines.delay(2000)
+                                                noteSaved = false
+                                            }
+                                        }
+                                    }
+                                }
+                        )
+                        
+                        // Chat icon (placeholder for future functionality)
+                        val chatInteraction = remember { MutableInteractionSource() }
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/message.svg")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = "Start chat",
+                            colorFilter = ColorFilter.tint(colors.textXLow),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .pixelRounded8ClickableOversize(
+                                    interactionSource = chatInteraction
+                                ) {
+                                    // TODO: Wire up chat functionality
+                                    toastMessage = "CHAT COMING SOON"
+                                    showToast = true
+                                }
+                        )
+                    }
                 }
+            }
+            
+            // Toast overlay
+            if (showToast) {
+                PixelToast(
+                    message = toastMessage,
+                    visible = showToast,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }

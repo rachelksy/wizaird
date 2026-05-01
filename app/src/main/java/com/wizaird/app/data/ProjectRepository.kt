@@ -54,6 +54,7 @@ class ProjectDeserializer : JsonDeserializer<Project> {
         val lastInsightTimestamp = jsonObject.get("lastInsightTimestamp")?.asLong ?: 0L
         val lastInsightText = jsonObject.get("lastInsightText")?.asString ?: ""
         val pinnedInsight = jsonObject.get("pinnedInsight")?.asBoolean ?: false
+        val order = jsonObject.get("order")?.asInt ?: 0
         
         // Handle insightHistory migration
         val insightHistory = mutableListOf<InsightHistoryEntry>()
@@ -93,7 +94,8 @@ class ProjectDeserializer : JsonDeserializer<Project> {
             lastInsightTimestamp = lastInsightTimestamp,
             lastInsightText = lastInsightText,
             pinnedInsight = pinnedInsight,
-            insightHistory = insightHistory
+            insightHistory = insightHistory,
+            order = order
         )
     }
 }
@@ -109,7 +111,8 @@ data class Project(
     val lastInsightTimestamp: Long = 0L,
     val lastInsightText: String = "",
     val pinnedInsight: Boolean = false,  // If true, auto-generation is paused for this project
-    val insightHistory: List<InsightHistoryEntry> = emptyList()  // Last 20 insights with IDs, oldest first
+    val insightHistory: List<InsightHistoryEntry> = emptyList(),  // Last 20 insights with IDs, oldest first
+    val order: Int = 0  // Display order, lower numbers appear first
 )
 
 private val KEY_PROJECTS = stringPreferencesKey("projects")
@@ -121,7 +124,9 @@ fun projectsFlow(context: Context): Flow<List<Project>> =
     context.dataStore.data.map { prefs ->
         val json = prefs[KEY_PROJECTS] ?: return@map emptyList()
         val type = object : TypeToken<List<Project>>() {}.type
-        projectGson.fromJson(json, type) ?: emptyList()
+        val projects: List<Project> = projectGson.fromJson(json, type) ?: emptyList()
+        // Sort by order field
+        projects.sortedBy { it.order }
     }
 
 suspend fun saveProjects(context: Context, projects: List<Project>) {
@@ -139,7 +144,13 @@ suspend fun upsertProject(context: Context, project: Project) {
         current.addAll(projectGson.fromJson(json, type) ?: emptyList())
     }
     val idx = current.indexOfFirst { it.id == project.id }
-    if (idx >= 0) current[idx] = project else current.add(project)
+    if (idx >= 0) {
+        current[idx] = project
+    } else {
+        // New project - assign it the highest order value
+        val maxOrder = current.maxOfOrNull { it.order } ?: -1
+        current.add(project.copy(order = maxOrder + 1))
+    }
     saveProjects(context, current)
 }
 
@@ -171,4 +182,59 @@ suspend fun deleteProject(context: Context, projectId: String) {
     
     current.removeAll { it.id == projectId }
     saveProjects(context, current)
+}
+
+/** Reorder projects by moving a project from one position to another. */
+suspend fun reorderProjects(context: Context, fromIndex: Int, toIndex: Int) {
+    try {
+        println("ProjectRepository: reorderProjects called - fromIndex=$fromIndex, toIndex=$toIndex")
+        
+        val prefs = context.dataStore.data.first()
+        val json = prefs[KEY_PROJECTS]
+        if (json == null) {
+            println("ProjectRepository: No projects found in datastore")
+            return
+        }
+        
+        val type = object : TypeToken<List<Project>>() {}.type
+        val current: MutableList<Project> = projectGson.fromJson(json, type) ?: mutableListOf()
+        
+        println("ProjectRepository: Current projects count=${current.size}")
+        
+        // Sort by current order
+        val sorted = current.sortedBy { it.order }.toMutableList()
+        
+        if (fromIndex < 0 || fromIndex >= sorted.size) {
+            println("ProjectRepository: Invalid fromIndex=$fromIndex, size=${sorted.size}")
+            return
+        }
+        
+        if (toIndex < 0 || toIndex >= sorted.size) {
+            println("ProjectRepository: Invalid toIndex=$toIndex, size=${sorted.size}")
+            return
+        }
+        
+        if (fromIndex == toIndex) {
+            println("ProjectRepository: fromIndex equals toIndex, no reorder needed")
+            return
+        }
+        
+        println("ProjectRepository: Moving project from $fromIndex to $toIndex")
+        
+        // Move the item
+        val item = sorted.removeAt(fromIndex)
+        sorted.add(toIndex, item)
+        
+        // Reassign order values
+        val reordered = sorted.mapIndexed { index, project ->
+            project.copy(order = index)
+        }
+        
+        println("ProjectRepository: Saving reordered projects")
+        saveProjects(context, reordered)
+        println("ProjectRepository: Reorder complete")
+    } catch (e: Exception) {
+        println("ProjectRepository: Error in reorderProjects - ${e.message}")
+        e.printStackTrace()
+    }
 }

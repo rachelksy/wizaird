@@ -44,7 +44,7 @@ import com.wizaird.app.data.askAi
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.data.shouldGenerateNewInsight
-import com.wizaird.app.data.generateInsight
+import com.wizaird.app.data.getNextInsight
 import com.wizaird.app.data.InsightResult
 import com.wizaird.app.data.upsertProject
 import com.wizaird.app.data.upsertChat
@@ -82,11 +82,19 @@ fun HomeScreen(
         currentGenerationJob?.cancel()
         
         currentGenerationJob = scope.launch {
-            isLoading = true
-            bubbleText = ""
+            // Check if we have a queued insight
+            val hasQueuedInsight = project.queuedInsight.isNotEmpty()
+            
+            // Only show loading if no queued insight
+            isLoading = !hasQueuedInsight
+            if (!hasQueuedInsight) {
+                bubbleText = ""
+            }
             
             println("HomeScreen: Starting insight generation for project: ${project.name}")
-            val result = generateInsight(context, project, settings)
+            println("HomeScreen: Has queued insight: $hasQueuedInsight")
+            
+            val result = getNextInsight(context, project, settings)
             
             when (result) {
                 is InsightResult.Success -> {

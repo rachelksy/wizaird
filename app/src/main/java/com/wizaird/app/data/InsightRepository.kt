@@ -24,6 +24,77 @@ fun shouldGenerateNewInsight(project: Project): Boolean {
 }
 
 /**
+ * Use the queued insight if available, otherwise generate a new one.
+ * When using queued insight, generates a new queued insight in the background.
+ * Returns InsightResult with either success or error details.
+ */
+suspend fun getNextInsight(
+    context: Context,
+    project: Project,
+    settings: AiSettings
+): InsightResult = withContext(Dispatchers.IO) {
+    return@withContext try {
+        // Check if we have a queued insight
+        if (project.queuedInsight.isNotEmpty()) {
+            println("=== USING QUEUED INSIGHT ===")
+            println("Project: ${project.name}")
+            
+            // Use the queued insight as the current insight
+            val insight = project.queuedInsight
+            val insightId = java.util.UUID.randomUUID().toString()
+            
+            // Add to history
+            val newEntry = InsightHistoryEntry(id = insightId, text = insight)
+            val updatedHistory = (project.insightHistory + newEntry).takeLast(20)
+            
+            // Update project - clear queued insight temporarily
+            val updatedProject = project.copy(
+                lastInsightText = insight,
+                lastInsightTimestamp = System.currentTimeMillis(),
+                insightHistory = updatedHistory,
+                queuedInsight = ""  // Will be filled by background generation
+            )
+            upsertProject(context, updatedProject)
+            
+            // Save to permanent storage
+            saveInsight(context, project.id, insight, insightId)
+            println("Queued insight promoted to current insight")
+            
+            // Generate new queued insight in background (non-blocking)
+            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    println("Generating new queued insight in background...")
+                    val queuedPrompt = buildInsightPrompt(updatedProject)
+                    val newQueuedInsight = askAi(settings, queuedPrompt, "Generate an insight.")
+                    
+                    if (newQueuedInsight.isNotBlank() && newQueuedInsight != "No response.") {
+                        // Update project with new queued insight
+                        // Use updatedProject as base to avoid race condition
+                        val finalProject = updatedProject.copy(queuedInsight = newQueuedInsight)
+                        upsertProject(context, finalProject)
+                        println("New queued insight generated and saved")
+                    }
+                } catch (e: Exception) {
+                    println("WARNING: Failed to generate new queued insight - ${e.message}")
+                }
+            }
+            
+            println("=== QUEUED INSIGHT SUCCESS ===")
+            InsightResult.Success(insight)
+        } else {
+            // No queued insight, generate normally (with queued)
+            println("=== NO QUEUED INSIGHT, GENERATING NEW ===")
+            generateInsight(context, project, settings, generateQueued = true)
+        }
+    } catch (e: Exception) {
+        println("=== GET NEXT INSIGHT FAILED ===")
+        println("Error: ${e.message}")
+        e.printStackTrace()
+        InsightResult.Error("Failed to get insight: ${e.message ?: "Unknown error"}")
+    }
+}
+
+/**
  * Build the system prompt for insight generation.
  */
 fun buildInsightPrompt(project: Project): String {
@@ -73,12 +144,14 @@ sealed class InsightResult {
 
 /**
  * Generate a new insight for the given project.
+ * If generateQueued is true, generates 2 insights: one to show and one to queue.
  * Returns InsightResult with either success or error details.
  */
 suspend fun generateInsight(
     context: Context,
     project: Project,
-    settings: AiSettings
+    settings: AiSettings,
+    generateQueued: Boolean = true
 ): InsightResult = withContext(Dispatchers.IO) {
     return@withContext try {
         println("=== INSIGHT GENERATION START ===")
@@ -87,6 +160,7 @@ suspend fun generateInsight(
         println("Provider: ${settings.provider}")
         println("Model: ${settings.model}")
         println("API Key length: ${settings.apiKey.length}")
+        println("Generate queued: $generateQueued")
         
         // Validate settings
         if (settings.apiKey.isBlank()) {
@@ -101,7 +175,7 @@ suspend fun generateInsight(
         println(systemPrompt)
         println("--- SYSTEM PROMPT END ---")
         
-        println("Calling askAi...")
+        println("Calling askAi for main insight...")
         val insight = askAi(settings, systemPrompt, "Generate an insight.")
         println("AI response received (${insight.length} chars)")
         println("--- INSIGHT START ---")
@@ -122,13 +196,48 @@ suspend fun generateInsight(
         // Keep last 20 insights in history, oldest first
         val newEntry = InsightHistoryEntry(id = insightId, text = insight)
         val updatedHistory = (project.insightHistory + newEntry).takeLast(20)
+        
+        // Generate queued insight if requested
+        var queuedInsightText = ""
+        if (generateQueued) {
+            println("Generating queued insight...")
+            // Update the prompt to include the insight we just generated
+            val tempProject = project.copy(
+                lastInsightText = insight,
+                insightHistory = updatedHistory
+            )
+            val queuedPrompt = buildInsightPrompt(tempProject)
+            
+            try {
+                queuedInsightText = askAi(settings, queuedPrompt, "Generate an insight.")
+                println("Queued insight generated (${queuedInsightText.length} chars)")
+                println("--- QUEUED INSIGHT START ---")
+                println(queuedInsightText)
+                println("--- QUEUED INSIGHT END ---")
+                
+                // Validate queued insight
+                if (queuedInsightText.isBlank() || queuedInsightText == "No response.") {
+                    println("WARNING: Invalid queued insight, will skip")
+                    queuedInsightText = ""
+                }
+            } catch (e: Exception) {
+                println("WARNING: Failed to generate queued insight - ${e.message}")
+                // Continue without queued insight
+                queuedInsightText = ""
+            }
+        }
+        
         val updatedProject = project.copy(
             lastInsightText = insight,
             lastInsightTimestamp = System.currentTimeMillis(),
-            insightHistory = updatedHistory
+            insightHistory = updatedHistory,
+            queuedInsight = queuedInsightText
         )
         upsertProject(context, updatedProject)
         println("Project updated with new insight (history size: ${updatedHistory.size})")
+        if (queuedInsightText.isNotEmpty()) {
+            println("Queued insight saved to project")
+        }
         
         // Save to permanent storage with the same ID
         saveInsight(context, project.id, insight, insightId)

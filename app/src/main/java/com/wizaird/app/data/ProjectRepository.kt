@@ -55,6 +55,7 @@ class ProjectDeserializer : JsonDeserializer<Project> {
         val lastInsightText = jsonObject.get("lastInsightText")?.asString ?: ""
         val pinnedInsight = jsonObject.get("pinnedInsight")?.asBoolean ?: false
         val order = jsonObject.get("order")?.asInt ?: 0
+        val queuedInsight = jsonObject.get("queuedInsight")?.asString ?: ""
         
         // Handle insightHistory migration
         val insightHistory = mutableListOf<InsightHistoryEntry>()
@@ -95,7 +96,8 @@ class ProjectDeserializer : JsonDeserializer<Project> {
             lastInsightText = lastInsightText,
             pinnedInsight = pinnedInsight,
             insightHistory = insightHistory,
-            order = order
+            order = order,
+            queuedInsight = queuedInsight
         )
     }
 }
@@ -112,7 +114,8 @@ data class Project(
     val lastInsightText: String = "",
     val pinnedInsight: Boolean = false,  // If true, auto-generation is paused for this project
     val insightHistory: List<InsightHistoryEntry> = emptyList(),  // Last 20 insights with IDs, oldest first
-    val order: Int = 0  // Display order, lower numbers appear first
+    val order: Int = 0,  // Display order, lower numbers appear first
+    val queuedInsight: String = ""  // Pre-generated insight ready to show instantly
 )
 
 private val KEY_PROJECTS = stringPreferencesKey("projects")

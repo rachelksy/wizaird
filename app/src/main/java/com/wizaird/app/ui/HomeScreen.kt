@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,7 +66,7 @@ fun HomeScreen(
     val settings by settingsFlow(context).collectAsState(initial = AiSettings())
     val colors = LocalWizairdColors.current
     val projects by projectsFlow(context).collectAsState(initial = emptyList())
-    var activeProjectIndex by remember { mutableIntStateOf(0) }
+    var activeProjectIndex by rememberSaveable { mutableIntStateOf(0) }
     val activeProject = projects.getOrNull(activeProjectIndex)
 
     var bubbleText by remember { mutableStateOf("") }

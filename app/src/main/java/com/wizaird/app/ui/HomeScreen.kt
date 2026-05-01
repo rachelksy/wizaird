@@ -198,6 +198,9 @@ fun HomeScreen(
                             generateInsightForProject(project)
                         }
                     },
+                    onProjectClick = {
+                        activeProject?.let { project -> onProjectClick(project.id) }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
@@ -534,6 +537,7 @@ fun ChatBubble(
     isPinned: Boolean = false,
     onTogglePin: () -> Unit = {},
     onRegenerate: () -> Unit = {},
+    onProjectClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -606,9 +610,16 @@ fun ChatBubble(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    val projectNameInteraction = remember { MutableInteractionSource() }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .padding(vertical = 2.dp)
+                            .pixelRounded8ClickableExpanded(
+                                interactionSource = projectNameInteraction,
+                                expandHDp = 4.dp
+                            ) { onProjectClick() }
                     ) {
                         Image(
                             painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),

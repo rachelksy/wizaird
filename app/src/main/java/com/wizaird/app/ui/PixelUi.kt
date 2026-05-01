@@ -110,12 +110,16 @@ private val PressOverlay = Color.Black.copy(alpha = 0.15f)
 // painted ON TOP of content so child draws don't cover it.
 private fun androidx.compose.ui.graphics.drawscope.ContentDrawScope.drawPressOverlay(
     cuts: FloatArray,
-    fullCircle: Boolean = false
+    fullCircle: Boolean = false,
+    expandPx: Float = 0f,   // positive = grow the overlay outward beyond component bounds
+    expandHPx: Float = 0f   // additional horizontal-only expansion (stacks with expandPx)
 ) {
     drawContent()
     val p = PixelSize.toPx()
-    val w = size.width
-    val h = size.height
+    val ox = -(expandPx + expandHPx)
+    val oy = -expandPx
+    val w = size.width  + (expandPx + expandHPx) * 2
+    val h = size.height + expandPx * 2
     val c = PressOverlay
     val n = cuts.size
 
@@ -124,34 +128,34 @@ private fun androidx.compose.ui.graphics.drawscope.ContentDrawScope.drawPressOve
         // Top half: rows 0..n-1 drawn from top downward
         for (i in 0 until n) {
             val cut = cuts[i] * p
-            val rowTop = i * p
-            val rowBot = minOf((i + 1) * p, h / 2f)
-            if (rowBot > rowTop) drawRect(c, Offset(cut, rowTop), Size(w - cut * 2, rowBot - rowTop))
+            val rowTop = oy + i * p
+            val rowBot = minOf(oy + (i + 1) * p, oy + h / 2f)
+            if (rowBot > rowTop) drawRect(c, Offset(ox + cut, rowTop), Size(w - cut * 2, rowBot - rowTop))
         }
         // Middle band: if the staircase rows don't reach h/2, fill the gap with no cut (full width)
         val staircaseHeight = n * p
-        val midTop = staircaseHeight
-        val midBot = h - staircaseHeight
-        if (midBot > midTop) drawRect(c, Offset(0f, midTop), Size(w, midBot - midTop))
+        val midTop = oy + staircaseHeight
+        val midBot = oy + h - staircaseHeight
+        if (midBot > midTop) drawRect(c, Offset(ox, midTop), Size(w, midBot - midTop))
         // Bottom half: rows 0..n-1 drawn from bottom upward (mirror)
         for (i in 0 until n) {
             val cut = cuts[i] * p
-            val rowBot = h - i * p
-            val rowTop = maxOf(h - (i + 1) * p, h / 2f)
-            if (rowBot > rowTop) drawRect(c, Offset(cut, rowTop), Size(w - cut * 2, rowBot - rowTop))
+            val rowBot = oy + h - i * p
+            val rowTop = maxOf(oy + h - (i + 1) * p, oy + h / 2f)
+            if (rowBot > rowTop) drawRect(c, Offset(ox + cut, rowTop), Size(w - cut * 2, rowBot - rowTop))
         }
     } else {
         // Has straight edges: top staircase, straight middle, bottom staircase — no overlap.
         for (i in 0 until n) {
             val cut = cuts[i] * p
-            drawRect(c, Offset(cut, i * p), Size(w - cut * 2, p))
+            drawRect(c, Offset(ox + cut, oy + i * p), Size(w - cut * 2, p))
         }
-        val straightTop = n * p
-        val straightBot = h - n * p
-        if (straightBot > straightTop) drawRect(c, Offset(0f, straightTop), Size(w, straightBot - straightTop))
+        val straightTop = oy + n * p
+        val straightBot = oy + h - n * p
+        if (straightBot > straightTop) drawRect(c, Offset(ox, straightTop), Size(w, straightBot - straightTop))
         for (i in 0 until n) {
             val cut = cuts[i] * p
-            drawRect(c, Offset(cut, h - (i + 1) * p), Size(w - cut * 2, p))
+            drawRect(c, Offset(ox + cut, oy + h - (i + 1) * p), Size(w - cut * 2, p))
         }
     }
 }
@@ -250,6 +254,22 @@ fun Modifier.pixelRounded8Clickable(
     return this
         .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
         .drawWithContent { if (pressed) drawPressOverlay(cuts) else drawContent() }
+}
+
+// Same as pixelRounded8Clickable but expands the press overlay outward by [expandDp]
+// without affecting layout — useful when the content sits flush against a container edge.
+@Composable
+fun Modifier.pixelRounded8ClickableExpanded(
+    interactionSource: MutableInteractionSource,
+    expandDp: Dp = 4.dp,
+    expandHDp: Dp = 0.dp,
+    onClick: () -> Unit
+): Modifier {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val cuts = floatArrayOf(5f, 3f, 2f, 1f, 1f)
+    return this
+        .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+        .drawWithContent { if (pressed) drawPressOverlay(cuts, expandPx = expandDp.toPx(), expandHPx = expandHDp.toPx()) else drawContent() }
 }
 
 // For PixelCornerStyle.Rounded (R=10) — cuts: 7,5,3,2,2,1,1

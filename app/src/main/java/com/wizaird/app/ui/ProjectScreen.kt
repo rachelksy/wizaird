@@ -24,6 +24,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -683,7 +684,11 @@ fun ChatListItem(chat: com.wizaird.app.data.ChatData, onClick: () -> Unit = {}) 
         ) {
             Text(
                 text = chat.title.uppercase(),
-                style = pixelStyle(12, colors.secondaryIcon),
+                style = pixelStyle(12, colors.secondaryIcon).copy(
+                    lineHeight = (12 * 1.4f).sp
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.offset(y = (-2).dp)
             )
             Text(

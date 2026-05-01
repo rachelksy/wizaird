@@ -43,6 +43,7 @@ import com.wizaird.app.data.buildChatSystemPrompt
 import com.wizaird.app.data.askAi
 import com.wizaird.app.data.chatFlow
 import com.wizaird.app.data.deleteChat
+import com.wizaird.app.data.deleteMessageFromChat
 import com.wizaird.app.data.removeLastAiMessage
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.data.settingsFlow
@@ -90,6 +91,7 @@ fun ExistingChatScreen(
     var showMessageActions by remember { mutableStateOf(false) }
     var selectedMessageEdit by remember { mutableStateOf<(() -> Unit)?>(null) }
     var selectedMessageDelete by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var showDeleteMessageDialog by remember { mutableStateOf(false) }
 
     val svgLoader = remember {
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
@@ -451,7 +453,11 @@ fun ExistingChatScreen(
                     } else null,
                     onEdit = {
                         selectedMessageEdit = { /* TODO: implement edit for message ${message.id} */ }
-                        selectedMessageDelete = { /* TODO: implement delete for message ${message.id} */ }
+                        selectedMessageDelete = {
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                deleteMessageFromChat(context, chatId, message.id)
+                            }
+                        }
                         showMessageActions = true
                     },
                     onDelete = { /* Not used - onEdit triggers the bottom sheet */ }
@@ -600,9 +606,27 @@ fun ExistingChatScreen(
                 },
                 onDelete = {
                     showMessageActions = false
-                    selectedMessageDelete?.invoke()
+                    showDeleteMessageDialog = true
                 },
                 onDismiss = { showMessageActions = false }
+            )
+        }
+
+        // Delete message confirmation dialog
+        if (showDeleteMessageDialog) {
+            PixelConfirmationDialog(
+                title = "DELETE MESSAGE",
+                message = "Are you sure you want to delete this message? This action cannot be undone.",
+                confirmLabel = "DELETE",
+                cancelLabel = "CANCEL",
+                isDestructive = true,
+                onConfirm = {
+                    showDeleteMessageDialog = false
+                    selectedMessageDelete?.invoke()
+                },
+                onDismiss = {
+                    showDeleteMessageDialog = false
+                }
             )
         }
     }

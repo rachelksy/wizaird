@@ -122,3 +122,17 @@ suspend fun addMessageToChat(context: Context, chatId: String, message: ChatMess
         saveChats(context, current)
     }
 }
+
+/** Delete a single message from a chat by message ID. */
+suspend fun deleteMessageFromChat(context: Context, chatId: String, messageId: String) {
+    val prefs = context.dataStore.data.first()
+    val json = prefs[KEY_CHATS] ?: return
+    val type = object : TypeToken<List<ChatData>>() {}.type
+    val current: MutableList<ChatData> = chatGson.fromJson(json, type) ?: mutableListOf()
+    val idx = current.indexOfFirst { it.id == chatId }
+    if (idx >= 0) {
+        val chat = current[idx]
+        current[idx] = chat.copy(messages = chat.messages.filter { it.id != messageId })
+        saveChats(context, current)
+    }
+}

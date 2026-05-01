@@ -23,6 +23,7 @@ import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.ui.AccountSettingsScreen
 import com.wizaird.app.ui.ApiSettingsScreen
 import com.wizaird.app.ui.AppSettingsScreen
+import com.wizaird.app.ui.BackupScreen
 import com.wizaird.app.ui.ChatScreen
 import com.wizaird.app.ui.ChatSettingsScreen
 import com.wizaird.app.ui.ExistingChatScreen
@@ -87,7 +88,8 @@ class MainActivity : ComponentActivity() {
                             onBack = { nav.popBackStack() },
                             onAccountSettings = { nav.navigate("account_settings") },
                             onAppSettings = { nav.navigate("app_settings") },
-                            onApiSettings = { nav.navigate("api_settings") }
+                            onApiSettings = { nav.navigate("api_settings") },
+                            onBackupSettings = { nav.navigate("backup_settings") }
                         )
                     }
                     composable("projects") {
@@ -180,6 +182,11 @@ class MainActivity : ComponentActivity() {
                         ApiSettingsScreen(
                             onBack = { nav.popBackStack() },
                             initialDarkMode = darkMode
+                        )
+                    }
+                    composable("backup_settings") {
+                        BackupScreen(
+                            onBack = { nav.popBackStack() }
                         )
                     }
                     composable("chat/{projectId}") { backStackEntry ->

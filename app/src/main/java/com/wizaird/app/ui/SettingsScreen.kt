@@ -19,7 +19,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onAccountSettings: () -> Unit,
     onAppSettings: () -> Unit,
-    onApiSettings: () -> Unit
+    onApiSettings: () -> Unit,
+    onBackupSettings: () -> Unit
 ) {
     val colors = LocalWizairdColors.current
 
@@ -75,7 +76,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Account Settings Section
                 SettingsSectionCard(
@@ -94,6 +95,12 @@ fun SettingsScreen(
                     label = "API SETTINGS",
                     onClick = onApiSettings
                 )
+
+                // Backup & Restore Section
+                SettingsSectionCard(
+                    label = "BACKUP & RESTORE",
+                    onClick = onBackupSettings
+                )
             }
         }
     }
@@ -111,7 +118,7 @@ fun SettingsSectionCard(
         modifier = Modifier
             .fillMaxWidth()
             .pixelRoundedClickable(interactionSource = interaction) { onClick() },
-        fillColor = colors.secondarySurface,
+        fillColor = colors.tertiarySurface,
         borderColor = androidx.compose.ui.graphics.Color.Transparent,
         cornerStyle = PixelCornerStyle.Rounded
     ) {

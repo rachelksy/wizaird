@@ -33,6 +33,7 @@ data class WizairdColors(
     val backgroundDark: Color,    // darker variant (empty cells, etc.)
     val secondarySurface: Color,  // bubble, input, header, inactive button surfaces
     val secondaryButton: Color,   // muted/inactive button fill
+    val tertiarySurface: Color,   // note cards and settings buttons
     val secondaryIcon: Color,     // primary icon and text color
     val secondaryIconSoft: Color, // muted/secondary text color
     val textHigh: Color,          // high-emphasis text
@@ -53,6 +54,7 @@ val LightColors = WizairdColors(
     backgroundDark    = Color(0xFFD9C59A),
     secondarySurface  = Color(0xFFFFFAED),
     secondaryButton   = Color(0xFFD9C59A),
+    tertiarySurface   = Color(0xFFEBD9B4),
     secondaryIcon     = Color(0xFF2A1F14),
     secondaryIconSoft = Color(0xFF5B4326),
     textHigh          = Color(0xFF2A1F14),
@@ -73,6 +75,7 @@ val DarkColors = WizairdColors(
     backgroundDark    = Color(0xFF0A0A0A),
     secondarySurface  = Color(0xFF222222),
     secondaryButton   = Color(0xFF555555),
+    tertiarySurface   = Color(0xFF444444),
     secondaryIcon     = Color(0xFFE8DFC8),
     secondaryIconSoft = Color(0xFF9A8F7A),
     textHigh          = Color(0xFFE8DFC8),

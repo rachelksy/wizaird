@@ -429,7 +429,7 @@ fun AgentScrollBar(
                             else
                                 Modifier.pixelLargeCircleClickable(interactionSource = interaction) { onActiveProjectChange(index - 1) }
                         ),
-                    fillColor = if (isAddButton) colors.secondaryButton else colors.secondarySurface,
+                    fillColor = if (isAddButton) colors.secondaryButton else if (!isAddButton && project != null && project.picturePath.isNotEmpty() && File(project.picturePath).exists()) Color.Transparent else colors.secondarySurface,
                     borderColor = if (isActive) colors.textHigh else if (isAddButton) Color.Transparent else inactiveBorder,
                     cornerStyle = PixelCornerStyle.Circle
                 ) {
@@ -447,11 +447,13 @@ fun AgentScrollBar(
                         val imageLoader = remember {
                             ImageLoader.Builder(context)
                                 .components { add(GifDecoder.Factory()) }
+                                .allowHardware(false)
                                 .build()
                         }
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(File(project.picturePath))
+                                .allowHardware(false)
                                 .build(),
                             imageLoader = imageLoader,
                             contentDescription = project.name,
@@ -671,7 +673,7 @@ fun ChatBubble(
                             imageLoader = coffeeLoader,
                             contentDescription = "Loading",
                             contentScale = ContentScale.Fit,
-                            modifier = Modifier.width(400.dp)
+                            modifier = Modifier.width(120.dp)
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Text(

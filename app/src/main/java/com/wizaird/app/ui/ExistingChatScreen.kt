@@ -691,6 +691,8 @@ fun ChatBubble(
     val aiBubbleText   = colors.textHigh
 
     var copied by remember { mutableStateOf(false) }
+    // Bumped on tap to clear any active text selection
+    var selectionResetKey by remember { mutableStateOf(0) }
 
     val svgLoader = remember {
         ImageLoader.Builder(context)
@@ -710,7 +712,7 @@ fun ChatBubble(
                 )
                 .pixelRoundedCombinedClickable(
                     interactionSource = bubbleInteraction,
-                    onClick = {},
+                    onClick = { selectionResetKey++ },
                     onLongClick = { onEdit() }
                 ),
             fillColor = if (isUser) userBubbleFill else aiBubbleFill,
@@ -718,20 +720,24 @@ fun ChatBubble(
             cornerStyle = PixelCornerStyle.Rounded
         ) {
             if (isUser) {
-                SelectionContainer {
-                    MarkdownText(
-                        markdown = message.text,
-                        style = minecraftStyle(14, userBubbleText),
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
-                    )
-                }
-            } else {
-                Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                key(selectionResetKey) {
                     SelectionContainer {
                         MarkdownText(
                             markdown = message.text,
-                            style = minecraftStyle(14, aiBubbleText)
+                            style = minecraftStyle(14, userBubbleText),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
                         )
+                    }
+                }
+            } else {
+                Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                    key(selectionResetKey) {
+                        SelectionContainer {
+                            MarkdownText(
+                                markdown = message.text,
+                                style = minecraftStyle(14, aiBubbleText)
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Row(

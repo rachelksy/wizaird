@@ -363,7 +363,7 @@ fun ProjectScreen(
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)
                             ) {
                                 when (tab) {
                                     ProjectTab.CHATS -> {
@@ -685,7 +685,7 @@ fun ChatListItem(chat: com.wizaird.app.data.ChatData, onClick: () -> Unit = {}) 
             Text(
                 text = chat.title.uppercase(),
                 style = pixelStyle(12, colors.secondaryIcon).copy(
-                    lineHeight = (12 * 1.4f).sp
+                    lineHeight = (12 * 1.6f).sp
                 ),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,

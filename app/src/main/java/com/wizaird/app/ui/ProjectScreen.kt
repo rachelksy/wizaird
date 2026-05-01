@@ -59,6 +59,7 @@ fun ProjectScreen(
     onNoteClick: (String) -> Unit = {},
     onNewNoteClick: () -> Unit = {},
     onDeleteClick: () -> Unit = {},
+    onInsightChatClick: (String) -> Unit = {}, // New callback for insight -> chat
     initialTab: ProjectTab = ProjectTab.CHATS
 ) {
     val context = LocalContext.current
@@ -583,7 +584,8 @@ fun ProjectScreen(
                         ) {
                             items(insights) { insight ->
                                 InsightListItem(
-                                    insight = insight
+                                    insight = insight,
+                                    onChatClick = { onInsightChatClick(insight.id) }
                                 )
                             }
                         }
@@ -953,7 +955,10 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
 }
 
 @Composable
-fun InsightListItem(insight: StoredInsight) {
+fun InsightListItem(
+    insight: StoredInsight,
+    onChatClick: () -> Unit = {}
+) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
     val scope = rememberCoroutineScope()
@@ -1208,7 +1213,11 @@ fun InsightListItem(insight: StoredInsight) {
         if (showPreview) {
             InsightPreviewOverlay(
                 insight = insight,
-                onDismiss = { showPreview = false }
+                onDismiss = { showPreview = false },
+                onChatClick = {
+                    showPreview = false
+                    onChatClick()
+                }
             )
         }
     }
@@ -1217,7 +1226,8 @@ fun InsightListItem(insight: StoredInsight) {
 @Composable
 fun InsightPreviewOverlay(
     insight: StoredInsight,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onChatClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -1409,7 +1419,7 @@ fun InsightPreviewOverlay(
                                 }
                         )
                         
-                        // Chat icon (placeholder for future functionality)
+                        // Chat icon
                         val chatInteraction = remember { MutableInteractionSource() }
                         AsyncImage(
                             model = ImageRequest.Builder(context)
@@ -1423,9 +1433,7 @@ fun InsightPreviewOverlay(
                                 .pixelRounded8ClickableOversize(
                                     interactionSource = chatInteraction
                                 ) {
-                                    // TODO: Wire up chat functionality
-                                    toastMessage = "CHAT COMING SOON"
-                                    showToast = true
+                                    onChatClick()
                                 }
                         )
                     }

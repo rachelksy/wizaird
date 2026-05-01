@@ -41,6 +41,15 @@ fun storedInsightsFlow(context: Context, projectId: String): Flow<List<StoredIns
             .sortedByDescending { it.createdAt }
     }
 
+/** Flow of a single stored insight by ID. */
+fun storedInsightFlow(context: Context, insightId: String): Flow<StoredInsight?> =
+    context.dataStore.data.map { prefs ->
+        val json = prefs[KEY_STORED_INSIGHTS] ?: return@map null
+        val type = object : TypeToken<List<StoredInsight>>() {}.type
+        val all: List<StoredInsight> = insightGson.fromJson(json, type) ?: emptyList()
+        all.firstOrNull { it.id == insightId }
+    }
+
 /** Save a new insight to permanent storage. */
 suspend fun saveInsight(context: Context, projectId: String, text: String, id: String = UUID.randomUUID().toString()) {
     context.dataStore.edit { prefs ->

@@ -28,6 +28,7 @@ import com.wizaird.app.ui.ChatScreen
 import com.wizaird.app.ui.ChatSettingsScreen
 import com.wizaird.app.ui.ExistingChatScreen
 import com.wizaird.app.ui.HomeScreen
+import com.wizaird.app.ui.InsightChatScreen
 import com.wizaird.app.ui.NewProjectScreen
 import com.wizaird.app.ui.NoteScreen
 import com.wizaird.app.ui.ProjectScreen
@@ -124,6 +125,9 @@ class MainActivity : ComponentActivity() {
                                 }
                                 nav.navigate("note/${id}/new")
                             },
+                            onInsightChatClick = { insightId ->
+                                nav.navigate("chat/${id}/insight/${insightId}")
+                            },
                             initialTab = ProjectTab.CHATS
                         )
                     }
@@ -148,6 +152,12 @@ class MainActivity : ComponentActivity() {
                             },
                             onNoteClick = { noteId -> nav.navigate("note/${id}/${noteId}") },
                             onNewNoteClick = { nav.navigate("note/${id}/new") },
+                            onInsightChatClick = { insightId ->
+                                nav.navigate("project/${id}") {
+                                    popUpTo("project/${id}/notes") { inclusive = true }
+                                }
+                                nav.navigate("chat/${id}/insight/${insightId}")
+                            },
                             initialTab = ProjectTab.NOTES
                         )
                     }
@@ -198,6 +208,21 @@ class MainActivity : ComponentActivity() {
                                 // Navigate to the newly created chat
                                 nav.navigate("chat/${projectId}/${chatId}") {
                                     popUpTo("chat/${projectId}") { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+                    composable("chat/{projectId}/insight/{insightId}") { backStackEntry ->
+                        val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+                        val insightId = backStackEntry.arguments?.getString("insightId") ?: ""
+                        InsightChatScreen(
+                            projectId = projectId,
+                            insightId = insightId,
+                            onBack = { nav.popBackStack() },
+                            onChatCreated = { chatId ->
+                                // Navigate to the newly created chat
+                                nav.navigate("chat/${projectId}/${chatId}") {
+                                    popUpTo("chat/${projectId}/insight/${insightId}") { inclusive = true }
                                 }
                             }
                         )

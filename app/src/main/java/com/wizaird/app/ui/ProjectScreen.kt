@@ -1,9 +1,11 @@
 package com.wizaird.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
@@ -37,17 +39,21 @@ import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.wizaird.app.data.NoteData
 import com.wizaird.app.data.StoredInsight
+import com.wizaird.app.data.GlossaryWord
+import com.wizaird.app.data.GlossarySortOrder
 import com.wizaird.app.data.chatsFlow
 import com.wizaird.app.data.deleteInsight
 import com.wizaird.app.data.deleteNote
 import com.wizaird.app.data.deleteProject
+import com.wizaird.app.data.deleteGlossaryWord
 import com.wizaird.app.data.notesFlow
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.data.storedInsightsFlow
+import com.wizaird.app.data.searchGlossaryWords
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.launch
 
-enum class ProjectTab { CHATS, NOTES, INSIGHTS }
+enum class ProjectTab { CHATS, NOTES, INSIGHTS, GLOSSARY }
 
 @Composable
 fun ProjectScreen(
@@ -60,6 +66,8 @@ fun ProjectScreen(
     onNewNoteClick: () -> Unit = {},
     onDeleteClick: () -> Unit = {},
     onInsightChatClick: (String) -> Unit = {}, // New callback for insight -> chat
+    onNewGlossaryWordClick: () -> Unit = {}, // New callback for adding glossary word
+    onEditGlossaryWordClick: (String) -> Unit = {}, // New callback for editing glossary word
     initialTab: ProjectTab = ProjectTab.CHATS
 ) {
     val context = LocalContext.current
@@ -88,6 +96,15 @@ fun ProjectScreen(
 
     // Insights — live from DataStore, filtered to this project
     val insights by storedInsightsFlow(context, projectId).collectAsState(initial = emptyList())
+
+    // Glossary — search and sort state
+    var glossarySearchQuery by remember { mutableStateOf("") }
+    var glossarySortOrder by remember { mutableStateOf(GlossarySortOrder.DATE_DESC) }
+    var showSortBottomSheet by remember { mutableStateOf(false) }
+    
+    // Glossary words — live from DataStore with search and sort
+    val glossaryWords by searchGlossaryWords(context, projectId, glossarySearchQuery, glossarySortOrder)
+        .collectAsState(initial = emptyList())
 
     Box(
         modifier = Modifier
@@ -330,9 +347,11 @@ fun ProjectScreen(
             }
 
             // Tab row
+            val tabScrollState = rememberScrollState()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .horizontalScroll(tabScrollState)
                     .padding(start = 16.dp, end = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(0.dp)
             ) {
@@ -344,8 +363,9 @@ fun ProjectScreen(
                 listOf(
                     ProjectTab.CHATS to "Chats",
                     ProjectTab.INSIGHTS to "Insights",
-                    ProjectTab.NOTES to "Notes"
-                ).forEach { (tab, label) ->
+                    ProjectTab.NOTES to "Notes",
+                    ProjectTab.GLOSSARY to "Glossary"
+                ).forEachIndexed { _, (tab, label) ->
                     val isActive = activeTab == tab
                     val tabInteraction = remember { MutableInteractionSource() }
                     val iconColor = if (isActive) colors.textHigh else colors.textXLow
@@ -353,6 +373,16 @@ fun ProjectScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.width(IntrinsicSize.Max)
                     ) {
+                        // Scroll to start when Chats is active, scroll to end when Glossary is active
+                        LaunchedEffect(isActive) {
+                            if (isActive) {
+                                when (tab) {
+                                    ProjectTab.CHATS -> tabScrollState.animateScrollTo(0)
+                                    ProjectTab.GLOSSARY -> tabScrollState.animateScrollTo(tabScrollState.maxValue)
+                                    else -> {}
+                                }
+                            }
+                        }
                         PixelBox(
                             modifier = Modifier
                                 .pixelRounded8Clickable(
@@ -394,6 +424,17 @@ fun ProjectScreen(
                                         AsyncImage(
                                             model = ImageRequest.Builder(context)
                                                 .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
+                                                .build(),
+                                            imageLoader = svgLoader,
+                                            contentDescription = null,
+                                            colorFilter = ColorFilter.tint(iconColor),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    ProjectTab.GLOSSARY -> {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(context)
+                                                .data("file:///android_asset/pixelarticons/notebook.svg")
                                                 .build(),
                                             imageLoader = svgLoader,
                                             contentDescription = null,
@@ -591,11 +632,153 @@ fun ProjectScreen(
                         }
                     }
                 }
+                ProjectTab.GLOSSARY -> {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        // Search bar and sort button
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 12.dp)
+                        ) {
+                            // Search bar
+                            PixelBox(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(end = 40.dp), // Leave space for sort button with ripple
+                                fillColor = colors.tertiarySurface,
+                                borderColor = androidx.compose.ui.graphics.Color.Transparent,
+                                cornerStyle = PixelCornerStyle.Rounded8
+                            ) {
+                                androidx.compose.foundation.text.BasicTextField(
+                                    value = glossarySearchQuery,
+                                    onValueChange = { glossarySearchQuery = it },
+                                    textStyle = minecraftStyle(12, colors.textHigh),
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    decorationBox = { innerTextField ->
+                                        if (glossarySearchQuery.isEmpty()) {
+                                            Text(
+                                                "Search",
+                                                style = minecraftStyle(12, colors.textXLow)
+                                            )
+                                        }
+                                        innerTextField()
+                                    }
+                                )
+                            }
+                            
+                            // Sort button - aligned to the right with ripple
+                            val sortInteraction = remember { MutableInteractionSource() }
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .size(40.dp) // Fixed size for consistent alignment
+                                    .pixelRounded8ClickableOversize(interactionSource = sortInteraction) {
+                                        showSortBottomSheet = true
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data("file:///android_asset/pixelarticons/arrow-down-wide-narrow.svg")
+                                        .build(),
+                                    imageLoader = svgLoader,
+                                    contentDescription = "Sort",
+                                    colorFilter = ColorFilter.tint(colors.secondaryIconSoft),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        
+                        // Word list or empty state
+                        if (glossaryWords.isEmpty()) {
+                            if (glossarySearchQuery.isEmpty()) {
+                                // No words yet - centered
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            "NO WORDS YET",
+                                            style = pixelStyle(14, colors.secondaryIcon)
+                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                "TAP",
+                                                style = pixelStyle(10, colors.secondaryIconSoft),
+                                                modifier = Modifier.offset(y = (-2).dp)
+                                            )
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(context)
+                                                    .data("file:///android_asset/pixelarticons/notebook.svg")
+                                                    .build(),
+                                                imageLoader = svgLoader,
+                                                contentDescription = null,
+                                                colorFilter = ColorFilter.tint(colors.secondaryIconSoft),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Text(
+                                                "TO ADD A WORD",
+                                                style = pixelStyle(10, colors.secondaryIconSoft),
+                                                modifier = Modifier.offset(y = (-2).dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                // No results found - 40px below search field
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Spacer(modifier = Modifier.height(40.dp))
+                                    Text(
+                                        "NO RESULTS FOUND",
+                                        style = pixelStyle(14, colors.textLow)
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                contentPadding = PaddingValues(top = 4.dp, bottom = 96.dp)
+                            ) {
+                                items(glossaryWords) { word ->
+                                    GlossaryWordListItem(
+                                        word = word,
+                                        onEdit = { onEditGlossaryWordClick(word.id) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // FAB — switches based on active tab (only show for CHATS and NOTES)
-        if (activeTab == ProjectTab.CHATS || activeTab == ProjectTab.NOTES) {
+        // FAB — switches based on active tab (only show for CHATS, NOTES, and GLOSSARY)
+        if (activeTab == ProjectTab.CHATS || activeTab == ProjectTab.NOTES || activeTab == ProjectTab.GLOSSARY) {
             val fabInteraction = remember { MutableInteractionSource() }
             PixelBox(
                 modifier = Modifier
@@ -605,8 +788,12 @@ fun ProjectScreen(
                     .size(80.dp)
                     .clip(PixelXLargeCircleShape)
                     .pixelXLargeCircleClickable(interactionSource = fabInteraction) {
-                        if (activeTab == ProjectTab.CHATS) onNewChatClick()
-                        else onNewNoteClick()
+                        when (activeTab) {
+                            ProjectTab.CHATS -> onNewChatClick()
+                            ProjectTab.NOTES -> onNewNoteClick()
+                            ProjectTab.GLOSSARY -> onNewGlossaryWordClick()
+                            else -> {}
+                        }
                     },
                 fillColor = if (activeTab == ProjectTab.CHATS) Coral else colors.secondaryButton,
                 borderColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -616,33 +803,60 @@ fun ProjectScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (activeTab == ProjectTab.CHATS) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data("file:///android_asset/pixelarticons/message.svg")
-                                .build(),
-                            imageLoader = svgLoader,
-                            contentDescription = "New Chat",
-                            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIcon),
-                            modifier = Modifier.size(28.dp)
-                        )
-                    } else {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
-                                .build(),
-                            imageLoader = remember {
-                                ImageLoader.Builder(context)
-                                    .components { add(SvgDecoder.Factory()) }
-                                    .build()
-                            },
-                            contentDescription = "New Note",
-                            colorFilter = ColorFilter.tint(colors.secondaryIcon),
-                            modifier = Modifier.size(28.dp)
-                        )
+                    when (activeTab) {
+                        ProjectTab.CHATS -> {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data("file:///android_asset/pixelarticons/message.svg")
+                                    .build(),
+                                imageLoader = svgLoader,
+                                contentDescription = "New Chat",
+                                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIcon),
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                        ProjectTab.NOTES -> {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
+                                    .build(),
+                                imageLoader = remember {
+                                    ImageLoader.Builder(context)
+                                        .components { add(SvgDecoder.Factory()) }
+                                        .build()
+                                },
+                                contentDescription = "New Note",
+                                colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                        ProjectTab.GLOSSARY -> {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data("file:///android_asset/pixelarticons/notebook.svg")
+                                    .build(),
+                                imageLoader = svgLoader,
+                                contentDescription = "New Word",
+                                colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                        else -> {}
                     }
                 }
             }
+        }
+
+        // Sort bottom sheet for glossary
+        if (showSortBottomSheet) {
+            GlossarySortBottomSheet(
+                currentSortOrder = glossarySortOrder,
+                onSortSelected = { newOrder ->
+                    glossarySortOrder = newOrder
+                    showSortBottomSheet = false
+                },
+                onDismiss = { showSortBottomSheet = false }
+            )
         }
 
         // Delete confirmation dialog
@@ -1688,6 +1902,572 @@ fun MoveInsightDialog(
                             selectedProjectId?.let { onMove(it) }
                         }
                     )
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun GlossaryWordListItem(
+    word: GlossaryWord,
+    onDelete: () -> Unit = {},
+    onEdit: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    val colors = LocalWizairdColors.current
+    val scope = rememberCoroutineScope()
+    val interaction = remember { MutableInteractionSource() }
+    
+    var showMenu by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showMoveDialog by remember { mutableStateOf(false) }
+    
+    val svgLoader = remember {
+        ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
+    }
+    
+    Box {
+        PixelBox(
+            modifier = Modifier.fillMaxWidth(),
+            fillColor = colors.secondarySurface,
+            borderColor = androidx.compose.ui.graphics.Color.Transparent,
+            cornerStyle = PixelCornerStyle.Rounded
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 12.dp, end = 10.dp, bottom = 12.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 32.dp), // Leave space for the options button
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Word — minecraft font, bold, 2sp bigger than explanation
+                    Text(
+                        text = word.word,
+                        style = minecraftStyle(14, colors.secondaryIcon).copy(
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        ),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
+                    // Explanation — minecraft font, no max lines
+                    Text(
+                        text = word.explanation,
+                        style = minecraftStyle(12, colors.secondaryIcon),
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
+                }
+                
+                // More options button - offset so icon sits at top-right edge
+                val moreInteraction = remember { MutableInteractionSource() }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 7.dp, y = (-7).dp) // Offset to position icon at edge
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .pixelRounded8Clickable(
+                                interactionSource = moreInteraction,
+                                onClick = { showMenu = true }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/more-vertical.svg")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = "More options",
+                            colorFilter = ColorFilter.tint(colors.secondaryIconSoft),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    
+                    // Options menu popup - positioned relative to button
+                    if (showMenu) {
+                        val density = LocalDensity.current
+                        val offsetY = with(density) { (32 + 4).dp.roundToPx() } // Button height + 4dp gap
+                        Popup(
+                            alignment = Alignment.TopEnd,
+                            offset = IntOffset(x = 0, y = offsetY),
+                            onDismissRequest = { showMenu = false },
+                            properties = PopupProperties(focusable = false)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .graphicsLayer {
+                                        compositingStrategy = CompositingStrategy.Offscreen
+                                        shadowElevation = 8.dp.toPx()
+                                        shape = PixelRounded8Shape
+                                        clip = true
+                                    }
+                                    .drawBehind {
+                                        val p = PixelSize.toPx()
+                                        val w = size.width
+                                        val h = size.height
+                                        val fill = colors.secondarySurface
+                                        val cut = Color.Transparent
+
+                                        drawRect(fill)
+
+                                        // Top-left
+                                        drawRect(cut, Offset(0f, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        // Top-right
+                                        drawRect(cut, Offset(w-p*5, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*3, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*2, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*1, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*1, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        // Bottom-left
+                                        drawRect(cut, Offset(0f, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(0f, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        // Bottom-right
+                                        drawRect(cut, Offset(w-p*5, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*3, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*2, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*1, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                        drawRect(cut, Offset(w-p*1, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                                    }
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .width(IntrinsicSize.Max)
+                                        .padding(4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                                ) {
+                                    // Edit option
+                                    val editInteraction = remember { MutableInteractionSource() }
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .pixelRounded8Clickable(
+                                                interactionSource = editInteraction,
+                                                onClick = {
+                                                    showMenu = false
+                                                    onEdit()
+                                                }
+                                            )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(context)
+                                                    .data("file:///android_asset/pixelarticons/pen-square.svg")
+                                                    .build(),
+                                                imageLoader = svgLoader,
+                                                contentDescription = "Edit",
+                                                colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text(
+                                                "Edit",
+                                                style = pixelStyle(10, colors.secondaryIcon),
+                                                modifier = Modifier.offset(y = (-2).dp)
+                                            )
+                                        }
+                                    }
+                                    
+                                    // Move to option
+                                    val moveInteraction = remember { MutableInteractionSource() }
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .pixelRounded8Clickable(
+                                                interactionSource = moveInteraction,
+                                                onClick = {
+                                                    showMenu = false
+                                                    showMoveDialog = true
+                                                }
+                                            )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            androidx.compose.foundation.Image(
+                                                painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),
+                                                contentDescription = "Move to",
+                                                colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text(
+                                                "Move to",
+                                                style = pixelStyle(10, colors.secondaryIcon),
+                                                modifier = Modifier.offset(y = (-2).dp)
+                                            )
+                                        }
+                                    }
+                                    
+                                    // Delete option
+                                    val deleteInteraction = remember { MutableInteractionSource() }
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .pixelRounded8Clickable(
+                                                interactionSource = deleteInteraction,
+                                                onClick = {
+                                                    showMenu = false
+                                                    showDeleteDialog = true
+                                                }
+                                            )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(context)
+                                                    .data("file:///android_asset/pixelarticons/delete.svg")
+                                                    .build(),
+                                                imageLoader = svgLoader,
+                                                contentDescription = "Delete",
+                                                colorFilter = ColorFilter.tint(colors.coral),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text(
+                                                "Delete",
+                                                style = pixelStyle(10, colors.coral),
+                                                modifier = Modifier.offset(y = (-2).dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Delete confirmation dialog
+        if (showDeleteDialog) {
+            PixelConfirmationDialog(
+                title = "DELETE WORD",
+                message = "Are you sure you want to delete \"${word.word}\"? This action cannot be undone.",
+                confirmLabel = "DELETE",
+                cancelLabel = "CANCEL",
+                isDestructive = true,
+                onConfirm = {
+                    showDeleteDialog = false
+                    scope.launch {
+                        deleteGlossaryWord(context, word.id)
+                    }
+                },
+                onDismiss = {
+                    showDeleteDialog = false
+                }
+            )
+        }
+        
+        // Move to project dialog
+        if (showMoveDialog) {
+            MoveGlossaryWordDialog(
+                currentProjectId = word.projectId,
+                onMove = { targetProjectId ->
+                    showMoveDialog = false
+                    scope.launch {
+                        com.wizaird.app.data.moveGlossaryWordToProject(context, word.id, targetProjectId)
+                    }
+                },
+                onDismiss = {
+                    showMoveDialog = false
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun MoveGlossaryWordDialog(
+    currentProjectId: String,
+    onMove: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val colors = LocalWizairdColors.current
+    
+    val projects by projectsFlow(context).collectAsState(initial = emptyList())
+    val availableProjects = projects.filter { it.id != currentProjectId }
+    
+    var selectedProjectId by remember { mutableStateOf<String?>(null) }
+    
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        PixelBox(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+                .clip(PixelRoundedShape),
+            fillColor = colors.secondarySurface,
+            borderColor = colors.border,
+            cutColor = colors.secondarySurface,
+            cornerStyle = PixelCornerStyle.Rounded
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "MOVE TO",
+                    style = pixelStyle(12, colors.textHigh),
+                    modifier = Modifier.offset(y = (-2).dp)
+                )
+                
+                // Project list
+                if (availableProjects.isEmpty()) {
+                    Text(
+                        text = "No other projects available",
+                        style = minecraftStyle(14, colors.textLow).copy(
+                            lineHeight = (14 * 1.6f).sp
+                        ),
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availableProjects.forEach { project ->
+                            val isSelected = selectedProjectId == project.id
+                            val projectInteraction = remember { MutableInteractionSource() }
+                            
+                            PixelBox(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .pixelRoundedClickable(
+                                        interactionSource = projectInteraction,
+                                        onClick = { selectedProjectId = project.id }
+                                    ),
+                                fillColor = if (isSelected) colors.userBubble else colors.background,
+                                borderColor = if (isSelected) Coral else androidx.compose.ui.graphics.Color.Transparent,
+                                cornerStyle = PixelCornerStyle.Rounded
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    androidx.compose.foundation.Image(
+                                        painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),
+                                        contentDescription = null,
+                                        colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = project.name.ifEmpty { "UNNAMED PROJECT" },
+                                        style = pixelStyle(10, colors.secondaryIcon),
+                                        modifier = Modifier.offset(y = (-2).dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    PixelButtonLarge(
+                        label = "CANCEL",
+                        primary = false,
+                        modifier = Modifier.weight(1f),
+                        cutColor = colors.secondarySurface,
+                        onClick = onDismiss
+                    )
+                    PixelButtonLarge(
+                        label = "MOVE",
+                        primary = true,
+                        modifier = Modifier.weight(1f),
+                        cutColor = colors.secondarySurface,
+                        onClick = {
+                            selectedProjectId?.let { onMove(it) }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GlossarySortBottomSheet(
+    currentSortOrder: GlossarySortOrder,
+    onSortSelected: (GlossarySortOrder) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val colors = LocalWizairdColors.current
+    
+    val svgLoader = remember {
+        ImageLoader.Builder(context)
+            .components { add(SvgDecoder.Factory()) }
+            .build()
+    }
+
+    // Scrim background with darkened overlay
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.6f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss
+            )
+    ) {
+        // Bottom sheet with upper rounded pixel corners (R=10)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .graphicsLayer {
+                    compositingStrategy = CompositingStrategy.Offscreen
+                }
+                .drawBehind {
+                    val p = PixelSize.toPx()
+                    val w = size.width
+                    val h = size.height
+                    val fill = colors.secondaryButton
+
+                    // Fill the sheet
+                    drawRect(fill)
+
+                    // Top-left corner cuts (R=10 pixel corners)
+                    drawRect(Color.Transparent, Offset(0f, p*0), Size(p*7, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*4), Size(p*2, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(0f, p*6), Size(p*1, p), blendMode = BlendMode.Clear)
+                    
+                    // Top-right corner cuts (R=10 pixel corners)
+                    drawRect(Color.Transparent, Offset(w-p*7, p*0), Size(p*7, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*5, p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*3, p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*2, p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*2, p*4), Size(p*2, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*1, p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                    drawRect(Color.Transparent, Offset(w-p*1, p*6), Size(p*1, p), blendMode = BlendMode.Clear)
+                }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {} // Prevent clicks from passing through to scrim
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 4.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                // Date added (desc) option
+                val dateInteraction = remember { MutableInteractionSource() }
+                val isDateSelected = currentSortOrder == GlossarySortOrder.DATE_DESC
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .pixelRoundedClickable(
+                            interactionSource = dateInteraction,
+                            onClick = { onSortSelected(GlossarySortOrder.DATE_DESC) }
+                        ),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Date added (newest first)",
+                            style = pixelStyle(14, colors.textLow),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                        if (isDateSelected) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data("file:///android_asset/pixelarticons/check.svg")
+                                    .build(),
+                                imageLoader = svgLoader,
+                                contentDescription = "Selected",
+                                colorFilter = ColorFilter.tint(Coral),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Alphabetical option
+                val alphaInteraction = remember { MutableInteractionSource() }
+                val isAlphaSelected = currentSortOrder == GlossarySortOrder.ALPHABETICAL
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .pixelRoundedClickable(
+                            interactionSource = alphaInteraction,
+                            onClick = { onSortSelected(GlossarySortOrder.ALPHABETICAL) }
+                        ),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Alphabetical (A-Z)",
+                            style = pixelStyle(14, colors.textLow),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                        if (isAlphaSelected) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data("file:///android_asset/pixelarticons/check.svg")
+                                    .build(),
+                                imageLoader = svgLoader,
+                                contentDescription = "Selected",
+                                colorFilter = ColorFilter.tint(Coral),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

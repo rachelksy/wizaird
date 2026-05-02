@@ -30,6 +30,8 @@ import com.wizaird.app.ui.ExistingChatScreen
 import com.wizaird.app.ui.HomeScreen
 import com.wizaird.app.ui.InsightChatScreen
 import com.wizaird.app.ui.NewProjectScreen
+import com.wizaird.app.ui.NewGlossaryWordScreen
+import com.wizaird.app.ui.EditGlossaryWordScreen
 import com.wizaird.app.ui.NoteScreen
 import com.wizaird.app.ui.ProjectScreen
 import com.wizaird.app.ui.ProjectSettingsScreen
@@ -128,6 +130,18 @@ class MainActivity : ComponentActivity() {
                             onInsightChatClick = { insightId ->
                                 nav.navigate("chat/${id}/insight/${insightId}")
                             },
+                            onNewGlossaryWordClick = {
+                                nav.navigate("project/${id}/glossary") {
+                                    popUpTo("project/${id}") { inclusive = true }
+                                }
+                                nav.navigate("glossary/${id}/new")
+                            },
+                            onEditGlossaryWordClick = { wordId ->
+                                nav.navigate("project/${id}/glossary") {
+                                    popUpTo("project/${id}") { inclusive = true }
+                                }
+                                nav.navigate("glossary/${id}/${wordId}")
+                            },
                             initialTab = ProjectTab.CHATS
                         )
                     }
@@ -158,7 +172,74 @@ class MainActivity : ComponentActivity() {
                                 }
                                 nav.navigate("chat/${id}/insight/${insightId}")
                             },
+                            onNewGlossaryWordClick = {
+                                nav.navigate("project/${id}/glossary") {
+                                    popUpTo("project/${id}/notes") { inclusive = true }
+                                }
+                                nav.navigate("glossary/${id}/new")
+                            },
+                            onEditGlossaryWordClick = { wordId ->
+                                nav.navigate("project/${id}/glossary") {
+                                    popUpTo("project/${id}/notes") { inclusive = true }
+                                }
+                                nav.navigate("glossary/${id}/${wordId}")
+                            },
                             initialTab = ProjectTab.NOTES
+                        )
+                    }
+                    composable("project/{id}/glossary") { backStackEntry ->
+                        val id = backStackEntry.arguments?.getString("id") ?: ""
+                        ProjectScreen(
+                            projectId = id,
+                            onBack = { nav.popBackStack() },
+                            onSettingsClick = { nav.navigate("project_settings/${id}") },
+                            onNewChatClick = {
+                                nav.navigate("project/${id}") {
+                                    popUpTo("project/${id}/glossary") { inclusive = true }
+                                }
+                                nav.navigate("chat/${id}")
+                            },
+                            onChatClick = { chatId ->
+                                nav.navigate("project/${id}") {
+                                    popUpTo("project/${id}/glossary") { inclusive = true }
+                                }
+                                nav.navigate("chat/${id}/${chatId}")
+                            },
+                            onNoteClick = { noteId ->
+                                nav.navigate("project/${id}/notes") {
+                                    popUpTo("project/${id}/glossary") { inclusive = true }
+                                }
+                                nav.navigate("note/${id}/${noteId}")
+                            },
+                            onNewNoteClick = {
+                                nav.navigate("project/${id}/notes") {
+                                    popUpTo("project/${id}/glossary") { inclusive = true }
+                                }
+                                nav.navigate("note/${id}/new")
+                            },
+                            onInsightChatClick = { insightId ->
+                                nav.navigate("project/${id}") {
+                                    popUpTo("project/${id}/glossary") { inclusive = true }
+                                }
+                                nav.navigate("chat/${id}/insight/${insightId}")
+                            },
+                            onNewGlossaryWordClick = { nav.navigate("glossary/${id}/new") },
+                            onEditGlossaryWordClick = { wordId -> nav.navigate("glossary/${id}/${wordId}") },
+                            initialTab = ProjectTab.GLOSSARY
+                        )
+                    }
+                    composable("glossary/{projectId}/new") { backStackEntry ->
+                        val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+                        NewGlossaryWordScreen(
+                            projectId = projectId,
+                            onBack = { nav.popBackStack() }
+                        )
+                    }
+                    composable("glossary/{projectId}/{wordId}") { backStackEntry ->
+                        val wordId = backStackEntry.arguments?.getString("wordId") ?: ""
+                        EditGlossaryWordScreen(
+                            wordId = wordId,
+                            onBack = { nav.popBackStack() }
                         )
                     }
                     composable("note/{projectId}/{noteId}") { backStackEntry ->

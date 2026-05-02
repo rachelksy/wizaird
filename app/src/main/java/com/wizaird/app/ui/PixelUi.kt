@@ -23,8 +23,12 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -293,10 +297,30 @@ fun Modifier.pixelRoundedCombinedClickable(
     onLongClick: () -> Unit
 ): Modifier {
     val pressed by interactionSource.collectIsPressedAsState()
+    // Delay the visual feedback so quick taps and scrolls don't trigger the overlay.
+    var showOverlay by remember { mutableStateOf(false) }
+    LaunchedEffect(pressed) {
+        if (pressed) {
+            delay(150)
+            showOverlay = true
+        } else {
+            showOverlay = false
+        }
+    }
     val cuts = floatArrayOf(7f, 5f, 3f, 2f, 2f, 1f, 1f)
     return this
-        .combinedClickable(interactionSource = interactionSource, indication = null, onClick = onClick, onLongClick = onLongClick)
-        .drawWithContent { if (pressed) drawPressOverlay(cuts) else drawContent() }
+        .combinedClickable(
+            interactionSource = interactionSource,
+            indication = null,
+            onClick = onClick,
+            onLongClick = {
+                // Clear the overlay before firing so it disappears at the same time
+                // the bottom sheet + scrim appear, avoiding the flash on release.
+                showOverlay = false
+                onLongClick()
+            }
+        )
+        .drawWithContent { if (showOverlay) drawPressOverlay(cuts) else drawContent() }
 }
 
 // ── Pixel clip shapes — exact same coordinates as the draw functions ──────────

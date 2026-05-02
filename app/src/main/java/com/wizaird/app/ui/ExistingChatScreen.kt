@@ -99,6 +99,16 @@ fun ExistingChatScreen(
     var selectedMessageDelete by remember { mutableStateOf<(() -> Unit)?>(null) }
     var showDeleteMessageDialog by remember { mutableStateOf(false) }
     
+    // Preserve scroll position when the message actions sheet appears/disappears
+    LaunchedEffect(showMessageActions) {
+        if (showMessageActions) {
+            val index = listState.firstVisibleItemIndex
+            val offset = listState.firstVisibleItemScrollOffset
+            // Snap back to exact position after the sheet recomposition settles
+            listState.scrollToItem(index, offset)
+        }
+    }
+    
     var showEditMessageSheet by remember { mutableStateOf(false) }
     var editingMessageId by remember { mutableStateOf<String?>(null) }
     

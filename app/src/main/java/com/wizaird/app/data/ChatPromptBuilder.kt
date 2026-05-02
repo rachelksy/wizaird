@@ -17,7 +17,7 @@ fun buildChatSystemPrompt(project: Project): String {
     
     val sb = StringBuilder()
     
-    sb.append("You are a learning guide helping the user understand: ${project.name}.\n")
+    sb.append("You are helping the user understand: ${project.name}.\n")
     sb.append("Their goal: ${project.instructions}.\n\n")
     
     if (project.background.isNotBlank()) {

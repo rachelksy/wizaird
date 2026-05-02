@@ -90,6 +90,24 @@ fun ExistingChatScreen(
     var isSendingMessage by remember { mutableStateOf(false) }
     var isGeneratingResponse by remember { mutableStateOf(false) }
     var responseError by remember { mutableStateOf<String?>(null) }
+    
+    // Track if user has scrolled away from the bottom
+    var showScrollToBottom by remember { mutableStateOf(false) }
+    
+    // Update showScrollToBottom based on scroll position
+    LaunchedEffect(listState, messages.size) {
+        snapshotFlow { 
+            val lastIndex = messages.lastIndex
+            if (lastIndex < 0) {
+                false
+            } else {
+                val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+                lastVisibleIndex < lastIndex
+            }
+        }.collect { shouldShow ->
+            showScrollToBottom = shouldShow
+        }
+    }
 
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -248,6 +266,17 @@ fun ExistingChatScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    // Tap header to scroll to top
+                    scope.launch {
+                        if (messages.isNotEmpty()) {
+                            listState.animateScrollToItem(0)
+                        }
+                    }
+                }
         ) {
             // Back button
             val backInteraction = remember { MutableInteractionSource() }
@@ -691,6 +720,43 @@ fun ExistingChatScreen(
                     editingMessageId = null
                 }
             )
+        }
+        
+        // Floating "go to bottom" button - positioned 8px above input bar
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showScrollToBottom,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 76.dp), // 8dp above input bar (input bar is ~68dp tall)
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut()
+        ) {
+            val goToBottomInteraction = remember { MutableInteractionSource() }
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .drawPixelCircle(
+                        fillColor = colors.textHigh.copy(alpha = 0.65f),
+                        borderColor = Color.Transparent,
+                        cutColor = colors.background
+                    )
+                    .pixelCircleClickable(interactionSource = goToBottomInteraction) {
+                        scope.launch {
+                            listState.animateScrollToItem(messages.lastIndex)
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data("file:///android_asset/pixelarticons/chevron-down.svg")
+                        .build(),
+                    imageLoader = svgLoader,
+                    contentDescription = "Go to bottom",
+                    colorFilter = ColorFilter.tint(colors.secondarySurface),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
         
         // Toast overlay

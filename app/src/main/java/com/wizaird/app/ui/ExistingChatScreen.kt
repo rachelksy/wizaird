@@ -111,20 +111,8 @@ fun ExistingChatScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     
-    var showMessageActions by remember { mutableStateOf(false) }
-    var selectedMessageEdit by remember { mutableStateOf<(() -> Unit)?>(null) }
     var selectedMessageDelete by remember { mutableStateOf<(() -> Unit)?>(null) }
     var showDeleteMessageDialog by remember { mutableStateOf(false) }
-    
-    // Preserve scroll position when the message actions sheet appears/disappears
-    LaunchedEffect(showMessageActions) {
-        if (showMessageActions) {
-            val index = listState.firstVisibleItemIndex
-            val offset = listState.firstVisibleItemScrollOffset
-            // Snap back to exact position after the sheet recomposition settles
-            listState.scrollToItem(index, offset)
-        }
-    }
     
     var showEditMessageSheet by remember { mutableStateOf(false) }
     var editingMessageId by remember { mutableStateOf<String?>(null) }
@@ -516,18 +504,17 @@ fun ExistingChatScreen(
                         }
                     } else null,
                     onEdit = {
-                        selectedMessageEdit = {
-                            editingMessageId = message.id
-                            showEditMessageSheet = true
-                        }
+                        editingMessageId = message.id
+                        showEditMessageSheet = true
+                    },
+                    onDelete = {
                         selectedMessageDelete = {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 deleteMessageFromChat(context, chatId, message.id)
                             }
                         }
-                        showMessageActions = true
+                        showDeleteMessageDialog = true
                     },
-                    onDelete = { /* Not used - onEdit triggers the bottom sheet */ },
                     onShowToast = { msg ->
                         toastMessage = msg
                         showToast = true
@@ -668,21 +655,6 @@ fun ExistingChatScreen(
             }
         }
 
-        // Message actions bottom sheet (outside Column, overlaying everything)
-        if (showMessageActions) {
-            MessageActionsBottomSheet(
-                onEdit = {
-                    showMessageActions = false
-                    selectedMessageEdit?.invoke()
-                },
-                onDelete = {
-                    showMessageActions = false
-                    showDeleteMessageDialog = true
-                },
-                onDismiss = { showMessageActions = false }
-            )
-        }
-
         // Delete message confirmation dialog
         if (showDeleteMessageDialog) {
             PixelConfirmationDialog(
@@ -792,6 +764,7 @@ fun ChatBubble(
 
     var copied by remember { mutableStateOf(false) }
     var noteSaved by remember { mutableStateOf(false) }
+    var showOptionsMenu by remember { mutableStateOf(false) }
     // Bumped on tap to clear any active text selection
     var selectionResetKey by remember { mutableStateOf(0) }
 
@@ -805,268 +778,441 @@ fun ChatBubble(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
-        val bubbleInteraction = remember { MutableInteractionSource() }
-        PixelBox(
-            modifier = Modifier
-                .then(
-                    if (isUser) Modifier.padding(start = 32.dp) else Modifier.padding(end = 32.dp)
-                )
-                .pixelRoundedCombinedClickable(
-                    interactionSource = bubbleInteraction,
-                    onClick = { selectionResetKey++ },
-                    onLongClick = { onEdit() }
-                ),
-            fillColor = if (isUser) userBubbleFill else aiBubbleFill,
-            borderColor = androidx.compose.ui.graphics.Color.Transparent,
-            cornerStyle = PixelCornerStyle.Rounded
-        ) {
-            if (isUser) {
-                key(selectionResetKey) {
-                    SelectableMarkdownText(
-                        markdown = message.text,
-                        style = minecraftStyle(14, userBubbleText),
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                        onAddToGlossary = { selectedText ->
-                            // TODO: add to glossary
-                        }
+        Box {
+            val bubbleInteraction = remember { MutableInteractionSource() }
+            PixelBox(
+                modifier = Modifier
+                    .then(
+                        if (isUser) Modifier.padding(start = 32.dp) else Modifier.padding(end = 32.dp)
                     )
-                }
-            } else {
-                Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                    key(selectionResetKey) {
-                        SelectableMarkdownText(
-                            markdown = message.text,
-                            style = minecraftStyle(14, aiBubbleText),
-                            onAddToGlossary = { selectedText ->
-                                // TODO: add to glossary
-                            }
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val copyInteraction = remember { MutableInteractionSource() }
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data("file:///android_asset/pixelarticons/copy.svg")
-                                .build(),
-                            imageLoader = svgLoader,
-                            contentDescription = "Copy",
-                            colorFilter = ColorFilter.tint(if (copied) colors.textHigh else colors.textXLow),
-                            modifier = Modifier
-                                .size(20.dp)
-                                .pixelRounded8ClickableOversize(
-                                    interactionSource = copyInteraction
-                                ) {
-                                    clipboardManager.setText(AnnotatedString(message.text))
-                                    copied = true
-                                    onShowToast("COPIED TO CLIPBOARD")
-                                    scope.launch {
-                                        delay(2000)
-                                        copied = false
-                                    }
+                    .clickable(
+                        interactionSource = bubbleInteraction,
+                        indication = null
+                    ) { selectionResetKey++ },
+                fillColor = if (isUser) userBubbleFill else aiBubbleFill,
+                borderColor = androidx.compose.ui.graphics.Color.Transparent,
+                cornerStyle = PixelCornerStyle.Rounded
+            ) {
+                if (isUser) {
+                    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                        key(selectionResetKey) {
+                            SelectableMarkdownText(
+                                markdown = message.text,
+                                style = minecraftStyle(14, userBubbleText),
+                                onAddToGlossary = { selectedText ->
+                                    // TODO: add to glossary
                                 }
-                        )
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Options icon for user bubble - wrapped in Box for popover positioning
+                            Box {
+                                val optionsInteraction = remember { MutableInteractionSource() }
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data("file:///android_asset/pixelarticons/more-vertical.svg")
+                                        .build(),
+                                    imageLoader = svgLoader,
+                                    contentDescription = "Options",
+                                    colorFilter = ColorFilter.tint(userBubbleText),
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .pixelRounded8ClickableOversize(
+                                            interactionSource = optionsInteraction
+                                        ) {
+                                            showOptionsMenu = true
+                                        }
+                                )
+                                
+                                // Options popover for user bubble
+                                if (showOptionsMenu) {
+                                    val density = LocalDensity.current
+                                    val offsetY = with(density) { -(20 + 8).dp.roundToPx() }
+                                    Popup(
+                                        alignment = Alignment.BottomEnd,
+                                        offset = IntOffset(x = 0, y = offsetY),
+                                        onDismissRequest = { showOptionsMenu = false },
+                                        properties = PopupProperties(focusable = false)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .graphicsLayer {
+                                                    compositingStrategy = CompositingStrategy.Offscreen
+                                                    shadowElevation = 2.dp.toPx()
+                                                    shape = PixelRounded8Shape
+                                                    clip = true
+                                                }
+                                                .drawBehind {
+                                                    val p = PixelSize.toPx()
+                                                    val w = size.width
+                                                    val h = size.height
+                                                    val fill = colors.userBubble
+                                                    val cut = Color.Transparent
 
-                        val noteInteraction = remember { MutableInteractionSource() }
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
-                                .build(),
-                            imageLoader = svgLoader,
-                            contentDescription = "Save to note",
-                            colorFilter = ColorFilter.tint(if (noteSaved) colors.textHigh else colors.textXLow),
-                            modifier = Modifier
-                                .size(20.dp)
-                                .pixelRounded8ClickableOversize(
-                                    interactionSource = noteInteraction
-                                ) {
-                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                        // Create a new note with the message text
-                                        val note = com.wizaird.app.data.newNote(projectId).copy(
-                                            body = message.text
-                                        )
-                                        com.wizaird.app.data.upsertNote(context, note)
-                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                            noteSaved = true
-                                            onShowToast("NOTE CREATED")
-                                            // Reset the saved state after 2 seconds
-                                            scope.launch {
-                                                delay(2000)
-                                                noteSaved = false
+                                                    drawRect(fill)
+
+                                                    // Top-left
+                                                    drawRect(cut, Offset(0f, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    // Top-right
+                                                    drawRect(cut, Offset(w-p*5, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*3, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*2, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*1, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*1, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    // Bottom-left
+                                                    drawRect(cut, Offset(0f, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    // Bottom-right
+                                                    drawRect(cut, Offset(w-p*5, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*3, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*2, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*1, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*1, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                }
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .width(IntrinsicSize.Max)
+                                                    .padding(4.dp),
+                                                verticalArrangement = Arrangement.spacedBy(0.dp)
+                                            ) {
+                                                // Edit option
+                                                val editInteraction = remember { MutableInteractionSource() }
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .pixelRounded8Clickable(
+                                                            interactionSource = editInteraction,
+                                                            onClick = {
+                                                                showOptionsMenu = false
+                                                                onEdit()
+                                                            }
+                                                        )
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                    ) {
+                                                        AsyncImage(
+                                                            model = ImageRequest.Builder(context)
+                                                                .data("file:///android_asset/pixelarticons/pen-square.svg")
+                                                                .build(),
+                                                            imageLoader = svgLoader,
+                                                            contentDescription = "Edit",
+                                                            colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                        Text(
+                                                            "Edit",
+                                                            style = pixelStyle(10, colors.secondaryIcon),
+                                                            modifier = Modifier.offset(y = (-2).dp)
+                                                        )
+                                                    }
+                                                }
+
+                                                // Delete option
+                                                val deleteInteraction = remember { MutableInteractionSource() }
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .pixelRounded8Clickable(
+                                                            interactionSource = deleteInteraction,
+                                                            onClick = {
+                                                                showOptionsMenu = false
+                                                                onDelete()
+                                                            }
+                                                        )
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                    ) {
+                                                        AsyncImage(
+                                                            model = ImageRequest.Builder(context)
+                                                                .data("file:///android_asset/pixelarticons/delete.svg")
+                                                                .build(),
+                                                            imageLoader = svgLoader,
+                                                            contentDescription = "Delete",
+                                                            colorFilter = ColorFilter.tint(colors.coral),
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                        Text(
+                                                            "Delete",
+                                                            style = pixelStyle(10, colors.coral),
+                                                            modifier = Modifier.offset(y = (-2).dp)
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                 }
-                        )
-                        
-                        // Regenerate icon — only on last AI message
-                        if (onRegenerate != null) {
-                            val regenInteraction = remember { MutableInteractionSource() }
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data("file:///android_asset/pixelarticons/zap.svg")
-                                    .build(),
-                                imageLoader = svgLoader,
-                                contentDescription = "Regenerate",
-                                colorFilter = ColorFilter.tint(colors.textXLow),
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .pixelRounded8ClickableOversize(
-                                        interactionSource = regenInteraction
-                                    ) { onRegenerate() }
-                            )
+                            }
                         }
                     }
-                }
-            }
-        }
-    }
-}
+                } else {
+                    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                        key(selectionResetKey) {
+                            SelectableMarkdownText(
+                                markdown = message.text,
+                                style = minecraftStyle(14, aiBubbleText),
+                                onAddToGlossary = { selectedText ->
+                                    // TODO: add to glossary
+                                }
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Left side: Copy, Note, Regenerate icons
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val copyInteraction = remember { MutableInteractionSource() }
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data("file:///android_asset/pixelarticons/copy.svg")
+                                        .build(),
+                                    imageLoader = svgLoader,
+                                    contentDescription = "Copy",
+                                    colorFilter = ColorFilter.tint(if (copied) colors.textHigh else colors.textXLow),
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .pixelRounded8ClickableOversize(
+                                            interactionSource = copyInteraction
+                                        ) {
+                                            clipboardManager.setText(AnnotatedString(message.text))
+                                            copied = true
+                                            onShowToast("COPIED TO CLIPBOARD")
+                                            scope.launch {
+                                                delay(2000)
+                                                copied = false
+                                            }
+                                        }
+                                )
 
-// ── Message Actions Bottom Sheet ──────────────────────────────────────────────
+                                val noteInteraction = remember { MutableInteractionSource() }
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
+                                        .build(),
+                                    imageLoader = svgLoader,
+                                    contentDescription = "Save to note",
+                                    colorFilter = ColorFilter.tint(if (noteSaved) colors.textHigh else colors.textXLow),
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .pixelRounded8ClickableOversize(
+                                            interactionSource = noteInteraction
+                                        ) {
+                                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                                // Create a new note with the message text
+                                                val note = com.wizaird.app.data.newNote(projectId).copy(
+                                                    body = message.text
+                                                )
+                                                com.wizaird.app.data.upsertNote(context, note)
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                    noteSaved = true
+                                                    onShowToast("NOTE CREATED")
+                                                    // Reset the saved state after 2 seconds
+                                                    scope.launch {
+                                                        delay(2000)
+                                                        noteSaved = false
+                                                    }
+                                                }
+                                            }
+                                        }
+                                )
+                                
+                                // Regenerate icon — only on last AI message
+                                if (onRegenerate != null) {
+                                    val regenInteraction = remember { MutableInteractionSource() }
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data("file:///android_asset/pixelarticons/zap.svg")
+                                            .build(),
+                                        imageLoader = svgLoader,
+                                        contentDescription = "Regenerate",
+                                        colorFilter = ColorFilter.tint(colors.textXLow),
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .pixelRounded8ClickableOversize(
+                                                interactionSource = regenInteraction
+                                            ) { onRegenerate() }
+                                    )
+                                }
+                            }
+                            
+                            // Right side: Options icon - wrapped in Box for popover positioning
+                            Box {
+                                val optionsInteraction = remember { MutableInteractionSource() }
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data("file:///android_asset/pixelarticons/more-vertical.svg")
+                                        .build(),
+                                    imageLoader = svgLoader,
+                                    contentDescription = "Options",
+                                    colorFilter = ColorFilter.tint(colors.textXLow),
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .pixelRounded8ClickableOversize(
+                                            interactionSource = optionsInteraction
+                                        ) {
+                                            showOptionsMenu = true
+                                        }
+                                )
+                                
+                                // Options popover for AI bubble
+                                if (showOptionsMenu) {
+                                    val density = LocalDensity.current
+                                    val offsetY = with(density) { -(20 + 8).dp.roundToPx() }
+                                    Popup(
+                                        alignment = Alignment.BottomEnd,
+                                        offset = IntOffset(x = 0, y = offsetY),
+                                        onDismissRequest = { showOptionsMenu = false },
+                                        properties = PopupProperties(focusable = false)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .graphicsLayer {
+                                                    compositingStrategy = CompositingStrategy.Offscreen
+                                                    shadowElevation = 2.dp.toPx()
+                                                    shape = PixelRounded8Shape
+                                                    clip = true
+                                                }
+                                                .drawBehind {
+                                                    val p = PixelSize.toPx()
+                                                    val w = size.width
+                                                    val h = size.height
+                                                    val fill = colors.userBubble
+                                                    val cut = Color.Transparent
 
-@Composable
-fun MessageActionsBottomSheet(
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val colors = LocalWizairdColors.current
-    val context = LocalContext.current
-    
-    val svgLoader = remember {
-        ImageLoader.Builder(context)
-            .components { add(SvgDecoder.Factory()) }
-            .build()
-    }
+                                                    drawRect(fill)
 
-    // Scrim background with darkened overlay
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.6f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            )
-    ) {
-        // Bottom sheet with upper rounded pixel corners (R=10)
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .graphicsLayer {
-                    compositingStrategy = CompositingStrategy.Offscreen
-                }
-                .drawBehind {
-                    val p = PixelSize.toPx()
-                    val w = size.width
-                    val h = size.height
-                    val fill = colors.secondaryButton
+                                                    // Top-left
+                                                    drawRect(cut, Offset(0f, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    // Top-right
+                                                    drawRect(cut, Offset(w-p*5, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*3, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*2, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*1, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*1, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    // Bottom-left
+                                                    drawRect(cut, Offset(0f, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(0f, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    // Bottom-right
+                                                    drawRect(cut, Offset(w-p*5, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*3, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*2, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*1, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                    drawRect(cut, Offset(w-p*1, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
+                                                }
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .width(IntrinsicSize.Max)
+                                                    .padding(4.dp),
+                                                verticalArrangement = Arrangement.spacedBy(0.dp)
+                                            ) {
+                                                // Edit option
+                                                val editInteraction = remember { MutableInteractionSource() }
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .pixelRounded8Clickable(
+                                                            interactionSource = editInteraction,
+                                                            onClick = {
+                                                                showOptionsMenu = false
+                                                                onEdit()
+                                                            }
+                                                        )
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                    ) {
+                                                        AsyncImage(
+                                                            model = ImageRequest.Builder(context)
+                                                                .data("file:///android_asset/pixelarticons/pen-square.svg")
+                                                                .build(),
+                                                            imageLoader = svgLoader,
+                                                            contentDescription = "Edit",
+                                                            colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                        Text(
+                                                            "Edit",
+                                                            style = pixelStyle(10, colors.secondaryIcon),
+                                                            modifier = Modifier.offset(y = (-2).dp)
+                                                        )
+                                                    }
+                                                }
 
-                    // Fill the sheet
-                    drawRect(fill)
-
-                    // Top-left corner cuts (R=10 pixel corners)
-                    drawRect(Color.Transparent, Offset(0f, p*0), Size(p*7, p), blendMode = BlendMode.Clear)
-                    drawRect(Color.Transparent, Offset(0f, p*1), Size(p*5, p), blendMode = BlendMode.Clear)
-                    drawRect(Color.Transparent, Offset(0f, p*2), Size(p*3, p), blendMode = BlendMode.Clear)
-                    drawRect(Color.Transparent, Offset(0f, p*3), Size(p*2, p), blendMode = BlendMode.Clear)
-                    drawRect(Color.Transparent, Offset(0f, p*4), Size(p*2, p), blendMode = BlendMode.Clear)
-                    drawRect(Color.Transparent, Offset(0f, p*5), Size(p*1, p), blendMode = BlendMode.Clear)
-                    drawRect(Color.Transparent, Offset(0f, p*6), Size(p*1, p), blendMode = BlendMode.Clear)
-                    
-                    // Top-right corner cuts (R=10 pixel corners)
-                    drawRect(Color.Transparent, Offset(w-p*7, p*0), Size(p*7, p), blendMode = BlendMode.Clear)
-                    drawRect(Color.Transparent, Offset(w-p*5, p*1), Size(p*5, p), blendMode = BlendMode.Clear)
-                    drawRect(Color.Transparent, Offset(w-p*3, p*2), Size(p*3, p), blendMode = BlendMode.Clear)
-                    drawRect(Color.Transparent, Offset(w-p*2, p*3), Size(p*2, p), blendMode = BlendMode.Clear)
-                    drawRect(Color.Transparent, Offset(w-p*2, p*4), Size(p*2, p), blendMode = BlendMode.Clear)
-                    drawRect(Color.Transparent, Offset(w-p*1, p*5), Size(p*1, p), blendMode = BlendMode.Clear)
-                    drawRect(Color.Transparent, Offset(w-p*1, p*6), Size(p*1, p), blendMode = BlendMode.Clear)
-                }
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {} // Prevent clicks from passing through to scrim
-                )
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 4.dp)
-                    .navigationBarsPadding(),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
-                // Edit button
-                val editInteraction = remember { MutableInteractionSource() }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .pixelRoundedClickable(
-                            interactionSource = editInteraction,
-                            onClick = onEdit
-                        ),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data("file:///android_asset/pixelarticons/pen-square.svg")
-                                .build(),
-                            imageLoader = svgLoader,
-                            contentDescription = "Edit",
-                            colorFilter = ColorFilter.tint(colors.textLow),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Text(
-                            text = "Edit",
-                            style = pixelStyle(14, colors.textLow),
-                            modifier = Modifier.offset(y = (-2).dp)
-                        )
-                    }
-                }
-
-                // Delete button
-                val deleteInteraction = remember { MutableInteractionSource() }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .pixelRoundedClickable(
-                            interactionSource = deleteInteraction,
-                            onClick = onDelete
-                        ),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data("file:///android_asset/pixelarticons/delete.svg")
-                                .build(),
-                            imageLoader = svgLoader,
-                            contentDescription = "Delete",
-                            colorFilter = ColorFilter.tint(colors.coral),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Text(
-                            text = "Delete",
-                            style = pixelStyle(14, colors.coral),
-                            modifier = Modifier.offset(y = (-2).dp)
-                        )
+                                                // Delete option
+                                                val deleteInteraction = remember { MutableInteractionSource() }
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .pixelRounded8Clickable(
+                                                            interactionSource = deleteInteraction,
+                                                            onClick = {
+                                                                showOptionsMenu = false
+                                                                onDelete()
+                                                            }
+                                                        )
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                    ) {
+                                                        AsyncImage(
+                                                            model = ImageRequest.Builder(context)
+                                                                .data("file:///android_asset/pixelarticons/delete.svg")
+                                                                .build(),
+                                                            imageLoader = svgLoader,
+                                                            contentDescription = "Delete",
+                                                            colorFilter = ColorFilter.tint(colors.coral),
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                        Text(
+                                                            "Delete",
+                                                            style = pixelStyle(10, colors.coral),
+                                                            modifier = Modifier.offset(y = (-2).dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

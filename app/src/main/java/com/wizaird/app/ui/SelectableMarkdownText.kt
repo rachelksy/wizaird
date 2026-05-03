@@ -72,9 +72,10 @@ fun SelectableMarkdownText(
                     // because an explicit typeface object overrides the StyleSpan(BOLD).
                     // Bold synthesis (same as **bold** text) works automatically when
                     // headingTypeface is left unset.
-                    typeface?.let { tf ->
-                        builder.codeTypeface(tf)
-                    }
+                    //
+                    // Use the system monospace font for code blocks so they render
+                    // with a standard code font instead of the pixel/Minecraft font.
+                    builder.codeTypeface(Typeface.MONOSPACE)
                     builder.headingTextSizeMultipliers(floatArrayOf(1.5f, 1.3f, 1.15f, 1f, 1f, 1f))
                     builder.linkColor(0xFF6B9BD1.toInt())
                     builder.codeBackgroundColor(0x20FFFFFF)

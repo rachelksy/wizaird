@@ -6,7 +6,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -1557,15 +1556,16 @@ fun InsightPreviewOverlay(
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                                 .padding(bottom = 16.dp)
                         ) {
-                            SelectionContainer {
-                                MarkdownText(
-                                    markdown = insight.text,
-                                    style = minecraftStyle(14, colors.textHigh).copy(
-                                        lineHeight = (14 * 1.6f).sp
-                                    ),
-                                    modifier = Modifier.offset(y = (-2).dp)
-                                )
-                            }
+                            SelectableMarkdownText(
+                                markdown = insight.text,
+                                style = minecraftStyle(14, colors.textHigh).copy(
+                                    lineHeight = (14 * 1.6f).sp
+                                ),
+                                modifier = Modifier.offset(y = (-2).dp),
+                                onAddToGlossary = { selectedText ->
+                                    // TODO: add to glossary
+                                }
+                            )
                         }
                     }
                     

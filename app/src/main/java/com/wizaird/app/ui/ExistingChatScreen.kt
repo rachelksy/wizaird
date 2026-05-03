@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -823,23 +822,25 @@ fun ChatBubble(
         ) {
             if (isUser) {
                 key(selectionResetKey) {
-                    SelectionContainer {
-                        MarkdownText(
-                            markdown = message.text,
-                            style = minecraftStyle(14, userBubbleText),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
-                        )
-                    }
+                    SelectableMarkdownText(
+                        markdown = message.text,
+                        style = minecraftStyle(14, userBubbleText),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        onAddToGlossary = { selectedText ->
+                            // TODO: add to glossary
+                        }
+                    )
                 }
             } else {
                 Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
                     key(selectionResetKey) {
-                        SelectionContainer {
-                            MarkdownText(
-                                markdown = message.text,
-                                style = minecraftStyle(14, aiBubbleText)
-                            )
-                        }
+                        SelectableMarkdownText(
+                            markdown = message.text,
+                            style = minecraftStyle(14, aiBubbleText),
+                            onAddToGlossary = { selectedText ->
+                                // TODO: add to glossary
+                            }
+                        )
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Row(

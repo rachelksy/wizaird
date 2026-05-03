@@ -4,7 +4,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -357,18 +356,19 @@ fun ChatScreen(
                         cornerStyle = PixelCornerStyle.Rounded,
                         speechTail = false
                     ) {
-                        SelectionContainer {
-                            MarkdownText(
-                                markdown = bubbleText,
-                                style = pixelStyle(14, colors.textHigh).copy(
-                                    lineHeight = (14 * 1.6f).sp,
-                                    textAlign = TextAlign.Center
-                                ),
-                                modifier = Modifier
-                                    .padding(16.dp)
-                                    .offset(y = (-2).dp)
-                            )
-                        }
+                        SelectableMarkdownText(
+                            markdown = bubbleText,
+                            style = pixelStyle(14, colors.textHigh).copy(
+                                lineHeight = (14 * 1.6f).sp,
+                                textAlign = TextAlign.Center
+                            ),
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .offset(y = (-2).dp),
+                            onAddToGlossary = { selectedText ->
+                                // TODO: add to glossary
+                            }
+                        )
                     }
                 }
 

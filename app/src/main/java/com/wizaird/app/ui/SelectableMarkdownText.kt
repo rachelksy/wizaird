@@ -67,23 +67,17 @@ fun SelectableMarkdownText(
         Markwon.builder(context)
             .usePlugin(object : io.noties.markwon.AbstractMarkwonPlugin() {
                 override fun configureTheme(builder: MarkwonTheme.Builder) {
-                    // Set all typefaces to our custom font
+                    // Only set codeTypeface — setting headingTypeface with a custom font
+                    // prevents Android's bold synthesis from working on headers,
+                    // because an explicit typeface object overrides the StyleSpan(BOLD).
+                    // Bold synthesis (same as **bold** text) works automatically when
+                    // headingTypeface is left unset.
                     typeface?.let { tf ->
-                        builder.headingTypeface(tf)
                         builder.codeTypeface(tf)
                     }
-                    
-                    // Configure heading sizes to match our style
                     builder.headingTextSizeMultipliers(floatArrayOf(1.5f, 1.3f, 1.15f, 1f, 1f, 1f))
-                    
-                    // Set link color
                     builder.linkColor(0xFF6B9BD1.toInt())
-                    
-                    // Set code background
                     builder.codeBackgroundColor(0x20FFFFFF)
-                    
-                    // Reduce extra spacing that Markwon adds
-                    builder.blockMargin(0)
                 }
             })
             .build()
@@ -95,6 +89,9 @@ fun SelectableMarkdownText(
             TextView(ctx).apply {
                 // Make text selectable
                 setTextIsSelectable(true)
+                
+                // Required for Markwon bullet/list spans to render correctly
+                movementMethod = android.text.method.LinkMovementMethod.getInstance()
                 
                 // Make background transparent
                 setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -155,20 +152,15 @@ fun SelectableMarkdownText(
             // Set markdown content
             markwon.setMarkdown(textView, markdown)
             
-            // Force reapply ALL text properties after markdown
+            // Only reapply properties that DON'T wipe Markwon's spans.
+            // setTypeface() must NOT be called here — it resets all spans
+            // (bold, headers, bullets) that Markwon just applied.
             textView.apply {
                 textSize = style.fontSize.value
                 setTextColor(style.color.toArgb())
-                typeface?.let { 
-                    setTypeface(it)
-                    paint.typeface = it
-                }
                 letterSpacing = 0f
-                // Line spacing multiplier 1.2
                 setLineSpacing(0f, 1.2f)
                 includeFontPadding = false
-                
-                // Force invalidate to redraw with new properties
                 invalidate()
                 requestLayout()
             }

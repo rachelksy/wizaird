@@ -235,7 +235,13 @@ class MainActivity : ComponentActivity() {
                         val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
                         NewGlossaryWordScreen(
                             projectId = projectId,
-                            onBack = { nav.popBackStack() }
+                            onBack = { nav.popBackStack() },
+                            onSave = {
+                                // Navigate to project glossary tab after saving
+                                nav.navigate("project/${projectId}/glossary") {
+                                    popUpTo("project/${projectId}") { inclusive = false }
+                                }
+                            }
                         )
                     }
                     composable("glossary/{projectId}/{wordId}") { backStackEntry ->

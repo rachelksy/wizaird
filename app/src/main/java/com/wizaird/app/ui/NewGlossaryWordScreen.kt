@@ -45,7 +45,8 @@ object GlossaryNavigationData {
 @Composable
 fun NewGlossaryWordScreen(
     projectId: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onSave: () -> Unit = { onBack() }
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -119,7 +120,7 @@ fun NewGlossaryWordScreen(
                                     createdAt = System.currentTimeMillis()
                                 )
                             )
-                            onBack()
+                            onSave()
                         }
                     }
                 )

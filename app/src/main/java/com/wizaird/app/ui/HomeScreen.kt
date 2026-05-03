@@ -740,13 +740,15 @@ fun ChatBubble(
                     .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)
                     .verticalScroll(rememberScrollState())
                 ) {
-                    SelectionContainer {
-                        MarkdownText(
-                            markdown = text,
-                            style = minecraftStyle(14, colors.textHigh),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                    SelectableMarkdownText(
+                        markdown = text,
+                        style = minecraftStyle(14, colors.textHigh),
+                        modifier = Modifier.fillMaxWidth(),
+                        onAddToGlossary = { selectedText ->
+                            // TODO: Handle adding to glossary
+                            println("Add to glossary: $selectedText")
+                        }
+                    )
                 }
             }
 

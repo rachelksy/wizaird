@@ -23,7 +23,8 @@ fun InsightChatScreen(
     projectId: String,
     insightId: String,
     onBack: () -> Unit,
-    onChatCreated: (String) -> Unit = {}
+    onChatCreated: (String) -> Unit = {},
+    onNewGlossaryWordClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -42,17 +43,30 @@ fun InsightChatScreen(
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
     var isCreatingChat by remember { mutableStateOf(false) }
+    
+    var showToast by remember { mutableStateOf(false) }
+    var toastMessage by remember { mutableStateOf("") }
+    var isToastLoading by remember { mutableStateOf(false) }
+    
+    // Auto-hide toast after 2 seconds (only when not loading)
+    LaunchedEffect(showToast, isToastLoading) {
+        if (showToast && !isToastLoading) {
+            kotlinx.coroutines.delay(2000)
+            showToast = false
+        }
+    }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(colors.background)
-            .imePadding()
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(colors.background)
+                .imePadding()
+        ) {
         Spacer(modifier = Modifier.height(48.dp))
 
         // Header
@@ -120,7 +134,12 @@ fun InsightChatScreen(
                         onRegenerate = null,
                         onEdit = {},
                         onDelete = {},
-                        onShowToast = {}
+                        onShowToast = { msg ->
+                            toastMessage = msg
+                            showToast = true
+                            isToastLoading = msg == "ADDING TO GLOSSARY"
+                        },
+                        onNewGlossaryWordClick = onNewGlossaryWordClick
                     )
                 }
             }
@@ -172,5 +191,16 @@ fun InsightChatScreen(
         )
 
         Spacer(modifier = Modifier.height(20.dp).navigationBarsPadding())
+        }
+        
+        // Toast overlay
+        if (showToast) {
+            PixelToast(
+                message = toastMessage,
+                visible = showToast,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                isLoading = isToastLoading
+            )
+        }
     }
 }

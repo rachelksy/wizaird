@@ -67,7 +67,8 @@ fun ExistingChatScreen(
     projectId: String,
     chatId: String,
     onBack: () -> Unit,
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onNewGlossaryWordClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -119,10 +120,11 @@ fun ExistingChatScreen(
     
     var showToast by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf("") }
+    var isToastLoading by remember { mutableStateOf(false) }
     
-    // Auto-hide toast after 2 seconds
-    LaunchedEffect(showToast) {
-        if (showToast) {
+    // Auto-hide toast after 2 seconds (only when not loading)
+    LaunchedEffect(showToast, isToastLoading) {
+        if (showToast && !isToastLoading) {
             delay(2000)
             showToast = false
         }
@@ -518,7 +520,9 @@ fun ExistingChatScreen(
                     onShowToast = { msg ->
                         toastMessage = msg
                         showToast = true
-                    }
+                        isToastLoading = msg == "ADDING TO GLOSSARY"
+                    },
+                    onNewGlossaryWordClick = onNewGlossaryWordClick
                 )
             }
             
@@ -734,7 +738,8 @@ fun ExistingChatScreen(
         PixelToast(
             message = toastMessage,
             visible = showToast,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.align(Alignment.BottomCenter),
+            isLoading = isToastLoading
         )
     }
 }
@@ -749,7 +754,8 @@ fun ChatBubble(
     onRegenerate: (() -> Unit)? = null,
     onEdit: () -> Unit = {},
     onDelete: () -> Unit = {},
-    onShowToast: (String) -> Unit = {}
+    onShowToast: (String) -> Unit = {},
+    onNewGlossaryWordClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -800,7 +806,22 @@ fun ChatBubble(
                                 markdown = message.text,
                                 style = minecraftStyle(14, userBubbleText),
                                 onAddToGlossary = { selectedText ->
-                                    // TODO: add to glossary
+                                    onShowToast("ADDING TO GLOSSARY")
+                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        val definition = com.wizaird.app.data.generateGlossaryDefinition(
+                                            context = context,
+                                            highlightedTerm = selectedText,
+                                            contextText = message.text
+                                        )
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            GlossaryNavigationData.setPendingData(
+                                                term = definition.term,
+                                                explanation = definition.definition,
+                                                aliases = definition.aliases
+                                            )
+                                            onNewGlossaryWordClick()
+                                        }
+                                    }
                                 }
                             )
                         }
@@ -971,7 +992,22 @@ fun ChatBubble(
                                 markdown = message.text,
                                 style = minecraftStyle(14, aiBubbleText),
                                 onAddToGlossary = { selectedText ->
-                                    // TODO: add to glossary
+                                    onShowToast("ADDING TO GLOSSARY")
+                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        val definition = com.wizaird.app.data.generateGlossaryDefinition(
+                                            context = context,
+                                            highlightedTerm = selectedText,
+                                            contextText = message.text
+                                        )
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            GlossaryNavigationData.setPendingData(
+                                                term = definition.term,
+                                                explanation = definition.definition,
+                                                aliases = definition.aliases
+                                            )
+                                            onNewGlossaryWordClick()
+                                        }
+                                    }
                                 }
                             )
                         }

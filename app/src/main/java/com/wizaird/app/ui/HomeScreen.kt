@@ -59,7 +59,8 @@ fun HomeScreen(
     onProjectsClick: () -> Unit = {},
     onNewProjectClick: () -> Unit = {},
     onProjectClick: (String) -> Unit = {},
-    onChatCreated: (projectId: String, chatId: String) -> Unit = { _, _ -> }
+    onChatCreated: (projectId: String, chatId: String) -> Unit = { _, _ -> },
+    onNewGlossaryWordClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -141,10 +142,11 @@ fun HomeScreen(
 
     var showToast by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf("") }
+    var isToastLoading by remember { mutableStateOf(false) }
 
-    // Auto-hide toast after 2 seconds
-    LaunchedEffect(showToast) {
-        if (showToast) {
+    // Auto-hide toast after 2 seconds (only when not loading)
+    LaunchedEffect(showToast, isToastLoading) {
+        if (showToast && !isToastLoading) {
             delay(2000)
             showToast = false
         }
@@ -223,8 +225,17 @@ fun HomeScreen(
                         activeProject?.let { project -> onProjectClick(project.id) }
                     },
                     onShowToast = { message ->
-                        toastMessage = message
-                        showToast = true
+                        if (message.isEmpty()) {
+                            showToast = false
+                            isToastLoading = false
+                        } else {
+                            toastMessage = message
+                            showToast = true
+                            isToastLoading = message == "ADDING TO GLOSSARY"
+                        }
+                    },
+                    onNewGlossaryWordClick = { projectIdFromBubble ->
+                        onNewGlossaryWordClick(projectIdFromBubble)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -308,7 +319,8 @@ fun HomeScreen(
         PixelToast(
             message = toastMessage,
             visible = showToast,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.align(Alignment.BottomCenter),
+            isLoading = isToastLoading
         )
     }
 }
@@ -572,12 +584,17 @@ fun ChatBubble(
     onRegenerate: () -> Unit = {},
     onProjectClick: () -> Unit = {},
     onShowToast: (String) -> Unit = {},
+    onNewGlossaryWordClick: (String) -> Unit = {}, // Changed to accept projectId
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
+    
+    // Use rememberUpdatedState to always have the latest projectId value
+    val currentProjectId by rememberUpdatedState(projectId)
+    
     var copied by remember { mutableStateOf(false) }
     var noteSaved by remember { mutableStateOf(false) }
     var dotCount by remember { mutableIntStateOf(1) }
@@ -745,8 +762,29 @@ fun ChatBubble(
                         style = minecraftStyle(14, colors.textHigh),
                         modifier = Modifier.fillMaxWidth(),
                         onAddToGlossary = { selectedText ->
-                            // TODO: Handle adding to glossary
-                            println("Add to glossary: $selectedText")
+                            val capturedProjectId = currentProjectId // Capture BEFORE coroutine
+                            onShowToast("ADDING TO GLOSSARY")
+                            
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                val definition = com.wizaird.app.data.generateGlossaryDefinition(
+                                    context = context,
+                                    highlightedTerm = selectedText,
+                                    contextText = text
+                                )
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    onShowToast("")
+                                    
+                                    GlossaryNavigationData.setPendingData(
+                                        term = definition.term,
+                                        explanation = definition.definition,
+                                        aliases = definition.aliases
+                                    )
+                                    
+                                    if (capturedProjectId != null) {
+                                        onNewGlossaryWordClick(capturedProjectId)
+                                    }
+                                }
+                            }
                         }
                     )
                 }

@@ -49,7 +49,8 @@ fun ChatScreen(
     projectId: String,
     onBack: () -> Unit,
     onChatCreated: (String) -> Unit = {},
-    onMoreClick: () -> Unit = {}
+    onMoreClick: () -> Unit = {},
+    onNewGlossaryWordClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -58,6 +59,18 @@ fun ChatScreen(
     val projects by projectsFlow(context).collectAsState(initial = emptyList())
     val project = projects.firstOrNull { it.id == projectId }
     val projectName = project?.name?.ifEmpty { "UNNAMED PROJECT" } ?: "UNNAMED PROJECT"
+
+    var showToast by remember { mutableStateOf(false) }
+    var toastMessage by remember { mutableStateOf("") }
+    var isToastLoading by remember { mutableStateOf(false) }
+    
+    // Auto-hide toast after 2 seconds (only when not loading)
+    LaunchedEffect(showToast, isToastLoading) {
+        if (showToast && !isToastLoading) {
+            kotlinx.coroutines.delay(2000)
+            showToast = false
+        }
+    }
     
     val settings by settingsFlow(context).collectAsState(initial = AiSettings())
 
@@ -79,12 +92,13 @@ fun ChatScreen(
 
     val bubbleText = "What can I teach you about ${project?.name?.ifEmpty { "this project" } ?: "this project"} today?"
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(colors.background)
-            .imePadding()
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(colors.background)
+                .imePadding()
+        ) {
         Spacer(modifier = Modifier.height(48.dp))
 
         // Header — back button | project name (centered) | more-vertical icon
@@ -366,7 +380,26 @@ fun ChatScreen(
                                 .padding(16.dp)
                                 .offset(y = (-2).dp),
                             onAddToGlossary = { selectedText ->
-                                // TODO: add to glossary
+                                toastMessage = "ADDING TO GLOSSARY"
+                                showToast = true
+                                isToastLoading = true
+                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    val definition = com.wizaird.app.data.generateGlossaryDefinition(
+                                        context = context,
+                                        highlightedTerm = selectedText,
+                                        contextText = bubbleText
+                                    )
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                        isToastLoading = false
+                                        showToast = false
+                                        GlossaryNavigationData.setPendingData(
+                                            term = definition.term,
+                                            explanation = definition.definition,
+                                            aliases = definition.aliases
+                                        )
+                                        onNewGlossaryWordClick()
+                                    }
+                                }
                             }
                         )
                     }
@@ -419,5 +452,16 @@ fun ChatScreen(
         )
 
         Spacer(modifier = Modifier.height(20.dp).navigationBarsPadding())
+        }
+        
+        // Toast overlay
+        if (showToast) {
+            PixelToast(
+                message = toastMessage,
+                visible = showToast,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                isLoading = isToastLoading
+            )
+        }
     }
 }

@@ -16,6 +16,32 @@ import com.wizaird.app.data.upsertGlossaryWord
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.launch
 
+// Temporary storage for passing glossary data through navigation
+object GlossaryNavigationData {
+    var pendingTerm: String? = null
+    var pendingExplanation: String? = null
+    var pendingAliases: String? = null
+    
+    fun setPendingData(term: String, explanation: String, aliases: String) {
+        pendingTerm = term
+        pendingExplanation = explanation
+        pendingAliases = aliases
+    }
+    
+    fun consumePendingData(): Triple<String, String, String>? {
+        val data = if (pendingTerm != null) {
+            Triple(pendingTerm!!, pendingExplanation ?: "", pendingAliases ?: "")
+        } else null
+        
+        // Clear after consuming
+        pendingTerm = null
+        pendingExplanation = null
+        pendingAliases = null
+        
+        return data
+    }
+}
+
 @Composable
 fun NewGlossaryWordScreen(
     projectId: String,
@@ -25,9 +51,12 @@ fun NewGlossaryWordScreen(
     val scope = rememberCoroutineScope()
     val colors = LocalWizairdColors.current
 
-    var term by remember { mutableStateOf("") }
-    var explanation by remember { mutableStateOf("") }
-    var aliases by remember { mutableStateOf("") }
+    // Check for pending data from navigation
+    val pendingData = remember { GlossaryNavigationData.consumePendingData() }
+    
+    var term by remember { mutableStateOf(pendingData?.first ?: "") }
+    var explanation by remember { mutableStateOf(pendingData?.second ?: "") }
+    var aliases by remember { mutableStateOf(pendingData?.third ?: "") }
 
     Box(
         modifier = Modifier

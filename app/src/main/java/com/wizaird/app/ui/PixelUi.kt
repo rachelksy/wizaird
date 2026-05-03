@@ -1596,7 +1596,8 @@ fun PixelConfirmationDialog(
 fun PixelToast(
     message: String,
     visible: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLoading: Boolean = false
 ) {
     val colors = LocalWizairdColors.current
     
@@ -1612,15 +1613,64 @@ fun PixelToast(
                 borderColor = Color.Transparent,
                 cornerStyle = PixelCornerStyle.Rounded
             ) {
-                Text(
-                    text = message,
-                    style = pixelStyle(12, if (colors.isDark) colors.secondarySurface else colors.secondarySurface).copy(
-                        baselineShift = androidx.compose.ui.text.style.BaselineShift(0.2f)
-                    ),
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 2.dp)
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isLoading) {
+                        PixelLoadingIndicator(
+                            color = if (colors.isDark) colors.secondarySurface else colors.secondarySurface,
+                            size = 12.dp
+                        )
+                    }
+                    Text(
+                        text = message,
+                        style = pixelStyle(12, if (colors.isDark) colors.secondarySurface else colors.secondarySurface).copy(
+                            baselineShift = androidx.compose.ui.text.style.BaselineShift(0.2f)
+                        )
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+fun PixelLoadingIndicator(
+    color: Color,
+    size: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    var rotation by remember { mutableStateOf(0) }
+    
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(150)
+            rotation = (rotation + 1) % 4
+        }
+    }
+    
+    Box(
+        modifier = modifier
+            .size(size)
+            .drawBehind {
+                val p = size.toPx() / 6f
+                val positions = listOf(
+                    Offset(p * 2, 0f),      // Top
+                    Offset(p * 5, p * 2),   // Right
+                    Offset(p * 2, p * 5),   // Bottom
+                    Offset(0f, p * 2)       // Left
+                )
+                
+                positions.forEachIndexed { index, offset ->
+                    val alpha = if (index == rotation) 1f else 0.3f
+                    drawRect(
+                        color = color.copy(alpha = alpha),
+                        topLeft = offset,
+                        size = Size(p, p)
+                    )
+                }
+            }
+    )
 }

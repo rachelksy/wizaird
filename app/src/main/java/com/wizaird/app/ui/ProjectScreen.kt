@@ -625,7 +625,8 @@ fun ProjectScreen(
                             items(insights) { insight ->
                                 InsightListItem(
                                     insight = insight,
-                                    onChatClick = { onInsightChatClick(insight.id) }
+                                    onChatClick = { onInsightChatClick(insight.id) },
+                                    onNewGlossaryWordClick = onNewGlossaryWordClick
                                 )
                             }
                         }
@@ -1170,7 +1171,8 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
 @Composable
 fun InsightListItem(
     insight: StoredInsight,
-    onChatClick: () -> Unit = {}
+    onChatClick: () -> Unit = {},
+    onNewGlossaryWordClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -1430,7 +1432,8 @@ fun InsightListItem(
                 onChatClick = {
                     showPreview = false
                     onChatClick()
-                }
+                },
+                onNewGlossaryWordClick = onNewGlossaryWordClick
             )
         }
     }
@@ -1440,7 +1443,8 @@ fun InsightListItem(
 fun InsightPreviewOverlay(
     insight: StoredInsight,
     onDismiss: () -> Unit,
-    onChatClick: () -> Unit = {}
+    onChatClick: () -> Unit = {},
+    onNewGlossaryWordClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -1452,10 +1456,11 @@ fun InsightPreviewOverlay(
     var noteSaved by remember { mutableStateOf(false) }
     var showToast by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf("") }
+    var isToastLoading by remember { mutableStateOf(false) }
     
-    // Auto-hide toast after 2 seconds
-    LaunchedEffect(showToast) {
-        if (showToast) {
+    // Auto-hide toast after 2 seconds (only when not loading)
+    LaunchedEffect(showToast, isToastLoading) {
+        if (showToast && !isToastLoading) {
             kotlinx.coroutines.delay(2000)
             showToast = false
         }
@@ -1563,7 +1568,27 @@ fun InsightPreviewOverlay(
                                 ),
                                 modifier = Modifier.offset(y = (-2).dp),
                                 onAddToGlossary = { selectedText ->
-                                    // TODO: add to glossary
+                                    toastMessage = "ADDING TO GLOSSARY"
+                                    showToast = true
+                                    isToastLoading = true
+                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        val definition = com.wizaird.app.data.generateGlossaryDefinition(
+                                            context = context,
+                                            highlightedTerm = selectedText,
+                                            contextText = insight.text
+                                        )
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            isToastLoading = false
+                                            showToast = false
+                                            GlossaryNavigationData.setPendingData(
+                                                term = definition.term,
+                                                explanation = definition.definition,
+                                                aliases = definition.aliases
+                                            )
+                                            onDismiss()
+                                            onNewGlossaryWordClick()
+                                        }
+                                    }
                                 }
                             )
                         }
@@ -1659,7 +1684,8 @@ fun InsightPreviewOverlay(
                 PixelToast(
                     message = toastMessage,
                     visible = showToast,
-                    modifier = Modifier.align(Alignment.BottomCenter)
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    isLoading = isToastLoading
                 )
             }
         }

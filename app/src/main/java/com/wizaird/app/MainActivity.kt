@@ -83,6 +83,9 @@ class MainActivity : ComponentActivity() {
                             onProjectClick = { id -> nav.navigate("project/${id}") },
                             onChatCreated = { projectId, chatId ->
                                 nav.navigate("chat/${projectId}/${chatId}")
+                            },
+                            onNewGlossaryWordClick = { projectId ->
+                                nav.navigate("glossary/${projectId}/new")
                             }
                         )
                     }
@@ -290,6 +293,12 @@ class MainActivity : ComponentActivity() {
                                 nav.navigate("chat/${projectId}/${chatId}") {
                                     popUpTo("chat/${projectId}") { inclusive = true }
                                 }
+                            },
+                            onNewGlossaryWordClick = {
+                                nav.navigate("project/${projectId}/glossary") {
+                                    popUpTo("chat/${projectId}") { inclusive = false }
+                                }
+                                nav.navigate("glossary/${projectId}/new")
                             }
                         )
                     }
@@ -305,6 +314,12 @@ class MainActivity : ComponentActivity() {
                                 nav.navigate("chat/${projectId}/${chatId}") {
                                     popUpTo("chat/${projectId}/insight/${insightId}") { inclusive = true }
                                 }
+                            },
+                            onNewGlossaryWordClick = {
+                                nav.navigate("project/${projectId}/glossary") {
+                                    popUpTo("chat/${projectId}/insight/${insightId}") { inclusive = false }
+                                }
+                                nav.navigate("glossary/${projectId}/new")
                             }
                         )
                     }
@@ -315,7 +330,13 @@ class MainActivity : ComponentActivity() {
                             projectId = projectId,
                             chatId    = chatId,
                             onBack    = { nav.popBackStack() },
-                            onSettingsClick = { nav.navigate("chat_settings/${projectId}/${chatId}") }
+                            onSettingsClick = { nav.navigate("chat_settings/${projectId}/${chatId}") },
+                            onNewGlossaryWordClick = {
+                                nav.navigate("project/${projectId}/glossary") {
+                                    popUpTo("chat/${projectId}/${chatId}") { inclusive = false }
+                                }
+                                nav.navigate("glossary/${projectId}/new")
+                            }
                         )
                     }
                     composable("chat_settings/{projectId}/{chatId}") { backStackEntry ->

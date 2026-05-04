@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ripple
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -1619,9 +1620,10 @@ fun PixelToast(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (isLoading) {
-                        PixelLoadingIndicator(
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
                             color = if (colors.isDark) colors.secondarySurface else colors.secondarySurface,
-                            size = 12.dp
+                            strokeWidth = 2.dp
                         )
                     }
                     Text(

@@ -113,15 +113,33 @@ fun SelectableMarkdownText(
                 // Set custom action mode callback for text selection
                 customSelectionActionModeCallback = object : ActionMode.Callback {
                     override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-                        // Add custom "Add to Glossary" menu item
+                        // Add custom "Add to Glossary" menu item.
+                        // The floating toolbar ignores setIcon(), so we use a sparkle
+                        // unicode character as a visual AI indicator in the label itself.
                         if (onAddToGlossary != null) {
-                            menu?.add(0, MENU_ITEM_ADD_TO_GLOSSARY, 0, "Add to Glossary")
+                            menu?.add(0, MENU_ITEM_ADD_TO_GLOSSARY, 0, "✨ Add to Glossary")
                         }
                         return true
                     }
                     
                     override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-                        return false
+                        // Remove the system-injected "AI Writing Assist" option if present.
+                        // It is added by Google's text toolbar service under various titles
+                        // depending on locale and Android version.
+                        var changed = false
+                        val toRemove = mutableListOf<Int>()
+                        for (i in 0 until (menu?.size() ?: 0)) {
+                            val item = menu?.getItem(i) ?: continue
+                            val title = item.title?.toString()?.lowercase() ?: continue
+                            if (title.contains("writing") || title.contains("ai writing")) {
+                                toRemove.add(item.itemId)
+                            }
+                        }
+                        toRemove.forEach { id ->
+                            menu?.removeItem(id)
+                            changed = true
+                        }
+                        return changed
                     }
                     
                     override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {

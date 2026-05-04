@@ -52,6 +52,7 @@ import kotlin.math.roundToInt
 fun ProjectsScreen(onBack: () -> Unit, onNewProject: () -> Unit, onProjectClick: (String) -> Unit = {}) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
+    val isCoverScreen = rememberIsCoverScreen()
     val projects by projectsFlow(context).collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -163,7 +164,12 @@ fun ProjectsScreen(onBack: () -> Unit, onNewProject: () -> Unit, onProjectClick:
             .background(colors.background)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Spacer(modifier = Modifier.height(48.dp))
+            // Status bar space - not needed on cover screen
+            if (!isCoverScreen) {
+                Spacer(modifier = Modifier.height(48.dp))
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // Header
             Row(

@@ -25,6 +25,7 @@ fun ChatSettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val colors = LocalWizairdColors.current
+    val isCoverScreen = rememberIsCoverScreen()
 
     val chat by chatFlow(context, chatId).collectAsState(initial = null)
 
@@ -38,7 +39,12 @@ fun ChatSettingsScreen(
             .imePadding()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Spacer(modifier = Modifier.height(48.dp))
+            // Status bar space - not needed on cover screen
+            if (!isCoverScreen) {
+                Spacer(modifier = Modifier.height(48.dp))
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // Header
             Row(

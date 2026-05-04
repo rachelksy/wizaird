@@ -44,6 +44,7 @@ fun NoteScreen(
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
+    val isCoverScreen = rememberIsCoverScreen()
     val scope = rememberCoroutineScope()
 
     val projects by projectsFlow(context).collectAsState(initial = emptyList())
@@ -132,7 +133,12 @@ fun NoteScreen(
                 .fillMaxSize()
                 .imePadding()
         ) {
-            Spacer(modifier = Modifier.height(48.dp))
+            // Status bar space - not needed on cover screen
+            if (!isCoverScreen) {
+                Spacer(modifier = Modifier.height(48.dp))
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // Header — back button | project name (centered) | save (check) button
             Box(

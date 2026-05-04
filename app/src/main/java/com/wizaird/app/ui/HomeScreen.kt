@@ -66,6 +66,7 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val settings by settingsFlow(context).collectAsState(initial = AiSettings())
     val colors = LocalWizairdColors.current
+    val isCoverScreen = rememberIsCoverScreen()
     val projects by projectsFlow(context).collectAsState(initial = emptyList())
     var activeProjectIndex by rememberSaveable { mutableIntStateOf(0) }
     val activeProject = projects.getOrNull(activeProjectIndex)
@@ -176,90 +177,96 @@ fun HomeScreen(
             .fillMaxSize()
             .background(colors.background)
     ) {
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .imePadding()
-        ) {
-            Spacer(modifier = Modifier.height(48.dp))
-            AppHeader(onSettingsClick = onSettingsClick, onProjectsClick = onProjectsClick)
-            // StatStrip() // ── commented out; re-enable to show HP/XP bars ──
-            AgentScrollBar(
-                onNewProjectClick = onNewProjectClick,
-                onProjectClick = onProjectClick,
-                activeProjectIndex = activeProjectIndex,
-                onActiveProjectChange = { activeProjectIndex = it }
-            )
-
+        if (isCoverScreen) {
+            // Cover screen layout: content doesn't move, keyboard overlays
             Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp)
+                    .fillMaxSize()
+                    .padding(top = 8.dp)
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
+                AppHeader(onSettingsClick = onSettingsClick, onProjectsClick = onProjectsClick)
+                AgentScrollBar(
+                    onNewProjectClick = onNewProjectClick,
+                    onProjectClick = onProjectClick,
+                    activeProjectIndex = activeProjectIndex,
+                    onActiveProjectChange = { activeProjectIndex = it }
+                )
 
-                // Bubble with extra 8dp height extending into wizard space
-                ChatBubble(
-                    text = bubbleText,
-                    loading = isLoading,
-                    projectName = activeProject?.name,
-                    projectId = activeProject?.id,
-                    isPinned = activeProject?.pinnedInsight ?: false,
-                    onTogglePin = {
-                        activeProject?.let { project ->
-                            scope.launch {
-                                val updatedProject = project.copy(pinnedInsight = !project.pinnedInsight)
-                                upsertProject(context, updatedProject)
-                                println("Insight ${if (updatedProject.pinnedInsight) "pinned" else "unpinned"} for project: ${project.name}")
-                            }
-                        }
-                    },
-                    onRegenerate = {
-                        activeProject?.let { project ->
-                            println("User triggered manual regeneration")
-                            generateInsightForProject(project)
-                        }
-                    },
-                    onProjectClick = {
-                        activeProject?.let { project -> onProjectClick(project.id) }
-                    },
-                    onShowToast = { message ->
-                        if (message.isEmpty()) {
-                            showToast = false
-                            isToastLoading = false
-                        } else {
-                            toastMessage = message
-                            showToast = true
-                            isToastLoading = message == "ADDING TO GLOSSARY"
-                        }
-                    },
-                    onNewGlossaryWordClick = { projectIdFromBubble ->
-                        onNewGlossaryWordClick(projectIdFromBubble)
-                    },
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
                         .weight(1f)
-                        .layout { measurable, constraints ->
-                            // Measure with 8dp extra height
-                            val placeable = measurable.measure(
-                                constraints.copy(
-                                    maxHeight = constraints.maxHeight + 8.dp.roundToPx()
-                                )
-                            )
-                            // Layout with original height so it extends downward
-                            layout(placeable.width, constraints.maxHeight) {
-                                placeable.place(0, 0)
+                        .padding(horizontal = 12.dp)
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Bubble with extra 8dp height extending into wizard space
+                    // On cover screen, make it scrollable and add bottom padding for input bar
+                    ChatBubble(
+                        text = bubbleText,
+                        loading = isLoading,
+                        projectName = activeProject?.name,
+                        projectId = activeProject?.id,
+                        isPinned = activeProject?.pinnedInsight ?: false,
+                        onTogglePin = {
+                            activeProject?.let { project ->
+                                scope.launch {
+                                    val updatedProject = project.copy(pinnedInsight = !project.pinnedInsight)
+                                    upsertProject(context, updatedProject)
+                                    println("Insight ${if (updatedProject.pinnedInsight) "pinned" else "unpinned"} for project: ${project.name}")
+                                }
                             }
-                        }
-                )
-
-                // Wizard overlaps the bubble from below
-                WizardCharacter(
-                    bobOffsetY = bobY,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-
+                        },
+                        onRegenerate = {
+                            activeProject?.let { project ->
+                                println("User triggered manual regeneration")
+                                generateInsightForProject(project)
+                            }
+                        },
+                        onProjectClick = {
+                            activeProject?.let { project -> onProjectClick(project.id) }
+                        },
+                        onShowToast = { message ->
+                            if (message.isEmpty()) {
+                                showToast = false
+                                isToastLoading = false
+                            } else {
+                                toastMessage = message
+                                showToast = true
+                                isToastLoading = message == "ADDING TO GLOSSARY"
+                            }
+                        },
+                        onNewGlossaryWordClick = { projectIdFromBubble ->
+                            onNewGlossaryWordClick(projectIdFromBubble)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            // Add bottom padding to account for overlaying input bar
+                            .padding(bottom = 84.dp)
+                            .layout { measurable, constraints ->
+                                // Measure with 8dp extra height
+                                val placeable = measurable.measure(
+                                    constraints.copy(
+                                        maxHeight = constraints.maxHeight + 8.dp.roundToPx()
+                                    )
+                                )
+                                // Layout with original height so it extends downward
+                                layout(placeable.width, constraints.maxHeight) {
+                                    placeable.place(0, 0)
+                                }
+                            }
+                    )
+                }
+            }
+            
+            // Input bar positioned at bottom with imePadding - moves up with keyboard
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(colors.background)
+                    .imePadding()
+            ) {
                 PixelInputBar(
                     value = inputText,
                     onValueChange = { inputText = it },
@@ -308,10 +315,150 @@ fun HomeScreen(
                             }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                )
+                Spacer(modifier = Modifier.height(20.dp).navigationBarsPadding())
+            }
+        } else {
+            // Full screen layout: normal behavior with imePadding on whole column
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .imePadding()
+            ) {
+                Spacer(modifier = Modifier.height(48.dp))
+                AppHeader(onSettingsClick = onSettingsClick, onProjectsClick = onProjectsClick)
+                // StatStrip() // ── commented out; re-enable to show HP/XP bars ──
+                AgentScrollBar(
+                    onNewProjectClick = onNewProjectClick,
+                    onProjectClick = onProjectClick,
+                    activeProjectIndex = activeProjectIndex,
+                    onActiveProjectChange = { activeProjectIndex = it }
                 )
 
-                Spacer(modifier = Modifier.height(20.dp).navigationBarsPadding())
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 12.dp)
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Bubble with extra 8dp height extending into wizard space
+                    ChatBubble(
+                        text = bubbleText,
+                        loading = isLoading,
+                        projectName = activeProject?.name,
+                        projectId = activeProject?.id,
+                        isPinned = activeProject?.pinnedInsight ?: false,
+                        onTogglePin = {
+                            activeProject?.let { project ->
+                                scope.launch {
+                                    val updatedProject = project.copy(pinnedInsight = !project.pinnedInsight)
+                                    upsertProject(context, updatedProject)
+                                    println("Insight ${if (updatedProject.pinnedInsight) "pinned" else "unpinned"} for project: ${project.name}")
+                                }
+                            }
+                        },
+                        onRegenerate = {
+                            activeProject?.let { project ->
+                                println("User triggered manual regeneration")
+                                generateInsightForProject(project)
+                            }
+                        },
+                        onProjectClick = {
+                            activeProject?.let { project -> onProjectClick(project.id) }
+                        },
+                        onShowToast = { message ->
+                            if (message.isEmpty()) {
+                                showToast = false
+                                isToastLoading = false
+                            } else {
+                                toastMessage = message
+                                showToast = true
+                                isToastLoading = message == "ADDING TO GLOSSARY"
+                            }
+                        },
+                        onNewGlossaryWordClick = { projectIdFromBubble ->
+                            onNewGlossaryWordClick(projectIdFromBubble)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .layout { measurable, constraints ->
+                                // Measure with 8dp extra height
+                                val placeable = measurable.measure(
+                                    constraints.copy(
+                                        maxHeight = constraints.maxHeight + 8.dp.roundToPx()
+                                    )
+                                )
+                                // Layout with original height so it extends downward
+                                layout(placeable.width, constraints.maxHeight) {
+                                    placeable.place(0, 0)
+                                }
+                            }
+                    )
+
+                    // Wizard overlaps the bubble from below
+                    WizardCharacter(
+                        bobOffsetY = bobY,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+
+                    PixelInputBar(
+                        value = inputText,
+                        onValueChange = { inputText = it },
+                        placeholder = if (!isLoading && bubbleText.isNotEmpty()) 
+                            "Ask the wizaird about the insight" 
+                            else 
+                            "Ask the wizaird...",
+                        onSubmit = {
+                            val q = inputText.trim()
+                            if (q.isNotEmpty() && activeProject != null) {
+                                inputText = ""
+                                
+                                scope.launch {
+                                    // Check if there's an insight to include
+                                    val hasInsight = !isLoading && bubbleText.isNotEmpty()
+                                    val currentInsightId = activeProject.insightHistory.lastOrNull()?.id
+                                    
+                                    // Build messages list
+                                    val messages = mutableListOf<ChatMessage>()
+                                    
+                                    // If there's an insight, add it as first AI message
+                                    if (hasInsight) {
+                                        messages.add(ChatMessage(
+                                            sender = MessageSender.AI,
+                                            text = bubbleText
+                                        ))
+                                    }
+                                    
+                                    // Add user message
+                                    messages.add(ChatMessage(
+                                        sender = MessageSender.USER,
+                                        text = q
+                                    ))
+                                    
+                                    // Create chat (title will be generated after AI responds)
+                                    val chat = ChatData(
+                                        projectId = activeProject.id,
+                                        title = "Generated Title",
+                                        messages = messages,
+                                        insightId = if (hasInsight) currentInsightId else null
+                                    )
+                                    
+                                    // Save and navigate
+                                    upsertChat(context, chat)
+                                    onChatCreated(activeProject.id, chat.id)
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp).navigationBarsPadding())
+                }
             }
         }
         
@@ -443,6 +590,7 @@ fun AgentScrollBar(
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
+    val isCoverScreen = rememberIsCoverScreen()
     val projects by projectsFlow(context).collectAsState(initial = emptyList())
 
     // Build a combined list: null = add button, non-null = project
@@ -452,6 +600,12 @@ fun AgentScrollBar(
     val activeItemIndex = activeProjectIndex + 1
 
     val inactiveBorder = if (colors.isDark) colors.border else Color(0xFF999999)
+    
+    // Use smaller circles on cover screen to match header buttons
+    val circleSize = if (isCoverScreen) 40.dp else 64.dp
+    val cornerStyle = if (isCoverScreen) PixelCornerStyle.Rounded else PixelCornerStyle.Circle
+    val clipShape = if (isCoverScreen) PixelCircleButtonShape else PixelLargeCircleShape
+    val fontSize = if (isCoverScreen) 14 else 20
 
     Row(
         modifier = Modifier
@@ -469,25 +623,36 @@ fun AgentScrollBar(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 PixelBox(
                     modifier = Modifier
-                        .size(64.dp)
+                        .size(circleSize)
                         .then(
-                            if (isAddButton)
-                                Modifier.pixelLargeCircleClickable(interactionSource = interaction) { onNewProjectClick() }
-                            else
-                                Modifier.pixelLargeCircleClickable(interactionSource = interaction) { onActiveProjectChange(index - 1) }
+                            if (isCoverScreen) {
+                                // Use pixelCircleClickable for 40dp circles
+                                if (isAddButton)
+                                    Modifier.pixelCircleClickable(interactionSource = interaction) { onNewProjectClick() }
+                                else
+                                    Modifier.pixelCircleClickable(interactionSource = interaction) { onActiveProjectChange(index - 1) }
+                            } else {
+                                // Use pixelLargeCircleClickable for 64dp circles
+                                if (isAddButton)
+                                    Modifier.pixelLargeCircleClickable(interactionSource = interaction) { onNewProjectClick() }
+                                else
+                                    Modifier.pixelLargeCircleClickable(interactionSource = interaction) { onActiveProjectChange(index - 1) }
+                            }
                         ),
                     fillColor = if (isAddButton) colors.secondaryButton else if (!isAddButton && project != null && project.picturePath.isNotEmpty() && File(project.picturePath).exists()) Color.Transparent else colors.secondarySurface,
                     borderColor = if (isActive) colors.textHigh else if (isAddButton) Color.Transparent else inactiveBorder,
-                    cornerStyle = PixelCornerStyle.Circle
+                    cornerStyle = cornerStyle
                 ) {
                     if (isAddButton) {
-                        // Pixel plus icon
+                        // Pixel plus icon - scale down on cover screen
+                        val iconSize = if (isCoverScreen) 10.dp else 14.dp
+                        val iconThickness = if (isCoverScreen) 1.5.dp else 2.dp
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Box(modifier = Modifier.width(14.dp).height(2.dp).background(colors.secondaryIcon))
-                            Box(modifier = Modifier.width(2.dp).height(14.dp).background(colors.secondaryIcon))
+                            Box(modifier = Modifier.width(iconSize).height(iconThickness).background(colors.secondaryIcon))
+                            Box(modifier = Modifier.width(iconThickness).height(iconSize).background(colors.secondaryIcon))
                         }
                     } else if (project!!.picturePath.isNotEmpty() && File(project.picturePath).exists()) {
                         // Project profile photo
@@ -506,8 +671,8 @@ fun AgentScrollBar(
                             contentDescription = project.name,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
-                                .requiredSize(64.dp)
-                                .clip(PixelLargeCircleShape)
+                                .requiredSize(circleSize)
+                                .clip(clipShape)
                         )
                     } else {
                         // Fallback: first letter of project name
@@ -517,7 +682,7 @@ fun AgentScrollBar(
                         ) {
                             Text(
                                 text = project!!.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                                style = pixelStyle(20, colors.secondaryIcon),
+                                style = pixelStyle(fontSize, colors.secondaryIcon),
                                 modifier = Modifier.offset(y = (-2).dp)
                             )
                         }
@@ -591,6 +756,7 @@ fun ChatBubble(
     val colors = LocalWizairdColors.current
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
+    val isCoverScreen = rememberIsCoverScreen()
     
     // Use rememberUpdatedState to always have the latest projectId value
     val currentProjectId by rememberUpdatedState(projectId)
@@ -612,8 +778,9 @@ fun ChatBubble(
     val borderColor = colors.border
     Box(
         modifier = modifier
-            .padding(bottom = 22.dp)  // 14dp tail + 8dp extra height
-            .drawWithContent {
+            // On cover screen: no tail, no bottom padding for it
+            .then(if (!isCoverScreen) Modifier.padding(bottom = 22.dp) else Modifier)
+            .then(if (!isCoverScreen) Modifier.drawWithContent {
                 drawContent()  // bubble first
                 val p = PixelSize.toPx()
                 val tailX = size.width / 2f - p * 7.5f
@@ -644,7 +811,7 @@ fun ChatBubble(
                 drawRect(borderColor, Offset(tailX + p* 8, tailY + p * 6), Size(p, p))
                 // Tip
                 drawRect(borderColor, Offset(tailX + p*7,  tailY + p * 6), Size(p, p))
-            }
+            } else Modifier)
     ) {
     PixelBox(
         modifier = Modifier.fillMaxWidth().fillMaxHeight(),
@@ -658,7 +825,7 @@ fun ChatBubble(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = if (isCoverScreen) 6.dp else 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -798,7 +965,7 @@ fun ChatBubble(
                         .build()
                 }
                 Row(
-                    modifier = Modifier.padding(start = 16.dp, bottom = 12.dp),
+                    modifier = Modifier.padding(start = 16.dp, bottom = if (isCoverScreen) 8.dp else 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

@@ -23,6 +23,7 @@ fun SettingsScreen(
     onBackupSettings: () -> Unit
 ) {
     val colors = LocalWizairdColors.current
+    val isCoverScreen = rememberIsCoverScreen()
 
     Box(
         modifier = Modifier
@@ -30,7 +31,12 @@ fun SettingsScreen(
             .background(colors.background)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Spacer(modifier = Modifier.height(48.dp))
+            // Status bar space - not needed on cover screen
+            if (!isCoverScreen) {
+                Spacer(modifier = Modifier.height(48.dp))
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // Header
             Row(

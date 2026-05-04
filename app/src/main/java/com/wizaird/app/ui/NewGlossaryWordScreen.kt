@@ -51,6 +51,7 @@ fun NewGlossaryWordScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val colors = LocalWizairdColors.current
+    val isCoverScreen = rememberIsCoverScreen()
 
     // Check for pending data from navigation
     val pendingData = remember { GlossaryNavigationData.consumePendingData() }
@@ -65,7 +66,12 @@ fun NewGlossaryWordScreen(
             .background(colors.background)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Spacer(modifier = Modifier.height(48.dp))
+            // Status bar space - not needed on cover screen
+            if (!isCoverScreen) {
+                Spacer(modifier = Modifier.height(48.dp))
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // Header
             Row(

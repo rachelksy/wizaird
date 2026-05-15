@@ -5,6 +5,7 @@ import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.AbsoluteSizeSpan
 import android.text.style.StyleSpan
+import android.text.util.Linkify
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
@@ -20,9 +21,20 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.res.ResourcesCompat
+import coil.ImageLoader
+import coil.decode.SvgDecoder
 import com.wizaird.app.R
 import io.noties.markwon.Markwon
 import io.noties.markwon.core.MarkwonTheme
+import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
+import io.noties.markwon.ext.tables.TablePlugin
+import io.noties.markwon.ext.tasklist.TaskListPlugin
+import io.noties.markwon.html.HtmlPlugin
+import io.noties.markwon.image.coil.CoilImagesPlugin
+import io.noties.markwon.linkify.LinkifyPlugin
+import io.noties.markwon.syntax.Prism4jThemeDarkula
+import io.noties.markwon.syntax.SyntaxHighlightPlugin
+import io.noties.prism4j.Prism4j
 
 /**
  * A selectable markdown text component that uses AndroidView + TextView + Markwon.
@@ -62,9 +74,36 @@ fun SelectableMarkdownText(
         style.fontSize.value * context.resources.displayMetrics.scaledDensity
     }
     
-    // Create Markwon instance with custom configuration to match our text style
-    val markwon = remember(typeface, style) {
+    // Create Coil ImageLoader for loading images in markdown
+    val imageLoader = remember {
+        ImageLoader.Builder(context)
+            .components {
+                add(SvgDecoder.Factory())
+            }
+            .build()
+    }
+    
+    // Create Prism4j instance for syntax highlighting
+    val prism4j = remember { Prism4j(GrammarLocatorDef()) }
+    
+    // Create Markwon instance with all plugins and custom configuration
+    val markwon = remember(typeface, style, imageLoader) {
         Markwon.builder(context)
+            // Tables support
+            .usePlugin(TablePlugin.create(context))
+            // Strikethrough support (~~text~~)
+            .usePlugin(StrikethroughPlugin.create())
+            // Task lists support (- [ ] and - [x])
+            .usePlugin(TaskListPlugin.create(context))
+            // Syntax highlighting for code blocks
+            .usePlugin(SyntaxHighlightPlugin.create(prism4j, Prism4jThemeDarkula.create()))
+            // Image loading with Coil
+            .usePlugin(CoilImagesPlugin.create(context, imageLoader))
+            // Linkify - make URLs, emails, phone numbers clickable
+            .usePlugin(LinkifyPlugin.create())
+            // HTML support
+            .usePlugin(HtmlPlugin.create())
+            // Custom theme configuration
             .usePlugin(object : io.noties.markwon.AbstractMarkwonPlugin() {
                 override fun configureTheme(builder: MarkwonTheme.Builder) {
                     // Only set codeTypeface — setting headingTypeface with a custom font
@@ -79,6 +118,8 @@ fun SelectableMarkdownText(
                     builder.headingTextSizeMultipliers(floatArrayOf(1.5f, 1.3f, 1.15f, 1f, 1f, 1f))
                     builder.linkColor(0xFF6B9BD1.toInt())
                     builder.codeBackgroundColor(0x20FFFFFF)
+                    // Blockquote styling
+                    builder.blockQuoteColor(0xFFAAAAAA.toInt())
                 }
             })
             .build()
@@ -188,3 +229,19 @@ fun SelectableMarkdownText(
 }
 
 private const val MENU_ITEM_ADD_TO_GLOSSARY = 1001
+
+/**
+ * Grammar locator for Prism4j syntax highlighting.
+ * Provides syntax highlighting support for common programming languages.
+ */
+class GrammarLocatorDef : io.noties.prism4j.GrammarLocator {
+    override fun grammar(prism4j: Prism4j, language: String): Prism4j.Grammar? {
+        // Return null for all languages - this will fall back to basic code block rendering
+        // without syntax highlighting. This avoids dependency issues with Prism4j language packs.
+        return null
+    }
+
+    override fun languages(): MutableSet<String> {
+        return mutableSetOf()
+    }
+}

@@ -122,8 +122,18 @@ fun buildInsightPrompt(project: Project): String {
         }
     }
     
+    // Add current date (use if necessary)
+    val currentDate = java.text.SimpleDateFormat("EEEE, MMMM d, yyyy", java.util.Locale.US).format(java.util.Date())
+    sb.append("\nToday's date: $currentDate (use only if relevant to the learning content)\n")
+    
     sb.append("\n---\n\n")
     sb.append("Your task: Write one microlearning insight.\n\n")
+    
+    // Add emphasis if prioritizeInstructions is enabled
+    if (project.prioritizeInstructions && project.instructions.isNotBlank()) {
+        sb.append("IMPORTANT: The user has specified custom instructions in \"Their goal\" above. These instructions should be given priority and followed closely when generating the insight.\n\n")
+    }
+    
     sb.append("RULES:\n")
     sb.append("1. One clear focus — a single idea, pattern, or insight the user can walk away having genuinely absorbed. Supporting ideas are fine if they serve that focus. Competing ideas are not.\n")
     sb.append("2. Typically 150–250 words, but use whatever length is needed to fully explain the idea. If clarity requires more space, extend up to 500 words. Don't let word count constrain what needs to be said.\n")

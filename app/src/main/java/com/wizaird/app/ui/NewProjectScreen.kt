@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
+import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.wizaird.app.data.Project
 import com.wizaird.app.data.copyPictureToInternal
@@ -38,6 +39,7 @@ fun NewProjectScreen(onBack: () -> Unit) {
     var background by remember { mutableStateOf("") }
     var learningProgress by remember { mutableStateOf("") }
     var picturePath by remember { mutableStateOf("") }
+    var prioritizeInstructions by remember { mutableStateOf(false) }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
@@ -45,6 +47,10 @@ fun NewProjectScreen(onBack: () -> Unit) {
                 picturePath = copyPictureToInternal(context, uri)
             }
         }
+    }
+
+    val svgLoader = remember {
+        ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
     }
 
     Box(
@@ -119,7 +125,8 @@ fun NewProjectScreen(onBack: () -> Unit) {
                                         instructions = instructions,
                                         background = background,
                                         learningProgress = learningProgress,
-                                        picturePath = picturePath
+                                        picturePath = picturePath,
+                                        prioritizeInstructions = prioritizeInstructions
                                     )
                                 )
                                 onBack()
@@ -155,33 +162,65 @@ fun NewProjectScreen(onBack: () -> Unit) {
                 }
 
                 // AI instructions
-                SettingsField(label = "AI INSTRUCTIONS") {                    PixelBox(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(240.dp),
-                        fillColor = colors.secondarySurface,
-                        cornerStyle = PixelCornerStyle.Rounded
-                    ) {
-                        androidx.compose.foundation.text.BasicTextField(
-                            value = instructions,
-                            onValueChange = { instructions = it },
-                            textStyle = minecraftStyle(12, colors.secondaryIcon),
-                            cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.secondaryIcon),
+                SettingsField(label = "AI INSTRUCTIONS") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PixelBox(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .padding(12.dp),
-                            decorationBox = { inner ->
-                                Box(contentAlignment = Alignment.TopStart) {
-                                    if (instructions.isEmpty()) {
-                                        Text(
-                                            "You are a helpful wizard...",
-                                            style = minecraftStyle(12, colors.secondaryIconSoft)
-                                        )
+                                .fillMaxWidth()
+                                .height(240.dp),
+                            fillColor = colors.secondarySurface,
+                            cornerStyle = PixelCornerStyle.Rounded
+                        ) {
+                            androidx.compose.foundation.text.BasicTextField(
+                                value = instructions,
+                                onValueChange = { instructions = it },
+                                textStyle = minecraftStyle(12, colors.secondaryIcon),
+                                cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.secondaryIcon),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(12.dp),
+                                decorationBox = { inner ->
+                                    Box(contentAlignment = Alignment.TopStart) {
+                                        if (instructions.isEmpty()) {
+                                            Text(
+                                                "You are a helpful wizard...",
+                                                style = minecraftStyle(12, colors.secondaryIconSoft)
+                                            )
+                                        }
+                                        inner()
                                     }
-                                    inner()
                                 }
-                            }
-                        )
+                            )
+                        }
+                        
+                        // Prioritize instructions checkbox
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .pixelRounded8Clickable(
+                                    interactionSource = remember { MutableInteractionSource() }
+                                ) { prioritizeInstructions = !prioritizeInstructions },
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(
+                                        if (prioritizeInstructions) 
+                                            "file:///android_asset/pixelarticons/checkbox-on.svg"
+                                        else 
+                                            "file:///android_asset/pixelarticons/checkbox.svg"
+                                    )
+                                    .build(),
+                                imageLoader = svgLoader,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                "Prioritize instructions",
+                                style = minecraftStyle(12, colors.secondaryIcon)
+                            )
+                        }
                     }
                 }
 

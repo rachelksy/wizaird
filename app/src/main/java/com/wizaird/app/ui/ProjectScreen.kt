@@ -54,6 +54,15 @@ import kotlinx.coroutines.launch
 
 enum class ProjectTab { CHATS, NOTES, INSIGHTS, GLOSSARY }
 
+// Helper function to strip HTML tags from rich text notes for preview display
+private fun stripHtml(html: String): String {
+    return try {
+        android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_COMPACT).toString()
+    } catch (e: Exception) {
+        html // Fallback to original if parsing fails
+    }
+}
+
 @Composable
 fun ProjectScreen(
     projectId: String,
@@ -968,7 +977,7 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
                     )
                     // Body — minecraft font, same size as bubble text, max 3 lines
                     Text(
-                        text = note.body,
+                        text = stripHtml(note.body),
                         style = minecraftStyle(12, colors.secondaryIcon),
                         maxLines = 3,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,

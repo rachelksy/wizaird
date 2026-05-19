@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -260,7 +261,11 @@ fun NoteScreen(
                         .verticalScroll(scrollState)
                         .focusRequester(focusRequester),
                     textStyle = minecraftStyle(14, colors.textHigh).copy(
-                        lineHeight = (14 * 1.6f).sp
+                        lineHeight = (14 * 1.6f).sp,
+                        lineHeightStyle = LineHeightStyle(
+                            alignment = LineHeightStyle.Alignment.Proportional,
+                            trim = LineHeightStyle.Trim.None
+                        )
                     ),
                     colors = RichTextEditorDefaults.richTextEditorColors(
                         containerColor = Color.Transparent,
@@ -273,7 +278,11 @@ fun NoteScreen(
                         Text(
                             text = "Start typing...",
                             style = minecraftStyle(14, colors.secondaryIconSoft).copy(
-                                lineHeight = (14 * 1.6f).sp
+                                lineHeight = (14 * 1.6f).sp,
+                                lineHeightStyle = LineHeightStyle(
+                                    alignment = LineHeightStyle.Alignment.Proportional,
+                                    trim = LineHeightStyle.Trim.None
+                                )
                             )
                         )
                     }

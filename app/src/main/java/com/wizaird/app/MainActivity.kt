@@ -85,6 +85,9 @@ class MainActivity : ComponentActivity() {
                                 nav.navigate("chat/${projectId}/${chatId}")
                             },
                             onNewGlossaryWordClick = { projectId ->
+                                nav.navigate("project/${projectId}/glossary") {
+                                    popUpTo("home") { inclusive = false }
+                                }
                                 nav.navigate("glossary/${projectId}/new")
                             }
                         )
@@ -236,12 +239,7 @@ class MainActivity : ComponentActivity() {
                         NewGlossaryWordScreen(
                             projectId = projectId,
                             onBack = { nav.popBackStack() },
-                            onSave = {
-                                // Navigate to project glossary tab after saving
-                                nav.navigate("project/${projectId}/glossary") {
-                                    popUpTo("project/${projectId}") { inclusive = false }
-                                }
-                            }
+                            onSave = { nav.popBackStack() }
                         )
                     }
                     composable("glossary/{projectId}/{wordId}") { backStackEntry ->

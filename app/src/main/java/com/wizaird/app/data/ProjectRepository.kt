@@ -85,6 +85,20 @@ class ProjectDeserializer : JsonDeserializer<Project> {
             }
         }
         
+        val progressInsightCount = jsonObject.get("progressInsightCount")?.asInt ?: 20
+        val progressChatCount = jsonObject.get("progressChatCount")?.asInt ?: 10
+
+        // Deserialize learningProgressHistory — plain list of strings
+        val learningProgressHistory = mutableListOf<String>()
+        val historyProgressElement = jsonObject.get("learningProgressHistory")
+        if (historyProgressElement != null && historyProgressElement.isJsonArray) {
+            for (element in historyProgressElement.asJsonArray) {
+                if (element.isJsonPrimitive && element.asJsonPrimitive.isString) {
+                    learningProgressHistory.add(element.asString)
+                }
+            }
+        }
+
         return Project(
             id = id,
             name = name,
@@ -99,7 +113,10 @@ class ProjectDeserializer : JsonDeserializer<Project> {
             insightHistory = insightHistory,
             order = order,
             queuedInsight = queuedInsight,
-            prioritizeInstructions = prioritizeInstructions
+            prioritizeInstructions = prioritizeInstructions,
+            progressInsightCount = progressInsightCount,
+            progressChatCount = progressChatCount,
+            learningProgressHistory = learningProgressHistory
         )
     }
 }
@@ -118,7 +135,10 @@ data class Project(
     val insightHistory: List<InsightHistoryEntry> = emptyList(),  // Last 20 insights with IDs, oldest first
     val order: Int = 0,  // Display order, lower numbers appear first
     val queuedInsight: String = "",  // Pre-generated insight ready to show instantly
-    val prioritizeInstructions: Boolean = false  // If true, AI instructions carry more weight in prompt
+    val prioritizeInstructions: Boolean = false,  // If true, AI instructions carry more weight in prompt
+    val progressInsightCount: Int = 20,  // How many recent insights to include when generating progress
+    val progressChatCount: Int = 10,     // How many recent chats to include when generating progress
+    val learningProgressHistory: List<String> = emptyList()  // Up to 2 previous learning progress values for revert
 )
 
 private val KEY_PROJECTS = stringPreferencesKey("projects")

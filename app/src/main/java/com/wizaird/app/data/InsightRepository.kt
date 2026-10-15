@@ -102,17 +102,17 @@ suspend fun getNextInsight(
 fun buildInsightPrompt(project: Project): String {
     val sb = StringBuilder()
     
-    sb.append("You are a learning guide helping the user build genuine understanding of: ${project.name}.\n")
-    sb.append("Their goal: ${project.instructions}.\n")
+    sb.append("You are generating a microlearning insight about: ${project.name}.\n")
+    sb.append("Goal: ${project.instructions}.\n")
     
     if (project.background.isNotBlank()) {
-        sb.append("What they already know: ${project.background}\n")
+        sb.append("What the user already knows: ${project.background}\n")
     } else {
         sb.append("Assume no prior knowledge. Start from first principles.\n")
     }
     
     if (project.learningProgress.isNotBlank()) {
-        sb.append("What they have learned so far:\n${project.learningProgress}\n")
+        sb.append("What has been addressed so far in this project:\n${project.learningProgress}\n")
     }
     
     if (project.insightHistory.isNotEmpty()) {
@@ -139,7 +139,7 @@ fun buildInsightPrompt(project: Project): String {
     sb.append("2. Typically 150–250 words, but use whatever length is needed to fully explain the idea. If clarity requires more space, extend up to 500 words. Don't let word count constrain what needs to be said.\n")
     sb.append("3. Tone: clear, direct, substantive.\n")
     sb.append("4. Use whatever format best serves the content — prose, a short list, a comparison. Do not default to any one format.\n")
-    sb.append("5. Do not repeat ground already covered in the learning progress or recent insights. You may revisit a topic if you are approaching it from a genuinely different angle that adds new understanding.\n")
+    sb.append("5. Use the learning progress to reason about what has already been addressed and from what angle — then decide what the next logical step is given the goal. Topics that appear in the progress are not off-limits. They may still be worth returning to if a different angle or a deeper layer serves the goal. Only skip a topic if what needs to be said about it has genuinely already been said.\n")
     sb.append("6. Do not end with a question. End when the idea is complete.\n\n")
     sb.append("Write only the insight. No preamble, no labels.")
     

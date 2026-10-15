@@ -190,7 +190,15 @@ private fun callGemini(settings: AiSettings, systemPrompt: String, userPrompt: S
         val candidates = json["candidates"] as? List<Map<String, Any>> ?: return "No response."
         val content = candidates[0]["content"] as? Map<String, Any> ?: return "No response."
         val parts = content["parts"] as? List<Map<String, Any>> ?: return "No response."
-        val text = (parts[0]["text"] as? String)?.trim() ?: "No response."
+        // Collect all non-thought parts and join them — handles thinking models (e.g. Gemini 2.5 Pro)
+        // where parts[0] is the reasoning chain and the actual answer follows in subsequent parts,
+        // as well as edge cases where the answer itself spans multiple parts.
+        val text = parts
+            .filter { it["thought"] != true }
+            .mapNotNull { it["text"] as? String }
+            .joinToString("")
+            .trim()
+            .ifEmpty { return "No response." }
         
         println("Gemini extracted text length: ${text.length} chars")
         println("Gemini extracted text (first 200 chars): ${text.take(200)}")

@@ -850,6 +850,7 @@ fun ChatBubble(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier
+                            .weight(1f)
                             .padding(vertical = 2.dp)
                             .pixelRounded8ClickableExpanded(
                                 interactionSource = projectNameInteraction,
@@ -864,7 +865,9 @@ fun ChatBubble(
                         )
                         Text(
                             text = projectName.uppercase(),
-                            style = pixelStyle(12, colors.textXLow),
+                            style = pixelStyle(12, colors.textXLow).copy(lineHeight = 18.sp),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.offset(y = (-2).dp)
                         )
                     }

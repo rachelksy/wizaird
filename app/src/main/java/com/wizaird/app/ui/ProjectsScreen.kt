@@ -29,8 +29,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import coil.ImageLoader
@@ -476,7 +478,9 @@ fun ProjectCard(
                 Column(verticalArrangement = Arrangement.Center) {
                     Text(
                         project.name.ifEmpty { "UNNAMED PROJECT" },
-                        style = pixelStyle(12, colors.secondaryIcon),
+                        style = pixelStyle(12, colors.secondaryIcon).copy(lineHeight = 18.sp),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.offset(y = (-2).dp)
                     )
                     Spacer(modifier = Modifier.height(4.dp))

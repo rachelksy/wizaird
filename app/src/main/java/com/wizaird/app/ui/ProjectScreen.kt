@@ -173,7 +173,9 @@ fun ProjectScreen(
                     )
                     Text(
                         projectName,
-                        style = pixelStyle(14, colors.secondaryIcon),
+                        style = pixelStyle(14, colors.secondaryIcon).copy(lineHeight = 20.sp),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.offset(y = (-2).dp)
                     )
                 }

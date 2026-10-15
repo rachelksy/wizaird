@@ -21,6 +21,7 @@ data class ChatMessage(
     val id: String = UUID.randomUUID().toString(),
     val sender: MessageSender,
     val text: String,
+    val thinkingContent: String? = null,  // AI reasoning chain, only present on thinking-model responses
     val timestamp: Long = System.currentTimeMillis()
 )
 

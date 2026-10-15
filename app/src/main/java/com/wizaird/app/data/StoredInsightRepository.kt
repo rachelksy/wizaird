@@ -17,6 +17,7 @@ data class StoredInsight(
     val id: String = UUID.randomUUID().toString(),
     val projectId: String = "",
     val text: String = "",
+    val thinkingContent: String? = null,  // AI reasoning chain, only present on thinking-model responses
     val createdAt: Long = System.currentTimeMillis()
 ) {
     fun formattedCreatedAt(): String {
@@ -51,7 +52,7 @@ fun storedInsightFlow(context: Context, insightId: String): Flow<StoredInsight?>
     }
 
 /** Save a new insight to permanent storage. */
-suspend fun saveInsight(context: Context, projectId: String, text: String, id: String = UUID.randomUUID().toString()) {
+suspend fun saveInsight(context: Context, projectId: String, text: String, id: String = UUID.randomUUID().toString(), thinkingContent: String? = null) {
     context.dataStore.edit { prefs ->
         val json = prefs[KEY_STORED_INSIGHTS]
         val type = object : TypeToken<List<StoredInsight>>() {}.type
@@ -64,6 +65,7 @@ suspend fun saveInsight(context: Context, projectId: String, text: String, id: S
             id = id,
             projectId = projectId,
             text = text,
+            thinkingContent = thinkingContent,
             createdAt = System.currentTimeMillis()
         )
         current.add(newInsight)

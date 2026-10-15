@@ -45,6 +45,7 @@ import com.wizaird.app.data.MessageSender
 import com.wizaird.app.data.addMessageToChat
 import com.wizaird.app.data.buildChatSystemPrompt
 import com.wizaird.app.data.askAi
+import com.wizaird.app.data.askAiWithThinking
 import com.wizaird.app.data.chatFlow
 import com.wizaird.app.data.deleteChat
 import com.wizaird.app.data.deleteMessageFromChat
@@ -189,15 +190,19 @@ fun ExistingChatScreen(
                     println("  API Key length: ${settings.apiKey.length}")
                     println("  Base URL: ${settings.baseUrl}")
                     
-                    val aiResponse = askAi(settings, systemPrompt, conversationHistory)
-                    println("AI response received (${aiResponse.length} chars)")
+                    val aiResponse = askAiWithThinking(settings, systemPrompt, conversationHistory)
+                    println("AI response received (${aiResponse.answer.length} chars)")
                     println("--- AI RESPONSE START ---")
-                    println(aiResponse)
+                    println(aiResponse.answer)
                     println("--- AI RESPONSE END ---")
+                    if (aiResponse.thinkingContent != null) {
+                        println("--- THINKING CONTENT (${aiResponse.thinkingContent.length} chars) ---")
+                    }
                     
                     val aiMessage = ChatMessage(
                         sender = MessageSender.AI,
-                        text = aiResponse
+                        text = aiResponse.answer,
+                        thinkingContent = aiResponse.thinkingContent
                     )
                     addMessageToChat(context, chatId, aiMessage)
                     
@@ -210,7 +215,7 @@ fun ExistingChatScreen(
                             try {
                                 println("Generating chat title in background...")
                                 val firstUserMessage = messages.firstOrNull { it.sender == MessageSender.USER }?.text ?: ""
-                                val title = generateChatTitle(context, settings, aiResponse, firstUserMessage)
+                                val title = generateChatTitle(context, settings, aiResponse.answer, firstUserMessage)
                                 println("Generated title: $title")
                                 
                                 // Update chat with new title
@@ -777,6 +782,7 @@ fun ChatBubble(
     var copied by remember { mutableStateOf(false) }
     var noteSaved by remember { mutableStateOf(false) }
     var showOptionsMenu by remember { mutableStateOf(false) }
+    var showThinking by remember { mutableStateOf(false) }
     // Bumped on tap to clear any active text selection
     var selectionResetKey by remember { mutableStateOf(0) }
 
@@ -1100,6 +1106,22 @@ fun ChatBubble(
                                             ) { onRegenerate() }
                                     )
                                 }
+
+                                // Thinking icon — always shown on AI messages
+                                val thinkingInteraction = remember { MutableInteractionSource() }
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data("file:///android_asset/pixelarticons/ai-app-mac.svg")
+                                        .build(),
+                                    imageLoader = svgLoader,
+                                    contentDescription = "View AI reasoning",
+                                    colorFilter = ColorFilter.tint(colors.textXLow),
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .pixelRounded8ClickableOversize(
+                                            interactionSource = thinkingInteraction
+                                        ) { showThinking = true }
+                                )
                             }
                             
                             // Right side: Options icon - wrapped in Box for popover positioning
@@ -1259,6 +1281,14 @@ fun ChatBubble(
                 }
             }
         }
+    }
+
+    // Thinking overlay — Dialog is valid at the composable scope level
+    if (showThinking && !isUser) {
+        ThinkingOverlay(
+            thinkingContent = message.thinkingContent ?: "No thought process was captured for this response.",
+            onDismiss = { showThinking = false }
+        )
     }
 }
 

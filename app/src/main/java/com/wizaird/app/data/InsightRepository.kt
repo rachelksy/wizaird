@@ -150,7 +150,7 @@ fun buildInsightPrompt(project: Project): String {
  * Result of insight generation.
  */
 sealed class InsightResult {
-    data class Success(val insight: String) : InsightResult()
+    data class Success(val insight: String, val thinkingContent: String? = null) : InsightResult()
     data class Error(val message: String) : InsightResult()
 }
 
@@ -188,11 +188,15 @@ suspend fun generateInsight(
         println("--- SYSTEM PROMPT END ---")
         
         println("Calling askAi for main insight...")
-        val insight = askAi(settings, systemPrompt, "Generate an insight.")
+        val insightResponse = askAiWithThinking(settings, systemPrompt, "Generate an insight.")
+        val insight = insightResponse.answer
         println("AI response received (${insight.length} chars)")
         println("--- INSIGHT START ---")
         println(insight)
         println("--- INSIGHT END ---")
+        if (insightResponse.thinkingContent != null) {
+            println("--- INSIGHT THINKING (${insightResponse.thinkingContent.length} chars) ---")
+        }
         
         // Check if we got a valid response
         if (insight.isBlank() || insight == "No response.") {
@@ -252,12 +256,12 @@ suspend fun generateInsight(
         }
         
         // Save to permanent storage with the same ID
-        saveInsight(context, project.id, insight, insightId)
+        saveInsight(context, project.id, insight, insightId, insightResponse.thinkingContent)
         println("Insight saved to permanent storage with ID: $insightId")
         
         println("=== INSIGHT GENERATION SUCCESS ===")
         
-        InsightResult.Success(insight)
+        InsightResult.Success(insight, insightResponse.thinkingContent)
     } catch (e: java.net.UnknownHostException) {
         println("=== INSIGHT GENERATION FAILED ===")
         println("Error: UnknownHostException - No internet connection")

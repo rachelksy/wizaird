@@ -48,8 +48,10 @@ import com.wizaird.app.data.getNextInsight
 import com.wizaird.app.data.InsightResult
 import com.wizaird.app.data.upsertProject
 import com.wizaird.app.data.upsertChat
+import com.wizaird.app.data.storedInsightsFlow
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -72,6 +74,7 @@ fun HomeScreen(
     val activeProject = projects.getOrNull(activeProjectIndex)
 
     var bubbleText by remember { mutableStateOf("") }
+    var bubbleThinking by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var inputText by remember { mutableStateOf("") }
     
@@ -102,6 +105,7 @@ fun HomeScreen(
                 is InsightResult.Success -> {
                     println("HomeScreen: Insight generation successful")
                     isLoading = false
+                    bubbleThinking = result.thinkingContent
                     // Type-out effect
                     val insight = result.insight
                     for (i in insight.indices) {
@@ -133,6 +137,14 @@ fun HomeScreen(
                     isLoading = false
                     bubbleText = project.lastInsightText.ifBlank {
                         "Welcome back! Let me think of something new to teach you..."
+                    }
+                    // Load thinking content for the current insight if available
+                    val lastInsightId = project.insightHistory.lastOrNull()?.id
+                    if (lastInsightId != null) {
+                        bubbleThinking = com.wizaird.app.data.storedInsightsFlow(context, project.id)
+                            .first()
+                            .firstOrNull { it.id == lastInsightId }
+                            ?.thinkingContent
                     }
                 }
             }
@@ -204,6 +216,7 @@ fun HomeScreen(
                     ChatBubble(
                         text = bubbleText,
                         loading = isLoading,
+                        thinkingContent = bubbleThinking,
                         projectName = activeProject?.name,
                         projectId = activeProject?.id,
                         isPinned = activeProject?.pinnedInsight ?: false,
@@ -349,6 +362,7 @@ fun HomeScreen(
                     ChatBubble(
                         text = bubbleText,
                         loading = isLoading,
+                        thinkingContent = bubbleThinking,
                         projectName = activeProject?.name,
                         projectId = activeProject?.id,
                         isPinned = activeProject?.pinnedInsight ?: false,
@@ -741,7 +755,8 @@ fun StatBar(label: String, value: Int, max: Int, color: Color) {
 @Composable
 fun ChatBubble(
     text: String, 
-    loading: Boolean, 
+    loading: Boolean,
+    thinkingContent: String? = null, 
     projectName: String? = null,
     projectId: String? = null,
     isPinned: Boolean = false,
@@ -763,6 +778,7 @@ fun ChatBubble(
     
     var copied by remember { mutableStateOf(false) }
     var noteSaved by remember { mutableStateOf(false) }
+    var showThinking by remember { mutableStateOf(false) }
     var dotCount by remember { mutableIntStateOf(1) }
     LaunchedEffect(loading) {
         if (loading) {
@@ -1040,11 +1056,37 @@ fun ChatBubble(
                                 interactionSource = zapInteraction
                             ) { onRegenerate() }
                     )
+
+                    // Thinking icon — always shown; overlay shows message if no content captured
+                    if (!loading) {
+                        val thinkingInteraction = remember { MutableInteractionSource() }
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/ai-app-mac.svg")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = "View AI reasoning",
+                            colorFilter = ColorFilter.tint(if (thinkingContent != null) colors.textXLow else colors.textXLow),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .pixelRounded8ClickableOversize(
+                                    interactionSource = thinkingInteraction
+                                ) { showThinking = true }
+                        )
+                    }
                 }
             }
         }
     }
     } // end outer tail Box
+
+    // Thinking overlay
+    if (showThinking) {
+        ThinkingOverlay(
+            thinkingContent = thinkingContent ?: "No thought process was captured for this insight.",
+            onDismiss = { showThinking = false }
+        )
+    }
 }
 
 // ── Wizard character (GIF via Coil) ──────────────────────────────

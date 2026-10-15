@@ -50,14 +50,13 @@ private val client = OkHttpClient.Builder()
 suspend fun askAi(settings: AiSettings, systemPrompt: String, userPrompt: String): String {
     return when (settings.provider) {
         "openai"  -> callOpenAi(settings, systemPrompt, userPrompt)
-        "gemini"  -> callGemini(settings, systemPrompt, userPrompt)
+        "gemini"  -> callGemini(settings, systemPrompt, userPrompt).answer
         "claude"  -> callClaude(settings, systemPrompt, userPrompt)
         "custom"  -> {
-            // For custom provider, detect which format to use based on model name or base URL
             when {
                 settings.model.contains("gemini", ignoreCase = true) -> {
                     println("Custom provider detected Gemini model, using Gemini API format")
-                    callGemini(settings, systemPrompt, userPrompt)
+                    callGemini(settings, systemPrompt, userPrompt).answer
                 }
                 settings.model.contains("claude", ignoreCase = true) -> {
                     println("Custom provider detected Claude model, using Claude API format")
@@ -70,6 +69,26 @@ suspend fun askAi(settings: AiSettings, systemPrompt: String, userPrompt: String
             }
         }
         else      -> callOpenAi(settings, systemPrompt, userPrompt)
+    }
+}
+
+/**
+ * Like askAi but also returns any thinking/reasoning content the model produced.
+ * thinkingContent is only non-null for Gemini thinking models (e.g. 2.5 Pro).
+ * All other providers return thinkingContent = null.
+ */
+data class AiResponse(val answer: String, val thinkingContent: String? = null)
+
+suspend fun askAiWithThinking(settings: AiSettings, systemPrompt: String, userPrompt: String): AiResponse {
+    return when (settings.provider) {
+        "gemini" -> callGemini(settings, systemPrompt, userPrompt)
+        "custom" -> when {
+            settings.model.contains("gemini", ignoreCase = true) -> callGemini(settings, systemPrompt, userPrompt)
+            settings.model.contains("claude", ignoreCase = true) -> AiResponse(callClaude(settings, systemPrompt, userPrompt))
+            else -> AiResponse(callOpenAi(settings, systemPrompt, userPrompt))
+        }
+        "claude" -> AiResponse(callClaude(settings, systemPrompt, userPrompt))
+        else     -> AiResponse(callOpenAi(settings, systemPrompt, userPrompt))
     }
 }
 
@@ -130,29 +149,24 @@ fun callOpenAi(settings: AiSettings, systemPrompt: String, userPrompt: String): 
     }
 }
 
-// Gemini
-private fun callGemini(settings: AiSettings, systemPrompt: String, userPrompt: String): String {
+// Gemini — returns AiResponse with both the answer and optional thinking content
+private fun callGemini(settings: AiSettings, systemPrompt: String, userPrompt: String): AiResponse {
     val model = settings.model.ifBlank { "gemini-1.5-flash" }
     
     // Use custom base URL if provider is custom, otherwise use Google's API
     val url = if (settings.provider == "custom" && settings.baseUrl.isNotBlank()) {
-        // Custom endpoint - check if it already includes the path structure
         val baseUrl = settings.baseUrl.trimEnd('/')
         if (baseUrl.contains("/models/") || baseUrl.endsWith(":generateContent")) {
-            // Base URL already has the full path, just append key
             "$baseUrl?key=${settings.apiKey}"
         } else {
-            // Base URL is just the domain, add the full Gemini path
             "$baseUrl/v1beta/models/$model:generateContent?key=${settings.apiKey}"
         }
     } else {
-        // Standard Gemini API
         "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=${settings.apiKey}"
     }
     
     println("Gemini URL: $url")
     
-    // Properly construct JSON using Gson to avoid escaping issues
     val combinedPrompt = "$systemPrompt\n\n$userPrompt"
     val requestBody = mapOf(
         "contents" to listOf(
@@ -173,41 +187,45 @@ private fun callGemini(settings: AiSettings, systemPrompt: String, userPrompt: S
         .post(body.toRequestBody("application/json".toMediaType()))
         .build()
     val resp = client.newCall(req).execute()
-    val responseBody = resp.body?.string() ?: return "No response."
+    val responseBody = resp.body?.string() ?: return AiResponse("No response.")
     
     println("Gemini Response Code: ${resp.code}")
     println("Gemini Response Body: $responseBody")
     
-    // Check for HTTP errors
     if (!resp.isSuccessful) {
-        return "API Error (${resp.code}): $responseBody"
+        return AiResponse("API Error (${resp.code}): $responseBody")
     }
     
-    // Try to parse JSON response
     try {
         val json = gson.fromJson(responseBody, Map::class.java)
         @Suppress("UNCHECKED_CAST")
-        val candidates = json["candidates"] as? List<Map<String, Any>> ?: return "No response."
-        val content = candidates[0]["content"] as? Map<String, Any> ?: return "No response."
-        val parts = content["parts"] as? List<Map<String, Any>> ?: return "No response."
-        // Collect all non-thought parts and join them — handles thinking models (e.g. Gemini 2.5 Pro)
-        // where parts[0] is the reasoning chain and the actual answer follows in subsequent parts,
-        // as well as edge cases where the answer itself spans multiple parts.
-        val text = parts
+        val candidates = json["candidates"] as? List<Map<String, Any>> ?: return AiResponse("No response.")
+        val content = candidates[0]["content"] as? Map<String, Any> ?: return AiResponse("No response.")
+        val parts = content["parts"] as? List<Map<String, Any>> ?: return AiResponse("No response.")
+
+        // Separate thought parts from answer parts
+        val thinkingText = parts
+            .filter { it["thought"] == true }
+            .mapNotNull { it["text"] as? String }
+            .joinToString("")
+            .trim()
+            .ifEmpty { null }
+
+        val answerText = parts
             .filter { it["thought"] != true }
             .mapNotNull { it["text"] as? String }
             .joinToString("")
             .trim()
-            .ifEmpty { return "No response." }
+            .ifEmpty { return AiResponse("No response.") }
+
+        println("Gemini answer length: ${answerText.length} chars")
+        println("Gemini thinking length: ${thinkingText?.length ?: 0} chars")
+        println("Gemini answer (first 200 chars): ${answerText.take(200)}")
         
-        println("Gemini extracted text length: ${text.length} chars")
-        println("Gemini extracted text (first 200 chars): ${text.take(200)}")
-        println("Gemini extracted text (last 200 chars): ${text.takeLast(200)}")
-        
-        return text
+        return AiResponse(answer = answerText, thinkingContent = thinkingText)
     } catch (e: Exception) {
         println("Failed to parse Gemini response: ${e.message}")
-        return "Failed to parse API response: $responseBody"
+        return AiResponse("Failed to parse API response: $responseBody")
     }
 }
 

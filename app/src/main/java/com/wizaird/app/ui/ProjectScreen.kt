@@ -1469,6 +1469,7 @@ fun InsightPreviewOverlay(
     
     var copied by remember { mutableStateOf(false) }
     var noteSaved by remember { mutableStateOf(false) }
+    var showThinking by remember { mutableStateOf(false) }
     var showToast by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf("") }
     var isToastLoading by remember { mutableStateOf(false) }
@@ -1690,6 +1691,22 @@ fun InsightPreviewOverlay(
                                     onChatClick()
                                 }
                         )
+
+                        // Thinking icon — always shown
+                        val thinkingInteraction = remember { MutableInteractionSource() }
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/ai-app-mac.svg")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = "View AI reasoning",
+                            colorFilter = ColorFilter.tint(colors.textXLow),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .pixelRounded8ClickableOversize(
+                                    interactionSource = thinkingInteraction
+                                ) { showThinking = true }
+                        )
                     }
                 }
             }
@@ -1704,6 +1721,14 @@ fun InsightPreviewOverlay(
                 )
             }
         }
+    }
+
+    // Thinking overlay
+    if (showThinking) {
+        ThinkingOverlay(
+            thinkingContent = insight.thinkingContent ?: "No thought process was captured for this insight.",
+            onDismiss = { showThinking = false }
+        )
     }
 }
 

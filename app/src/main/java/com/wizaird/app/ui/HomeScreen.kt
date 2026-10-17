@@ -860,12 +860,12 @@ fun ChatBubble(
                         Image(
                             painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),
                             contentDescription = null,
-                            colorFilter = ColorFilter.tint(colors.textXLow),
+                            colorFilter = ColorFilter.tint(colors.textLow),
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
                             text = projectName.uppercase(),
-                            style = pixelStyle(12, colors.textXLow).copy(lineHeight = 18.sp),
+                            style = pixelStyle(12, colors.textLow).copy(lineHeight = 18.sp),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.offset(y = (-2).dp)

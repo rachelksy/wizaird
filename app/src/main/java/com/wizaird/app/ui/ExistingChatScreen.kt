@@ -84,7 +84,17 @@ fun ExistingChatScreen(
 
     // Load chat from repository
     val chat by chatFlow(context, chatId).collectAsState(initial = null)
-    val messages = chat?.messages ?: emptyList()
+    
+    // Optimistic messages that are added to local state immediately on send,
+    // before the DataStore round-trip completes. Once DataStore emits and its
+    // list already contains the message (matched by ID), the optimistic copy
+    // is dropped so we don't show duplicates.
+    var optimisticMessages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
+    
+    val persistedMessages = chat?.messages ?: emptyList()
+    val persistedIds = persistedMessages.map { it.id }.toSet()
+    // Merged list: persisted messages + any optimistic ones not yet persisted
+    val messages = persistedMessages + optimisticMessages.filter { it.id !in persistedIds }
 
     var inputText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -147,10 +157,13 @@ fun ExistingChatScreen(
         }
     }
     
-    // Auto-generate AI response when last message is from user
+    // Auto-generate AI response when last message is from user.
+    // Capture the snapshot of messages at effect-entry time so the IO coroutine
+    // works on a stable list even if recomposition happens mid-flight.
     LaunchedEffect(messages.size, messages.lastOrNull()?.id) {
-        if (messages.isNotEmpty() && 
-            messages.last().sender == MessageSender.USER && 
+        val snapshotMessages = messages  // stable snapshot for this effect invocation
+        if (snapshotMessages.isNotEmpty() && 
+            snapshotMessages.last().sender == MessageSender.USER && 
             !isGeneratingResponse &&
             project != null) {
             
@@ -163,8 +176,8 @@ fun ExistingChatScreen(
                     println("Chat ID: $chatId")
                     println("Project: ${project.name}")
                     println("Project ID: ${project.id}")
-                    println("User message: ${messages.last().text}")
-                    println("Total messages in chat: ${messages.size}")
+                    println("User message: ${snapshotMessages.last().text}")
+                    println("Total messages in chat: ${snapshotMessages.size}")
                     
                     val systemPrompt = buildChatSystemPrompt(project)
                     println("System prompt built (${systemPrompt.length} chars)")
@@ -174,7 +187,7 @@ fun ExistingChatScreen(
                     
                     // Build conversation history for context using chat's context window size
                     val contextWindowSize = chat?.contextWindowSize ?: 50
-                    val messagesToSend = messages.takeLast(contextWindowSize)
+                    val messagesToSend = snapshotMessages.takeLast(contextWindowSize)
                     println("Using context window size: $contextWindowSize (sending ${messagesToSend.size} messages)")
                     
                     val conversationHistory = messagesToSend.joinToString("\n") { msg ->
@@ -209,12 +222,12 @@ fun ExistingChatScreen(
                     println("=== CHAT AI RESPONSE SUCCESS ===")
                     
                     // Generate title in background (don't block or show loading)
-                    if (chat?.title == "Generated Title" && messages.size <= 2) {
+                    if (chat?.title == "Generated Title" && snapshotMessages.size <= 2) {
                         // Launch in application scope so it continues even if user navigates away
                         kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                             try {
                                 println("Generating chat title in background...")
-                                val firstUserMessage = messages.firstOrNull { it.sender == MessageSender.USER }?.text ?: ""
+                                val firstUserMessage = snapshotMessages.firstOrNull { it.sender == MessageSender.USER }?.text ?: ""
                                 val title = generateChatTitle(context, settings, aiResponse.answer, firstUserMessage)
                                 println("Generated title: $title")
                                 
@@ -621,21 +634,18 @@ fun ExistingChatScreen(
                 if (q.isNotEmpty() && !isSendingMessage) {
                     inputText = ""
                     isSendingMessage = true
-                    
+
+                    // Optimistically show the message instantly — no DataStore wait
+                    val userMessage = ChatMessage(
+                        sender = MessageSender.USER,
+                        text = q
+                    )
+                    optimisticMessages = optimisticMessages + userMessage
+
                     scope.launch {
-                        // Create and add user message
-                        val userMessage = ChatMessage(
-                            sender = MessageSender.USER,
-                            text = q
-                        )
+                        // Persist to DataStore in background
                         addMessageToChat(context, chatId, userMessage)
-                        
-                        // Scroll to bottom
-                        delay(100)
-                        listState.animateScrollToItem(messages.size)
-                        
                         isSendingMessage = false
-                        
                         // AI response will be generated automatically by LaunchedEffect
                     }
                 }

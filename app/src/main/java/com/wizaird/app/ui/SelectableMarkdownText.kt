@@ -24,6 +24,7 @@ import androidx.core.content.res.ResourcesCompat
 import coil.ImageLoader
 import coil.decode.SvgDecoder
 import com.wizaird.app.R
+import com.wizaird.app.ui.theme.LocalWizairdColors
 import io.noties.markwon.Markwon
 import io.noties.markwon.core.MarkwonTheme
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
@@ -33,6 +34,7 @@ import io.noties.markwon.html.HtmlPlugin
 import io.noties.markwon.image.coil.CoilImagesPlugin
 import io.noties.markwon.linkify.LinkifyPlugin
 import io.noties.markwon.syntax.Prism4jThemeDarkula
+import io.noties.markwon.syntax.Prism4jThemeDefault
 import io.noties.markwon.syntax.SyntaxHighlightPlugin
 import io.noties.prism4j.Prism4j
 
@@ -85,9 +87,15 @@ fun SelectableMarkdownText(
     
     // Create Prism4j instance for syntax highlighting
     val prism4j = remember { Prism4j(GrammarLocatorDef()) }
-    
-    // Create Markwon instance with all plugins and custom configuration
-    val markwon = remember(typeface, style, imageLoader) {
+
+    // Read the app-level theme (not system dark mode — the user can override independently)
+    val isDark = LocalWizairdColors.current.isDark
+
+    // Create Markwon instance with all plugins and custom configuration.
+    // isDark is included in the key so the instance rebuilds when the user
+    // toggles the in-app theme, picking up the correct syntax highlight theme
+    // and code background color.
+    val markwon = remember(typeface, style, imageLoader, isDark) {
         Markwon.builder(context)
             // Tables support
             .usePlugin(TablePlugin.create(context))
@@ -95,8 +103,11 @@ fun SelectableMarkdownText(
             .usePlugin(StrikethroughPlugin.create())
             // Task lists support (- [ ] and - [x])
             .usePlugin(TaskListPlugin.create(context))
-            // Syntax highlighting for code blocks
-            .usePlugin(SyntaxHighlightPlugin.create(prism4j, Prism4jThemeDarkula.create()))
+            // Syntax highlighting: Darkula for dark mode, Default (light) for light mode
+            .usePlugin(SyntaxHighlightPlugin.create(
+                prism4j,
+                if (isDark) Prism4jThemeDarkula.create() else Prism4jThemeDefault.create()
+            ))
             // Image loading with Coil
             .usePlugin(CoilImagesPlugin.create(context, imageLoader))
             // Linkify - make URLs, emails, phone numbers clickable
@@ -117,7 +128,11 @@ fun SelectableMarkdownText(
                     builder.codeTypeface(Typeface.MONOSPACE)
                     builder.headingTextSizeMultipliers(floatArrayOf(1.5f, 1.3f, 1.15f, 1f, 1f, 1f))
                     builder.linkColor(0xFF6B9BD1.toInt())
-                    builder.codeBackgroundColor(0x20FFFFFF)
+                    // In dark mode: semi-transparent white overlay on dark surface.
+                    // In light mode: semi-transparent black overlay on light/cream surface.
+                    builder.codeBackgroundColor(
+                        if (isDark) 0x20FFFFFF else 0x15000000
+                    )
                     // Blockquote styling
                     builder.blockQuoteColor(0xFFAAAAAA.toInt())
                 }

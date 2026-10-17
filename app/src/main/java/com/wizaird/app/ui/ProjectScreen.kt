@@ -384,7 +384,7 @@ fun ProjectScreen(
                 ).forEachIndexed { _, (tab, label) ->
                     val isActive = activeTab == tab
                     val tabInteraction = remember { MutableInteractionSource() }
-                    val iconColor = if (isActive) colors.textHigh else colors.textXLow
+                    val iconColor = if (isActive) colors.textHigh else colors.textLow
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.width(IntrinsicSize.Max)

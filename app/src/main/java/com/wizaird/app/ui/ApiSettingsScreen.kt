@@ -29,6 +29,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.wizaird.app.R
 import com.wizaird.app.data.AiSettings
+import com.wizaird.app.data.detectCustomApiFormat
 import com.wizaird.app.data.loadModels
 import com.wizaird.app.data.saveSettings
 import com.wizaird.app.data.settingsFlow
@@ -50,6 +51,15 @@ fun ApiSettingsScreen(
     var model       by remember(saved) { mutableStateOf("") } // Always start empty - user must select
     var baseUrl     by remember(saved) { mutableStateOf(saved.baseUrl) }
     var temperature by remember(saved) { mutableStateOf(saved.temperature) }
+    // Holds the format detected by Test Connection. Cleared when apiKey or baseUrl changes.
+    var detectedFormat by remember(saved) { mutableStateOf(saved.detectedFormat) }
+
+    // Invalidate detectedFormat whenever apiKey or baseUrl is edited
+    LaunchedEffect(apiKey, baseUrl) {
+        if (apiKey != saved.apiKey || baseUrl != saved.baseUrl) {
+            detectedFormat = ""
+        }
+    }
 
     var showProviderDropdown by remember { mutableStateOf(false) }
     var showModelDropdown by remember { mutableStateOf(false) }
@@ -136,7 +146,8 @@ fun ApiSettingsScreen(
                                     apiKey = apiKey,
                                     model = model,
                                     baseUrl = baseUrl,
-                                    temperature = temperature
+                                    temperature = temperature,
+                                    detectedFormat = detectedFormat
                                 )
                             )
                             onBack()
@@ -395,6 +406,13 @@ fun ApiSettingsScreen(
                                     baseUrl = baseUrl,
                                     temperature = temperature
                                 )
+                                // For custom provider, also detect the API format
+                                if (provider == "custom") {
+                                    detectCustomApiFormat(baseUrl, apiKey, model).fold(
+                                        onSuccess = { format -> detectedFormat = format },
+                                        onFailure = { detectedFormat = "" }
+                                    )
+                                }
                                 testApiConnection(settings).fold(
                                     onSuccess = { testResult = "✓ $it" },
                                     onFailure = { testResult = "✗ ${it.message}" }

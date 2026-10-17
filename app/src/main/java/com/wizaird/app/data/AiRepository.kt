@@ -24,7 +24,10 @@ data class AiSettings(
     val model: String = "",
     val baseUrl: String = "",
     val temperature: Float = 0.7f,
-    val darkMode: Boolean = false
+    val darkMode: Boolean = false,
+    // Detected during "Test Connection" for custom provider. Empty = use legacy model-name sniffing.
+    // Valid values: "openai", "gemini", "claude"
+    val detectedFormat: String = ""
 )
 
 private val KEY_SETTINGS = stringPreferencesKey("ai_settings")
@@ -53,17 +56,19 @@ suspend fun askAi(settings: AiSettings, systemPrompt: String, userPrompt: String
         "gemini"  -> callGemini(settings, systemPrompt, userPrompt).answer
         "claude"  -> callClaude(settings, systemPrompt, userPrompt)
         "custom"  -> {
+            // Use detectedFormat if available (set via Test Connection), otherwise fall back to model-name sniffing
+            val format = settings.detectedFormat.ifBlank { null }
             when {
-                settings.model.contains("gemini", ignoreCase = true) -> {
-                    println("Custom provider detected Gemini model, using Gemini API format")
+                format == "gemini" || (format == null && settings.model.contains("gemini", ignoreCase = true)) -> {
+                    println("Custom provider using Gemini API format (detected=$format)")
                     callGemini(settings, systemPrompt, userPrompt).answer
                 }
-                settings.model.contains("claude", ignoreCase = true) -> {
-                    println("Custom provider detected Claude model, using Claude API format")
+                format == "claude" || (format == null && settings.model.contains("claude", ignoreCase = true)) -> {
+                    println("Custom provider using Claude API format (detected=$format)")
                     callClaude(settings, systemPrompt, userPrompt)
                 }
                 else -> {
-                    println("Custom provider using OpenAI-compatible format")
+                    println("Custom provider using OpenAI-compatible format (detected=$format)")
                     callOpenAi(settings, systemPrompt, userPrompt)
                 }
             }
@@ -82,13 +87,16 @@ data class AiResponse(val answer: String, val thinkingContent: String? = null)
 suspend fun askAiWithThinking(settings: AiSettings, systemPrompt: String, userPrompt: String): AiResponse {
     return when (settings.provider) {
         "gemini" -> callGemini(settings, systemPrompt, userPrompt)
-        "custom" -> when {
-            settings.model.contains("gemini", ignoreCase = true) -> callGemini(settings, systemPrompt, userPrompt)
-            settings.model.contains("claude", ignoreCase = true) -> AiResponse(callClaude(settings, systemPrompt, userPrompt))
-            else -> AiResponse(callOpenAi(settings, systemPrompt, userPrompt))
+        "custom" -> {
+            val format = settings.detectedFormat.ifBlank { null }
+            when {
+                format == "gemini" || (format == null && settings.model.contains("gemini", ignoreCase = true)) -> callGemini(settings, systemPrompt, userPrompt)
+                format == "claude" || (format == null && settings.model.contains("claude", ignoreCase = true)) -> AiResponse(callClaude(settings, systemPrompt, userPrompt))
+                else -> callOpenAiWithThinking(settings, systemPrompt, userPrompt)
+            }
         }
         "claude" -> AiResponse(callClaude(settings, systemPrompt, userPrompt))
-        else     -> AiResponse(callOpenAi(settings, systemPrompt, userPrompt))
+        else     -> callOpenAiWithThinking(settings, systemPrompt, userPrompt)
     }
 }
 
@@ -104,17 +112,27 @@ private data class OaiMessage(@SerializedName("role") val role: String, @Seriali
 private data class OaiRequest(
     @SerializedName("model") val model: String,
     @SerializedName("messages") val messages: List<OaiMessage>,
-    @SerializedName("temperature") val temperature: Float
+    @SerializedName("temperature") val temperature: Float,
+    @SerializedName("stream") val stream: Boolean = false
 )
 
 fun callOpenAi(settings: AiSettings, systemPrompt: String, userPrompt: String): String {
+    return callOpenAiWithThinking(settings, systemPrompt, userPrompt).answer
+}
+
+fun callOpenAiWithThinking(settings: AiSettings, systemPrompt: String, userPrompt: String): AiResponse {
     val url = if (settings.provider == "custom") {
-        settings.baseUrl.ifBlank { "https://api.openai.com/v1/chat/completions" }
+        val base = settings.baseUrl.ifBlank { "https://api.openai.com/v1/chat/completions" }.trimEnd('/')
+        if (settings.detectedFormat == "openai" && !base.contains("chat/completions")) {
+            "$base/v1/chat/completions"
+        } else {
+            base
+        }
     } else {
         "https://api.openai.com/v1/chat/completions"
     }
     val model = settings.model.ifBlank { "gpt-4o-mini" }
-    val body = gson.toJson(OaiRequest(
+    val requestBodyJson = gson.toJson(OaiRequest(
         model = model,
         messages = listOf(OaiMessage("system", systemPrompt), OaiMessage("user", userPrompt)),
         temperature = settings.temperature
@@ -123,30 +141,84 @@ fun callOpenAi(settings: AiSettings, systemPrompt: String, userPrompt: String): 
         .url(url)
         .addHeader("Authorization", "Bearer ${settings.apiKey}")
         .addHeader("Content-Type", "application/json")
-        .post(body.toRequestBody("application/json".toMediaType()))
+        .post(requestBodyJson.toRequestBody("application/json".toMediaType()))
         .build()
-    val resp = client.newCall(req).execute()
-    val responseBody = resp.body?.string() ?: return "No response."
-    
-    println("OpenAI Response Code: ${resp.code}")
-    println("OpenAI Response Body: $responseBody")
-    
-    // Check for HTTP errors
-    if (!resp.isSuccessful) {
-        return "API Error (${resp.code}): $responseBody"
+
+    val resp = try {
+        client.newCall(req).execute()
+    } catch (e: Exception) {
+        return AiResponse("Network error: ${e.message}")
     }
-    
-    // Try to parse JSON response
+
+    val responseBody = resp.body?.string() ?: return AiResponse("No response.")
+
+    println("OpenAI Response Code: ${resp.code}")
+    println("OpenAI Response Body (first 500): ${responseBody.take(500)}")
+
+    if (!resp.isSuccessful) {
+        return AiResponse("API Error (${resp.code}): $responseBody")
+    }
+
+    // Step 1: Try standard OpenAI shape — choices[0].message.content
+    // Also extract reasoning_content for thinking models
     try {
         val json = gson.fromJson(responseBody, Map::class.java)
         @Suppress("UNCHECKED_CAST")
-        val choices = json["choices"] as? List<Map<String, Any>> ?: return "No response."
-        val msg = choices[0]["message"] as? Map<String, Any> ?: return "No response."
-        return (msg["content"] as? String)?.trim() ?: "No response."
+        val choices = json["choices"] as? List<Map<String, Any>>
+        if (choices != null && choices.isNotEmpty()) {
+            val msg = choices[0]["message"] as? Map<String, Any>
+            val content = (msg?.get("content") as? String)?.trim()
+            if (!content.isNullOrBlank()) {
+                // reasoning_content is the standard field for thinking in OpenAI-compatible aggregators
+                val reasoning = (msg?.get("reasoning_content") as? String)?.trim()?.ifEmpty { null }
+                println("OpenAI thinking length: ${reasoning?.length ?: 0} chars")
+                return AiResponse(answer = content, thinkingContent = reasoning)
+            }
+            val text = (choices[0]["text"] as? String)?.trim()
+            if (!text.isNullOrBlank()) return AiResponse(answer = text)
+        }
+
+        // Step 2: Valid JSON but unexpected shape — scan for any known text-bearing field
+        val extracted = extractTextFromJson(json)
+        if (extracted != null) {
+            println("OpenAI fallback: extracted text from unexpected JSON shape")
+            return AiResponse(answer = extracted)
+        }
     } catch (e: Exception) {
-        println("Failed to parse OpenAI response: ${e.message}")
-        return "Failed to parse API response: $responseBody"
+        println("OpenAI standard parse failed: ${e.message}")
     }
+
+    // Step 3: Not JSON or nothing found — return raw body
+    return AiResponse(answer = responseBody)
+}
+
+/**
+ * Best-effort scan of an arbitrary JSON map for any field that looks like
+ * a substantive text response. Checks common field names at any nesting level.
+ */
+@Suppress("UNCHECKED_CAST")
+private fun extractTextFromJson(json: Map<*, *>): String? {
+    val textKeys = setOf("content", "text", "message", "response", "answer", "output", "result", "generated_text")
+
+    // Breadth-first search across the map
+    val queue = ArrayDeque<Any?>()
+    queue.add(json)
+
+    while (queue.isNotEmpty()) {
+        val node = queue.removeFirst()
+        when (node) {
+            is Map<*, *> -> {
+                for ((k, v) in node) {
+                    if (k is String && k.lowercase() in textKeys && v is String && v.trim().length > 10) {
+                        return v.trim()
+                    }
+                    queue.add(v)
+                }
+            }
+            is List<*> -> node.forEach { queue.add(it) }
+        }
+    }
+    return null
 }
 
 // Gemini — returns AiResponse with both the answer and optional thinking content
@@ -196,37 +268,47 @@ private fun callGemini(settings: AiSettings, systemPrompt: String, userPrompt: S
         return AiResponse("API Error (${resp.code}): $responseBody")
     }
     
+    // Step 1: Try standard Gemini shape — candidates[0].content.parts[].text
     try {
         val json = gson.fromJson(responseBody, Map::class.java)
         @Suppress("UNCHECKED_CAST")
-        val candidates = json["candidates"] as? List<Map<String, Any>> ?: return AiResponse("No response.")
-        val content = candidates[0]["content"] as? Map<String, Any> ?: return AiResponse("No response.")
-        val parts = content["parts"] as? List<Map<String, Any>> ?: return AiResponse("No response.")
+        val candidates = json["candidates"] as? List<Map<String, Any>>
+        if (candidates != null && candidates.isNotEmpty()) {
+            val content = candidates[0]["content"] as? Map<String, Any>
+            val parts = content?.get("parts") as? List<Map<String, Any>>
+            if (parts != null) {
+                val thinkingText = parts
+                    .filter { it["thought"] == true }
+                    .mapNotNull { it["text"] as? String }
+                    .joinToString("").trim().ifEmpty { null }
 
-        // Separate thought parts from answer parts
-        val thinkingText = parts
-            .filter { it["thought"] == true }
-            .mapNotNull { it["text"] as? String }
-            .joinToString("")
-            .trim()
-            .ifEmpty { null }
+                val answerText = parts
+                    .filter { it["thought"] != true }
+                    .mapNotNull { it["text"] as? String }
+                    .joinToString("").trim()
 
-        val answerText = parts
-            .filter { it["thought"] != true }
-            .mapNotNull { it["text"] as? String }
-            .joinToString("")
-            .trim()
-            .ifEmpty { return AiResponse("No response.") }
+                if (answerText.isNotBlank()) {
+                    println("Gemini answer length: ${answerText.length} chars")
+                    println("Gemini thinking length: ${thinkingText?.length ?: 0} chars")
+                    println("Gemini answer (first 200 chars): ${answerText.take(200)}")
+                    return AiResponse(answer = answerText, thinkingContent = thinkingText)
+                }
+            }
+        }
 
-        println("Gemini answer length: ${answerText.length} chars")
-        println("Gemini thinking length: ${thinkingText?.length ?: 0} chars")
-        println("Gemini answer (first 200 chars): ${answerText.take(200)}")
-        
-        return AiResponse(answer = answerText, thinkingContent = thinkingText)
+        // Step 2: Valid JSON but unexpected shape — scan for any text-bearing field
+        val extracted = extractTextFromJson(json)
+        if (extracted != null) {
+            println("Gemini fallback: extracted text from unexpected JSON shape")
+            return AiResponse(answer = extracted)
+        }
     } catch (e: Exception) {
-        println("Failed to parse Gemini response: ${e.message}")
-        return AiResponse("Failed to parse API response: $responseBody")
+        println("Gemini standard parse failed: ${e.message}")
     }
+
+    // Step 3: Not valid JSON — return the raw body as-is so the user can see what came back
+    println("Gemini fallback: returning raw body as response")
+    return AiResponse(answer = responseBody)
 }
 
 // Claude (Anthropic)
@@ -261,6 +343,89 @@ private fun callClaude(settings: AiSettings, systemPrompt: String, userPrompt: S
         println("Failed to parse Claude response: ${e.message}")
         return "Failed to parse API response: $responseBody"
     }
+}
+
+// ── Detect Custom API Format ─────────────────────────────────────
+/**
+ * Probes a custom endpoint to detect which API format it speaks.
+ * Tries OpenAI-compatible first (most common aggregators), then Gemini-native, then Claude-native.
+ * Returns "openai", "gemini", or "claude" on success, or fails if none respond recognizably.
+ *
+ * A format is considered "recognized" when the endpoint returns any HTTP response whose
+ * status code is NOT 404 — even 400/401/403/429/500 mean the endpoint understood the shape.
+ * A 404 means the path doesn't exist for that format.
+ */
+suspend fun detectCustomApiFormat(baseUrl: String, apiKey: String, model: String): Result<String> = withContext(Dispatchers.IO) {
+    val trimmedBase = baseUrl.trimEnd('/')
+
+    // 1. Try OpenAI-compatible: POST /chat/completions
+    try {
+        val url = if (trimmedBase.endsWith("/chat/completions")) trimmedBase
+                  else "$trimmedBase/chat/completions"
+        val body = """{"model":"${model.ifBlank { "test" }}","messages":[{"role":"user","content":"hi"}],"max_tokens":1}"""
+        val req = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Content-Type", "application/json")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .build()
+        val resp = client.newCall(req).execute()
+        val code = resp.code
+        resp.body?.string() // consume body
+        println("detectCustomApiFormat OpenAI probe: $code at $url")
+        if (code != 404) {
+            return@withContext Result.success("openai")
+        }
+    } catch (e: Exception) {
+        println("detectCustomApiFormat OpenAI probe failed: ${e.message}")
+    }
+
+    // 2. Try Gemini-native: POST /v1beta/models/{model}:generateContent
+    try {
+        val geminiModel = model.ifBlank { "gemini-1.5-flash" }
+        val url = "$trimmedBase/v1beta/models/$geminiModel:generateContent?key=$apiKey"
+        val body = """{"contents":[{"parts":[{"text":"hi"}]}]}"""
+        val req = Request.Builder()
+            .url(url)
+            .addHeader("Content-Type", "application/json")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .build()
+        val resp = client.newCall(req).execute()
+        val code = resp.code
+        resp.body?.string()
+        println("detectCustomApiFormat Gemini probe: $code at $url")
+        if (code != 404) {
+            return@withContext Result.success("gemini")
+        }
+    } catch (e: Exception) {
+        println("detectCustomApiFormat Gemini probe failed: ${e.message}")
+    }
+
+    // 3. Try Claude-native: POST /v1/messages
+    try {
+        val url = if (trimmedBase.endsWith("/v1/messages")) trimmedBase
+                  else "$trimmedBase/v1/messages"
+        val claudeModel = model.ifBlank { "claude-haiku-4-5" }
+        val body = """{"model":"$claudeModel","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}"""
+        val req = Request.Builder()
+            .url(url)
+            .addHeader("x-api-key", apiKey)
+            .addHeader("anthropic-version", "2023-06-01")
+            .addHeader("Content-Type", "application/json")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .build()
+        val resp = client.newCall(req).execute()
+        val code = resp.code
+        resp.body?.string()
+        println("detectCustomApiFormat Claude probe: $code at $url")
+        if (code != 404) {
+            return@withContext Result.success("claude")
+        }
+    } catch (e: Exception) {
+        println("detectCustomApiFormat Claude probe failed: ${e.message}")
+    }
+
+    return@withContext Result.failure(Exception("Could not detect API format — all probes returned 404"))
 }
 
 // ── Test API Connection ──────────────────────────────────────────

@@ -55,6 +55,7 @@ import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.data.AiSettings
 import com.wizaird.app.data.generateChatTitle
+
 import com.wizaird.app.data.upsertChat
 import kotlinx.coroutines.flow.first
 import com.wizaird.app.ui.theme.*
@@ -221,25 +222,14 @@ fun ExistingChatScreen(
                     
                     println("=== CHAT AI RESPONSE SUCCESS ===")
                     
-                    // Generate title in background (don't block or show loading)
+                    // Generate title from the user's first message (no API call needed)
                     if (chat?.title == "Generated Title" && snapshotMessages.size <= 2) {
-                        // Launch in application scope so it continues even if user navigates away
-                        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                            try {
-                                println("Generating chat title in background...")
-                                val firstUserMessage = snapshotMessages.firstOrNull { it.sender == MessageSender.USER }?.text ?: ""
-                                val title = generateChatTitle(context, settings, aiResponse.answer, firstUserMessage)
-                                println("Generated title: $title")
-                                
-                                // Update chat with new title
-                                val currentChat = chatFlow(context, chatId).first()
-                                currentChat?.let {
-                                    val updatedChat = it.copy(title = title)
-                                    upsertChat(context, updatedChat)
-                                }
-                            } catch (e: Exception) {
-                                println("Failed to generate title in background: ${e.message}")
-                            }
+                        val firstUserMessage = snapshotMessages.firstOrNull { it.sender == MessageSender.USER }?.text ?: ""
+                        val title = generateChatTitle(firstUserMessage)
+                        println("Generated title: $title")
+                        val currentChat = chatFlow(context, chatId).first()
+                        currentChat?.let {
+                            upsertChat(context, it.copy(title = title))
                         }
                     }
                 } catch (e: Exception) {
@@ -1117,20 +1107,27 @@ fun ChatBubble(
                                     )
                                 }
 
-                                // Thinking icon — always shown on AI messages
+                                // Thinking icon — only interactive when thinking content exists
+                                val hasThinking = message.thinkingContent != null
                                 val thinkingInteraction = remember { MutableInteractionSource() }
                                 AsyncImage(
                                     model = ImageRequest.Builder(context)
                                         .data("file:///android_asset/pixelarticons/ai-app-mac.svg")
                                         .build(),
                                     imageLoader = svgLoader,
-                                    contentDescription = "View AI reasoning",
-                                    colorFilter = ColorFilter.tint(colors.textXLow),
+                                    contentDescription = if (hasThinking) "View AI reasoning" else "No thought process captured",
+                                    colorFilter = ColorFilter.tint(
+                                        if (hasThinking) colors.textXLow
+                                        else colors.textXLow.copy(alpha = 0.35f)
+                                    ),
                                     modifier = Modifier
                                         .size(20.dp)
-                                        .pixelRounded8ClickableOversize(
-                                            interactionSource = thinkingInteraction
-                                        ) { showThinking = true }
+                                        .then(
+                                            if (hasThinking) Modifier.pixelRounded8ClickableOversize(
+                                                interactionSource = thinkingInteraction
+                                            ) { showThinking = true }
+                                            else Modifier
+                                        )
                                 )
                             }
                             

@@ -44,7 +44,7 @@ import com.wizaird.app.data.askAi
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.data.shouldGenerateNewInsight
-import com.wizaird.app.data.getNextInsight
+import com.wizaird.app.data.generateInsight
 import com.wizaird.app.data.InsightResult
 import com.wizaird.app.data.upsertProject
 import com.wizaird.app.data.upsertChat
@@ -87,19 +87,12 @@ fun HomeScreen(
         currentGenerationJob?.cancel()
         
         currentGenerationJob = scope.launch {
-            // Check if we have a queued insight
-            val hasQueuedInsight = project.queuedInsight.isNotEmpty()
-            
-            // Only show loading if no queued insight
-            isLoading = !hasQueuedInsight
-            if (!hasQueuedInsight) {
-                bubbleText = ""
-            }
+            isLoading = true
+            bubbleText = ""
             
             println("HomeScreen: Starting insight generation for project: ${project.name}")
-            println("HomeScreen: Has queued insight: $hasQueuedInsight")
             
-            val result = getNextInsight(context, project, settings)
+            val result = generateInsight(context, project, settings)
             
             when (result) {
                 is InsightResult.Success -> {
@@ -110,7 +103,7 @@ fun HomeScreen(
                     val insight = result.insight
                     for (i in insight.indices) {
                         bubbleText = insight.substring(0, i + 1)
-                        delay(18)
+                        delay(4)
                     }
                 }
                 is InsightResult.Error -> {
@@ -124,6 +117,12 @@ fun HomeScreen(
 
     // Auto-generate insight when active project changes or on first load
     LaunchedEffect(activeProject?.id, projects.size) {
+        // Reset state immediately so stale content from the previous project
+        // never bleeds through while the new one loads.
+        currentGenerationJob?.cancel()
+        bubbleText = ""
+        bubbleThinking = null
+
         if (projects.isEmpty()) {
             // No projects yet
             bubbleText = "Create a project to start your learning journey!"
@@ -175,7 +174,7 @@ fun HomeScreen(
                 isLoading = false
                 for (i in result.indices) {
                     bubbleText = result.substring(0, i + 1)
-                    delay(18)
+                    delay(4)
                 }
             } catch (e: Exception) {
                 isLoading = false
@@ -1060,21 +1059,28 @@ fun ChatBubble(
                             ) { onRegenerate() }
                     )
 
-                    // Thinking icon — always shown; overlay shows message if no content captured
+                    // Thinking icon — only interactive when thinking content exists
                     if (!loading) {
+                        val hasThinking = thinkingContent != null
                         val thinkingInteraction = remember { MutableInteractionSource() }
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data("file:///android_asset/pixelarticons/ai-app-mac.svg")
                                 .build(),
                             imageLoader = svgLoader,
-                            contentDescription = "View AI reasoning",
-                            colorFilter = ColorFilter.tint(if (thinkingContent != null) colors.textXLow else colors.textXLow),
+                            contentDescription = if (hasThinking) "View AI reasoning" else "No thought process captured",
+                            colorFilter = ColorFilter.tint(
+                                if (hasThinking) colors.textXLow
+                                else colors.textXLow.copy(alpha = 0.35f)
+                            ),
                             modifier = Modifier
                                 .size(20.dp)
-                                .pixelRounded8ClickableOversize(
-                                    interactionSource = thinkingInteraction
-                                ) { showThinking = true }
+                                .then(
+                                    if (hasThinking) Modifier.pixelRounded8ClickableOversize(
+                                        interactionSource = thinkingInteraction
+                                    ) { showThinking = true }
+                                    else Modifier
+                                )
                         )
                     }
                 }

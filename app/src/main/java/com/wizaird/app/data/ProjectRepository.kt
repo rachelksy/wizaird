@@ -55,7 +55,6 @@ class ProjectDeserializer : JsonDeserializer<Project> {
         val lastInsightText = jsonObject.get("lastInsightText")?.asString ?: ""
         val pinnedInsight = jsonObject.get("pinnedInsight")?.asBoolean ?: false
         val order = jsonObject.get("order")?.asInt ?: 0
-        val queuedInsight = jsonObject.get("queuedInsight")?.asString ?: ""
         val prioritizeInstructions = jsonObject.get("prioritizeInstructions")?.asBoolean ?: false
         
         // Handle insightHistory migration
@@ -112,7 +111,6 @@ class ProjectDeserializer : JsonDeserializer<Project> {
             pinnedInsight = pinnedInsight,
             insightHistory = insightHistory,
             order = order,
-            queuedInsight = queuedInsight,
             prioritizeInstructions = prioritizeInstructions,
             progressInsightCount = progressInsightCount,
             progressChatCount = progressChatCount,
@@ -134,7 +132,6 @@ data class Project(
     val pinnedInsight: Boolean = false,  // If true, auto-generation is paused for this project
     val insightHistory: List<InsightHistoryEntry> = emptyList(),  // Last 20 insights with IDs, oldest first
     val order: Int = 0,  // Display order, lower numbers appear first
-    val queuedInsight: String = "",  // Pre-generated insight ready to show instantly
     val prioritizeInstructions: Boolean = false,  // If true, AI instructions carry more weight in prompt
     val progressInsightCount: Int = 20,  // How many recent insights to include when generating progress
     val progressChatCount: Int = 10,     // How many recent chats to include when generating progress

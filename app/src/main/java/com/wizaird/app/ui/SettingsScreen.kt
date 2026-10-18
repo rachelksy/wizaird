@@ -8,10 +8,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
 import com.wizaird.app.ui.theme.*
 
 @Composable
@@ -118,7 +124,11 @@ fun SettingsSectionCard(
     onClick: () -> Unit
 ) {
     val colors = LocalWizairdColors.current
+    val context = LocalContext.current
     val interaction = remember { MutableInteractionSource() }
+    val svgLoader = remember {
+        ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
+    }
 
     PixelBox(
         modifier = Modifier
@@ -128,13 +138,29 @@ fun SettingsSectionCard(
         borderColor = androidx.compose.ui.graphics.Color.Transparent,
         cornerStyle = PixelCornerStyle.Rounded
     ) {
-        Text(
-            text = label,
-            style = pixelStyle(12, colors.secondaryIcon),
+        Row(
             modifier = Modifier
-                .padding(vertical = 16.dp, horizontal = 12.dp)
-                .offset(y = (-2).dp)
-        )
+                .fillMaxWidth()
+                .padding(vertical = 16.dp, horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = pixelStyle(12, colors.secondaryIcon),
+                modifier = Modifier
+                    .weight(1f)
+                    .offset(y = (-2).dp)
+            )
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data("file:///android_asset/pixelarticons/chevron-right.svg")
+                    .build(),
+                imageLoader = svgLoader,
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
 

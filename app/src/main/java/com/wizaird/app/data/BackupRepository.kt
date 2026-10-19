@@ -28,6 +28,7 @@ data class BackupData(
     val notes: List<NoteData> = emptyList(),
     val chats: List<ChatData> = emptyList(),
     val storedInsights: List<StoredInsight> = emptyList(),
+    val glossaryWords: List<GlossaryWord> = emptyList(),
     val settings: AiSettings = AiSettings(),
     val imageFiles: List<String> = emptyList()  // List of image filenames included in backup
 )
@@ -95,6 +96,15 @@ suspend fun exportBackup(context: Context, destinationUri: Uri): Result<String> 
             AiSettings()
         }
         
+        // Parse glossary words
+        val glossaryJson = prefs[stringPreferencesKey("glossary_words")]
+        val glossaryType = object : TypeToken<List<GlossaryWord>>() {}.type
+        val glossaryWords: List<GlossaryWord> = if (glossaryJson != null) {
+            gson.fromJson(glossaryJson, glossaryType) ?: emptyList()
+        } else {
+            emptyList()
+        }
+        
         // Collect image files
         val imageFiles = mutableListOf<String>()
         val imagePaths = projects.mapNotNull { project ->
@@ -110,6 +120,7 @@ suspend fun exportBackup(context: Context, destinationUri: Uri): Result<String> 
             notes = notes,
             chats = chats,
             storedInsights = insights,
+            glossaryWords = glossaryWords,
             settings = settings,
             imageFiles = imagePaths.map { File(it).name }
         )
@@ -145,6 +156,7 @@ suspend fun exportBackup(context: Context, destinationUri: Uri): Result<String> 
             append("• ${notes.size} notes\n")
             append("• ${chats.size} chats\n")
             append("• ${insights.size} insights\n")
+            append("• ${glossaryWords.size} glossary words\n")
             append("• ${imagePaths.size} images\n")
             append("• Settings")
         }
@@ -277,6 +289,19 @@ suspend fun importBackup(
                 prefs[stringPreferencesKey("stored_insights")] = gson.toJson(mergedInsights)
             }
             
+            // Merge glossary words (by ID)
+            val existingGlossaryJson = prefs[stringPreferencesKey("glossary_words")]
+            val glossaryType = object : TypeToken<List<GlossaryWord>>() {}.type
+            val existingGlossaryWords: List<GlossaryWord> = if (existingGlossaryJson != null) {
+                gson.fromJson(existingGlossaryJson, glossaryType) ?: emptyList()
+            } else {
+                emptyList()
+            }
+            val mergedGlossaryWords = mergeById(existingGlossaryWords, backup.glossaryWords) { it.id }
+            context.dataStore.edit { prefs ->
+                prefs[stringPreferencesKey("glossary_words")] = gson.toJson(mergedGlossaryWords)
+            }
+            
             // Don't merge settings in merge mode - keep existing
         } else {
             // Replace all data
@@ -285,6 +310,7 @@ suspend fun importBackup(
                 prefs[stringPreferencesKey("notes")] = gson.toJson(backup.notes)
                 prefs[stringPreferencesKey("chats")] = gson.toJson(backup.chats)
                 prefs[stringPreferencesKey("stored_insights")] = gson.toJson(backup.storedInsights)
+                prefs[stringPreferencesKey("glossary_words")] = gson.toJson(backup.glossaryWords)
                 prefs[stringPreferencesKey("ai_settings")] = gson.toJson(backup.settings)
             }
         }
@@ -296,6 +322,7 @@ suspend fun importBackup(
             append("• ${backup.notes.size} notes\n")
             append("• ${backup.chats.size} chats\n")
             append("• ${backup.storedInsights.size} insights\n")
+            append("• ${backup.glossaryWords.size} glossary words\n")
             append("• ${imageFiles.size} images\n")
             if (!mergeMode) {
                 append("• Settings")

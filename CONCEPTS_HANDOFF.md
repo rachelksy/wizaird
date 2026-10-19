@@ -33,7 +33,7 @@ Wizaird has a Glossary today. We are replacing it with **Concepts**. A concept i
 - "Add to concepts" replaces "Add to glossary" everywhere it appears (home bubble, chats, insight chat, insight preview, text-selection menu).
 - Duplicates: when a new concept matches an existing name or alias, warn and offer to open the existing concept.
 - Concepts list: newest first, with a sort option. Ghosts are mixed into the list, with filter chips: All / Ghosts only / Hide ghosts.
-- Tab order: Chats first, Concepts second, then the rest. Opening a project still lands on Chats.
+- Tab order: Concepts first, then Chats, Insights, Notes. Opening a project still lands on Chats.
 
 ## Proposed:
 - "Ask about this" button on a concept page that starts a normal chat seeded with the concept's intro and tagged with the concept.
@@ -89,3 +89,4 @@ Built and tested on the emulator with `Backups/backup.json` (20 glossary words â
 - TEMPORARY: debug builds add, once, "Sample ghost" and "Sample concept with links" (linked to the project's 5 latest chats + 2 latest insights) to each project that has concepts (`addSampleConceptsOnce`, flag `concepts_samples_v2_added`). Remove once ghosts are created for real.
 - Concept list: filter button opens a bottom sheet (All / Hide ghosts) like sort (shared `PixelOptionsBottomSheet`). Card preview = brief description only; empty â†’ "No description or article" (secondary text).
 - Concept page section order: Related concepts, Chats, Insights, Notes. Empty texts: "No chats/insights/notes linked to this concept yet", "No related concepts yet".
+- Chat cards (Chats tab) show pills for concepts linked to that chat, like insight cards. Related concepts on the concept page are pills with no card; empty = small secondary "No related concepts".

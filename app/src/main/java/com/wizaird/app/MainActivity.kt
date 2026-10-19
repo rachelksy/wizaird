@@ -168,6 +168,10 @@ class MainActivity : ComponentActivity() {
                                     // Tag pill on a note card: Back should return to Notes
                                     openFromTab(id, tab, ProjectTab.NOTES, "concept/${id}/${conceptId}")
                                 },
+                                onChatConceptClick = { conceptId ->
+                                    // Concept pill on a chat card: Back should return to Chats
+                                    openFromTab(id, tab, ProjectTab.CHATS, "concept/${id}/${conceptId}")
+                                },
                                 onInsightNewConceptClick = { openFromTab(id, tab, ProjectTab.INSIGHTS, "concept/${id}/new") },
                                 onInsightConceptClick = { conceptId ->
                                     // Concept pill on an insight: Back should return to Insights

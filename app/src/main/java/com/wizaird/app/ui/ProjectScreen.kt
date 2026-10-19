@@ -82,6 +82,7 @@ fun ProjectScreen(
     onEditConceptClick: (String) -> Unit = {},  // open the concept edit screen
     onNoteConceptClick: (String) -> Unit = onConceptClick, // tag pill on a note card
     onInsightConceptClick: (String) -> Unit = onConceptClick, // concept pill on an insight
+    onChatConceptClick: (String) -> Unit = onConceptClick, // concept pill on a chat card
     onInsightNewConceptClick: () -> Unit = onNewConceptClick, // "Add to concepts" from an insight
     initialTab: ProjectTab = ProjectTab.CHATS
 ) {
@@ -128,6 +129,12 @@ fun ProjectScreen(
     // All concepts in the project, for the tag pills on note cards
     val allConcepts by remember(projectId) { conceptsFlow(context, projectId) }.collectAsState(initial = emptyList())
     val conceptsById = remember(allConcepts) { allConcepts.associateBy { it.id } }
+    // Concepts linked to each chat, for the pills on chat cards
+    val conceptsByChat = remember(allConcepts) {
+        allConcepts
+            .flatMap { c -> c.sources.mapNotNull { it.chatId }.distinct().map { it to c } }
+            .groupBy({ it.first }, { it.second })
+    }
     // Concepts added from each insight, for the pills on insight cards
     val conceptsByInsight = remember(allConcepts) {
         allConcepts
@@ -397,8 +404,8 @@ fun ProjectScreen(
                         .build()
                 }
                 listOf(
-                    ProjectTab.CHATS to "Chats",
                     ProjectTab.CONCEPTS to "Concepts",
+                    ProjectTab.CHATS to "Chats",
                     ProjectTab.INSIGHTS to "Insights",
                     ProjectTab.NOTES to "Notes"
                 ).forEachIndexed { _, (tab, label) ->
@@ -409,11 +416,11 @@ fun ProjectScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.width(IntrinsicSize.Max)
                     ) {
-                        // Scroll to start when Chats is active, scroll to end when Notes (last tab) is active
+                        // Scroll to start when Concepts (first tab) is active, scroll to end when Notes (last tab) is active
                         LaunchedEffect(isActive) {
                             if (isActive) {
                                 when (tab) {
-                                    ProjectTab.CHATS -> tabScrollState.animateScrollTo(0)
+                                    ProjectTab.CONCEPTS -> tabScrollState.animateScrollTo(0)
                                     ProjectTab.NOTES -> tabScrollState.animateScrollTo(tabScrollState.maxValue)
                                     else -> {}
                                 }
@@ -557,7 +564,9 @@ fun ProjectScreen(
                             items(chats) { chat ->
                                 ChatListItem(
                                     chat = chat,
-                                    onClick = { onChatClick(chat.id) }
+                                    onClick = { onChatClick(chat.id) },
+                                    concepts = conceptsByChat[chat.id] ?: emptyList(),
+                                    onConceptClick = onChatConceptClick
                                 )
                             }
                         }
@@ -981,8 +990,14 @@ fun ProjectScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ChatListItem(chat: com.wizaird.app.data.ChatData, onClick: () -> Unit = {}) {
+fun ChatListItem(
+    chat: com.wizaird.app.data.ChatData,
+    onClick: () -> Unit = {},
+    concepts: List<Concept> = emptyList(),  // concepts linked to this chat
+    onConceptClick: (String) -> Unit = {}
+) {
     val colors = LocalWizairdColors.current
     val interaction = remember { MutableInteractionSource() }
     PixelBox(
@@ -1012,6 +1027,18 @@ fun ChatListItem(chat: com.wizaird.app.data.ChatData, onClick: () -> Unit = {}) 
                 style = pixelStyle(8, colors.secondaryIconSoft),
                 modifier = Modifier.offset(y = (-2).dp)
             )
+            // Concepts linked to this chat
+            if (concepts.isNotEmpty()) {
+                FlowRow(
+                    modifier = Modifier.padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    concepts.forEach { concept ->
+                        ConceptPill(label = concept.name, ghost = concept.isGhost, onClick = { onConceptClick(concept.id) })
+                    }
+                }
+            }
         }
     }
 }

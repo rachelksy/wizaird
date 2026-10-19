@@ -752,14 +752,27 @@ fun ConceptPageScreen(
                 }
 
                 // Sections — same card style as the App Settings sections. A ghost has nothing linked.
-                if (!concept.isGhost) ConceptSectionCard(
-                    label = "RELATED CONCEPTS",
-                    emptyText = "No related concepts yet",
-                    rows = related.map { r ->
-                        SectionRow(title = r.name, muted = r.isGhost, onClick = { onConceptClick(r.id) })
-                    },
-                    modifier = Modifier.onGloballyPositioned { sectionOffsets["related"] = it.positionInParent().y.toInt() }
-                )
+                // Related concepts — concept pills; no card
+                if (!concept.isGhost) Column(
+                    modifier = Modifier.onGloballyPositioned { sectionOffsets["related"] = it.positionInParent().y.toInt() },
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("RELATED CONCEPTS", style = pixelStyle(12, colors.textXLow), modifier = Modifier.offset(x = 4.dp, y = (-2).dp))
+                    if (related.isEmpty()) {
+                        Text(
+                            "No related concepts",
+                            style = minecraftStyle(12, colors.secondaryIconSoft),
+                            modifier = Modifier.offset(x = 4.dp, y = (-2).dp)
+                        )
+                    } else {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            related.forEach { r -> ConceptPill(label = r.name, ghost = r.isGhost, onClick = { onConceptClick(r.id) }) }
+                        }
+                    }
+                }
 
                 if (!concept.isGhost) ConceptSectionCard(
                     label = "CHATS",

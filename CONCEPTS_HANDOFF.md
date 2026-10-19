@@ -33,7 +33,7 @@ Wizaird has a Glossary today. We are replacing it with **Concepts**. A concept i
 - "Add to concepts" replaces "Add to glossary" everywhere it appears (home bubble, chats, insight chat, insight preview, text-selection menu).
 - Duplicates: when a new concept matches an existing name or alias, warn and offer to open the existing concept.
 - Concepts list: newest first, with a sort option. Ghosts are mixed into the list, with filter chips: All / Ghosts only / Hide ghosts.
-- Tab order: Concepts first, then Chats, Insights, Notes. Opening a project still lands on Chats.
+- Tab order: Concepts first, then Chats, Insights, Notes. Opening a project lands on Concepts.
 
 ## Proposed:
 - "Ask about this" button on a concept page that starts a normal chat seeded with the concept's intro and tagged with the concept.

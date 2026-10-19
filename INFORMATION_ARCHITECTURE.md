@@ -34,7 +34,7 @@ home  ────────────────────────�
   └─► chat/{projectId}/{chatId}  (created from home input bar)              ─┘
 ```
 
-> Tab order: Concepts, Chats, Insights, Notes (opening a project still lands on Chats). Tab state in `ProjectScreen` is encoded as three routes (`project/{id}` for Chats and Insights, `project/{id}/concepts`, `project/{id}/notes`) so Back navigation returns to the correct tab. Opening something from another tab first swaps the route to that tab's route.
+> Tab order: Concepts, Chats, Insights, Notes (opening a project lands on Concepts). Tab state in `ProjectScreen` is encoded as three routes (`project/{id}` for Chats and Insights, `project/{id}/concepts`, `project/{id}/notes`) so Back navigation returns to the correct tab. Opening something from another tab first swaps the route to that tab's route.
 
 ---
 

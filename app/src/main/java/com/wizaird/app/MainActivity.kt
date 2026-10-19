@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
                             onSettingsClick = { nav.navigate("settings") },
                             onProjectsClick = { nav.navigate("projects") },
                             onNewProjectClick = { nav.navigate("new_project") },
-                            onProjectClick = { id -> nav.navigate("project/${id}") },
+                            onProjectClick = { id -> nav.navigate("project/${id}/concepts") },  // projects open on the Concepts tab
                             onChatCreated = { projectId, chatId ->
                                 nav.navigate("chat/${projectId}/${chatId}")
                             },
@@ -116,7 +116,7 @@ class MainActivity : ComponentActivity() {
                         ProjectsScreen(
                             onBack = { nav.popBackStack() },
                             onNewProject = { nav.navigate("new_project") },
-                            onProjectClick = { id -> nav.navigate("project/${id}") }
+                            onProjectClick = { id -> nav.navigate("project/${id}/concepts") }  // projects open on the Concepts tab
                         )
                     }
                     composable("new_project") {

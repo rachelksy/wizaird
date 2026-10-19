@@ -80,6 +80,8 @@ Built and tested on the emulator with `Backups/backup.json` (20 glossary words �
 - Pill style decision: tappable pills with the real concept name (not #hashtags). Pills are only for concepts (note tags, related concepts); aliases are plain text ("Also known as: …") under the article.
 - Concept page header follows the chat screen (back, project name centered, ⋮); tapping it scrolls to top. Under the title, jump buttons (CHATS n / NOTES n / RELATED n) scroll to those sections. Regenerate (⋮) rewrites summary + article.
 - Concept list: search, filter dropdown (All / Hide ghosts) and sort on one row. "Ghosts only" was dropped.
-- Concept page: dividers between sections; added/edited date sits under the "Also known as" line; jump pills use the pill style in the secondary button color. Concept pills are light orange (Coral 25%).
-- Chats on a concept page: only chats with a stored link (met there via "Add to concepts", or linked by hand). CHATS → EDIT opens a checklist to link/unlink chats (new source type CHAT).
+- Concept page: sections (Chats, Insights, Notes, Related concepts) are App-Settings-style cards with list rows; added/edited date sits under the "Also known as" line; jump pills use the pill style in the secondary button color. Concept pills are light orange (Coral 25%).
+- Chats on a concept page: only chats with a stored link (met there via "Add to concepts"). Linking/unlinking from the concept page was removed for now; chats are linked from the chat page.
 - Insights link both ways: the concept page lists the insights it was added from, and insight cards + the insight preview show pills for concepts added from that insight. Insights tab now has its own route (`project/{id}/insights`) so Back returns to it.
+- Empty concept: muted "No description or article yet." text + inline GENERATE / EDIT MANUALLY buttons (no card).
+- TEMPORARY: debug builds add two sample ghost concepts ("Sample ghost (empty)" / "(written)") once to each project that has concepts (`addSampleGhostConceptsOnce`, flag `concepts_sample_ghosts_added`). Remove once ghosts are created for real.

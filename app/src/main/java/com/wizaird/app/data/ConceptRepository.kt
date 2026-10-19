@@ -19,7 +19,7 @@ import java.util.UUID
 
 enum class ConceptStatus { FULL, GHOST }
 
-enum class ConceptSourceType { INSIGHT, CHAT_MESSAGE, CHAT, NOTE }  // CHAT = whole chat linked by hand
+enum class ConceptSourceType { INSIGHT, CHAT_MESSAGE, NOTE }
 
 /** Where a concept was met. Stores a snippet so a deleted message/insight leaves no blank. */
 data class ConceptSource(
@@ -73,6 +73,7 @@ enum class ConceptFilter { ALL, HIDE_GHOSTS }
 
 private val KEY_CONCEPTS = stringPreferencesKey("concepts")
 private val KEY_GLOSSARY_MIGRATED = booleanPreferencesKey("concepts_glossary_migrated")
+private val KEY_SAMPLE_GHOSTS_ADDED = booleanPreferencesKey("concepts_sample_ghosts_added")
 private val conceptGson = Gson()
 private val conceptListType = object : TypeToken<List<Concept>>() {}.type
 
@@ -185,30 +186,6 @@ suspend fun addSourceToConcept(context: Context, conceptId: String, source: Conc
     )
 }
 
-/**
- * Sets which chats a concept is linked to (from the concept page's chat picker).
- * Unlinking a chat removes every source in that chat; newly linked chats get a CHAT source
- * with the chat title as snippet. Insight and note sources are left alone.
- */
-suspend fun setConceptChats(context: Context, conceptId: String, chats: List<ChatData>) {
-    val concept = getConceptById(context, conceptId) ?: return
-    val keepIds = chats.map { it.id }.toSet()
-    val kept = concept.sources.filter { it.chatId == null || it.chatId in keepIds }
-    val alreadyLinked = kept.mapNotNull { it.chatId }.toSet()
-    val now = System.currentTimeMillis()
-    val added = chats.filter { it.id !in alreadyLinked }.map {
-        ConceptSource(type = ConceptSourceType.CHAT, chatId = it.id, snippet = it.title, createdAt = now)
-    }
-    upsertConcept(
-        context,
-        concept.copy(
-            sources = kept + added,
-            firstMetAt = concept.firstMetAt ?: added.firstOrNull()?.createdAt,
-            lastTouchedAt = now
-        )
-    )
-}
-
 /** Cuts a ~200 character snippet around [term] from [text], so the source still makes sense later. */
 fun buildSnippet(text: String, term: String, radius: Int = 100): String {
     // Drop markdown symbols (bold, headings, code) so the snippet reads as plain text
@@ -263,4 +240,42 @@ suspend fun migrateGlossaryWordsToConcepts(context: Context, words: List<Glossar
     var added = 0
     context.dataStore.edit { prefs -> added = mergeGlossaryIntoConcepts(prefs, words) }
     return added
+}
+
+// ── TEMPORARY: sample ghost concepts for UI review ────────────────────────────
+// Nothing creates ghosts yet (the extraction step comes later), so debug builds add two
+// sample ghosts once to every project that already has concepts. Delete them in the app
+// when done; remove this block once ghosts are created for real.
+
+suspend fun addSampleGhostConceptsOnce(context: Context) {
+    context.dataStore.edit { prefs ->
+        if (prefs[KEY_SAMPLE_GHOSTS_ADDED] == true) return@edit
+        val concepts = readConcepts(prefs).toMutableList()
+        val now = System.currentTimeMillis()
+        concepts.map { it.projectId }.distinct().forEach { projectId ->
+            concepts.add(
+                Concept(
+                    projectId = projectId,
+                    name = "Sample ghost (empty)",
+                    status = ConceptStatus.GHOST,
+                    createdAt = now,
+                    updatedAt = now
+                )
+            )
+            concepts.add(
+                Concept(
+                    projectId = projectId,
+                    name = "Sample ghost (written)",
+                    intro = "A ghost concept is one the app noticed in your learning but you haven't saved yet.",
+                    body = "## What it is\nThis is placeholder text so you can see how a ghost concept with a written page looks.\n\n## Why it's muted\nGhosts appear in the secondary color until you tap **Save concept**.",
+                    aliases = "placeholder, sample",
+                    status = ConceptStatus.GHOST,
+                    createdAt = now - 1,
+                    updatedAt = now - 1
+                )
+            )
+        }
+        prefs[KEY_CONCEPTS] = conceptGson.toJson(concepts)
+        prefs[KEY_SAMPLE_GHOSTS_ADDED] = true
+    }
 }

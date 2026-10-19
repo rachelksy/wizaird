@@ -45,7 +45,6 @@ import com.wizaird.app.data.ConceptStatus
 import com.wizaird.app.data.addSourceToConcept
 import com.wizaird.app.data.allChatsFlow
 import com.wizaird.app.data.allStoredInsightsFlow
-import com.wizaird.app.data.setConceptChats
 import com.wizaird.app.data.conceptFlow
 import com.wizaird.app.data.conceptsFlow
 import com.wizaird.app.data.copyConceptToProject
@@ -356,75 +355,116 @@ fun ConceptPill(
     }
 }
 
-/** Muted one-line text used for empty sections on the concept page. */
-@Composable
-private fun EmptySectionText(text: String) {
-    val colors = LocalWizairdColors.current
-    Text(text, style = minecraftStyle(12, colors.textXLow), modifier = Modifier.offset(y = (-2).dp))
-}
+/** One row in a [ConceptSectionCard]. */
+data class SectionRow(
+    val iconAsset: String,
+    val title: String,
+    val subtitle: String? = null,
+    val subtitleIsDate: Boolean = false,  // dates use the small pixel font, text uses the body font
+    val muted: Boolean = false,           // ghosts / deleted items
+    val onClick: (() -> Unit)? = null
+)
 
-/** Thin divider between concept page sections — same style as the settings dividers. */
+/**
+ * Section label + card with a list of rows, matching the App Settings sections
+ * (textXLow label, tertiarySurface card, thin dividers between rows).
+ */
 @Composable
-private fun SectionDivider() {
+fun ConceptSectionCard(label: String, emptyText: String, rows: List<SectionRow>, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val colors = LocalWizairdColors.current
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(colors.textXLow.copy(alpha = 0.35f))
-    )
-}
-
-/** Section label with a small action button on the right (e.g. CHATS ... EDIT). */
-@Composable
-private fun SectionWithAction(
-    label: String,
-    actionLabel: String,
-    onAction: () -> Unit,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    val colors = LocalWizairdColors.current
+    val svgLoader = rememberSvgLoader()
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = pixelStyle(12, colors.secondaryIconSoft), modifier = Modifier.weight(1f).offset(y = (-2).dp))
-            PixelButtonSmall(label = actionLabel, primary = false, onClick = onAction)
-        }
-        content()
-    }
-}
-
-/** Card for a place the concept was met that no longer exists (or has no chat yet): shows the stored snippet. */
-@Composable
-private fun SnippetCard(title: String, snippet: String, onClick: (() -> Unit)?) {
-    val colors = LocalWizairdColors.current
-    val interaction = remember { MutableInteractionSource() }
-    PixelBox(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.pixelRoundedClickable(interactionSource = interaction, onClick = onClick) else Modifier),
-        fillColor = colors.secondarySurface,
-        cornerStyle = PixelCornerStyle.Rounded
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        Text(label, style = pixelStyle(12, colors.textXLow), modifier = Modifier.offset(x = 4.dp, y = (-2).dp))
+        PixelBox(
+            modifier = Modifier.fillMaxWidth(),
+            fillColor = colors.tertiarySurface,
+            borderColor = Color.Transparent,
+            cornerStyle = PixelCornerStyle.Rounded8
         ) {
-            Text(title, style = pixelStyle(8, colors.secondaryIconSoft), modifier = Modifier.offset(y = (-2).dp))
-            if (snippet.isNotBlank()) {
-                Text(
-                    snippet,
-                    style = minecraftStyle(12, colors.secondaryIcon),
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.offset(y = (-2).dp)
-                )
+            Column(modifier = Modifier.fillMaxWidth().padding(4.dp)) {
+                if (rows.isEmpty()) {
+                    Text(
+                        emptyText,
+                        style = minecraftStyle(12, colors.textXLow),
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                            .offset(y = (-2).dp)
+                    )
+                }
+                rows.forEachIndexed { index, row ->
+                    if (index > 0) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(colors.textXLow.copy(alpha = 0.35f))
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                    val interaction = remember { MutableInteractionSource() }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(if (row.onClick != null) Modifier.pixelRounded8Clickable(interactionSource = interaction, onClick = row.onClick) else Modifier)
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/${row.iconAsset}")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = null,
+                            colorFilter = ColorFilter.tint(colors.textXLow),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                row.title,
+                                style = pixelStyle(12, if (row.muted) colors.secondaryIconSoft else colors.secondaryIcon),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.offset(y = (-2).dp)
+                            )
+                            if (!row.subtitle.isNullOrBlank()) {
+                                Text(
+                                    row.subtitle,
+                                    style = if (row.subtitleIsDate) pixelStyle(8, colors.secondaryIconSoft)
+                                            else minecraftStyle(12, colors.secondaryIconSoft),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.offset(y = (-2).dp)
+                                )
+                            }
+                        }
+                        if (row.onClick != null) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data("file:///android_asset/pixelarticons/chevron-right.svg")
+                                    .build(),
+                                imageLoader = svgLoader,
+                                contentDescription = null,
+                                colorFilter = ColorFilter.tint(colors.textXLow),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
+
+/** Plain text from a note's HTML body, for previews. */
+private fun htmlToPlainText(html: String): String =
+    try {
+        android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_COMPACT).toString().trim()
+    } catch (e: Exception) {
+        html
+    }
 
 // ── Concept page (read-only info page) ────────────────────────────────────────
 
@@ -456,7 +496,6 @@ fun ConceptPageScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showRegenerateDialog by remember { mutableStateOf(false) }
     var showCopyDialog by remember { mutableStateOf(false) }
-    var showChatsDialog by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(conceptId in failedIds) {
@@ -670,31 +709,26 @@ fun ConceptPageScreen(
                     }
                 } else if (concept.isEmpty) {
                     // Empty concept (usually a ghost): offer AI or manual writing
-                    PixelBox(
-                        modifier = Modifier.fillMaxWidth(),
-                        fillColor = colors.secondarySurface,
-                        cornerStyle = PixelCornerStyle.Rounded
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            "No description or article yet.",
+                            style = minecraftStyle(14, colors.secondaryIconSoft).copy(lineHeight = (14 * 1.6f).sp),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("NOTHING WRITTEN YET", style = pixelStyle(12, colors.secondaryIcon), modifier = Modifier.offset(y = (-2).dp))
                             PixelButtonLarge(
-                                label = "GENERATE WITH AI",
+                                label = "GENERATE",
                                 primary = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                cutColor = colors.secondarySurface,
+                                modifier = Modifier.weight(1f),
                                 onClick = { ConceptGeneration.start(context, conceptId) }
                             )
                             PixelButtonLarge(
                                 label = "EDIT MANUALLY",
                                 primary = false,
-                                modifier = Modifier.fillMaxWidth(),
-                                cutColor = colors.secondarySurface,
+                                modifier = Modifier.weight(1f),
                                 onClick = onEdit
                             )
                         }
@@ -736,95 +770,63 @@ fun ConceptPageScreen(
                     )
                 }
 
-                SectionDivider()
-
-                // Chats — linked automatically by "Add to concepts", or by hand with EDIT
-                SectionWithAction(
+                // Sections — same card style as the App Settings sections
+                ConceptSectionCard(
                     label = "CHATS",
-                    actionLabel = "EDIT",
-                    onAction = { showChatsDialog = true },
+                    emptyText = "Not connected to any chats yet",
+                    rows = connectedChats.map { chat ->
+                        SectionRow(
+                            iconAsset = "message.svg",
+                            title = chat.title.ifBlank { "Untitled chat" },
+                            subtitle = chat.formattedCreatedAt(),
+                            subtitleIsDate = true,
+                            onClick = { onChatClick(chat.projectId, chat.id) }
+                        )
+                    } + deletedChatSources.map { src ->
+                        SectionRow(iconAsset = "message.svg", title = "Deleted chat", subtitle = src.snippet, muted = true)
+                    },
                     modifier = Modifier.onGloballyPositioned { sectionOffsets["chats"] = it.positionInParent().y.toInt() }
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (connectedChats.isEmpty() && deletedChatSources.isEmpty()) {
-                            EmptySectionText("Not connected to any chats yet")
-                        }
-                        connectedChats.forEach { chat ->
-                            ChatListItem(chat = chat, onClick = { onChatClick(chat.projectId, chat.id) })
-                        }
-                        deletedChatSources.forEach { src ->
-                            SnippetCard(title = "DELETED CHAT", snippet = src.snippet, onClick = null)
-                        }
-                    }
-                }
+                )
 
-                SectionDivider()
+                ConceptSectionCard(
+                    label = "INSIGHTS",
+                    emptyText = "Not added from any insights yet",
+                    rows = insightSources.map { src ->
+                        val insight = insights.firstOrNull { it.id == src.insightId }
+                        SectionRow(
+                            iconAsset = "lightbulb-off.svg",
+                            title = insight?.formattedCreatedAt() ?: "Deleted insight",
+                            subtitle = src.snippet,
+                            muted = insight == null,
+                            onClick = insight?.let { { onInsightClick(it.projectId, it.id) } }
+                        )
+                    },
+                    modifier = Modifier.onGloballyPositioned { sectionOffsets["insights"] = it.positionInParent().y.toInt() }
+                )
 
-                // Insights the concept was added from — tap to open the insight chat
-                SettingsField(label = "INSIGHTS", modifier = Modifier.onGloballyPositioned { sectionOffsets["insights"] = it.positionInParent().y.toInt() }) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (insightSources.isEmpty()) {
-                            EmptySectionText("Not added from any insights yet")
-                        }
-                        insightSources.forEach { src ->
-                            val insight = insights.firstOrNull { it.id == src.insightId }
-                            SnippetCard(
-                                title = insight?.formattedCreatedAt()?.uppercase() ?: "DELETED INSIGHT",
-                                snippet = src.snippet,
-                                onClick = insight?.let { { onInsightClick(it.projectId, it.id) } }
-                            )
-                        }
-                    }
-                }
+                ConceptSectionCard(
+                    label = "NOTES",
+                    emptyText = "No notes tagged yet",
+                    rows = taggedNotes.map { note ->
+                        SectionRow(
+                            iconAsset = "sticky-note-text.svg",
+                            title = note.createdAt,
+                            subtitle = htmlToPlainText(note.body),
+                            onClick = { onNoteClick(note.id) }
+                        )
+                    },
+                    modifier = Modifier.onGloballyPositioned { sectionOffsets["notes"] = it.positionInParent().y.toInt() }
+                )
 
-                SectionDivider()
-
-                // Notes tagged with this concept
-                SettingsField(label = "NOTES", modifier = Modifier.onGloballyPositioned { sectionOffsets["notes"] = it.positionInParent().y.toInt() }) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (taggedNotes.isEmpty()) {
-                            EmptySectionText("No notes tagged yet")
-                        }
-                        taggedNotes.forEach { note ->
-                            NoteListItem(note = note, onClick = { onNoteClick(note.id) })
-                        }
-                    }
-                }
-
-                SectionDivider()
-
-                // Related concepts — tappable concept pills (filled in by a later feature)
-                SettingsField(label = "RELATED CONCEPTS", modifier = Modifier.onGloballyPositioned { sectionOffsets["related"] = it.positionInParent().y.toInt() }) {
-                    if (related.isEmpty()) {
-                        EmptySectionText("No related concepts yet")
-                    } else {
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            related.forEach { r -> ConceptPill(label = r.name, ghost = r.isGhost, onClick = { onConceptClick(r.id) }) }
-                        }
-                    }
-                }
+                ConceptSectionCard(
+                    label = "RELATED CONCEPTS",
+                    emptyText = "No related concepts yet",
+                    rows = related.map { r ->
+                        SectionRow(iconAsset = "book-open.svg", title = r.name, muted = r.isGhost, onClick = { onConceptClick(r.id) })
+                    },
+                    modifier = Modifier.onGloballyPositioned { sectionOffsets["related"] = it.positionInParent().y.toInt() }
+                )
             }
-        }
-
-        if (showChatsDialog) {
-            // Chats from this concept's project, plus any already linked from elsewhere (copied concepts)
-            val choices = chats
-                .filter { it.projectId == concept.projectId || it.id in linkedChatIds }
-                .sortedByDescending { it.createdAt }
-            PixelChecklistDialog(
-                title = "LINK CHATS",
-                items = choices.map { it.id to it.title.ifBlank { "Untitled chat" } },
-                initialSelection = linkedChatIds,
-                emptyText = "No chats in this project yet",
-                onSave = { ids ->
-                    showChatsDialog = false
-                    scope.launch { setConceptChats(context, conceptId, choices.filter { it.id in ids }) }
-                },
-                onDismiss = { showChatsDialog = false }
-            )
         }
 
         if (showRegenerateDialog) {

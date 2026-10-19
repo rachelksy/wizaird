@@ -19,6 +19,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.wizaird.app.data.AiSettings
+import com.wizaird.app.data.addSampleGhostConceptsOnce
 import com.wizaird.app.data.migrateGlossaryToConceptsIfNeeded
 import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.ui.AccountSettingsScreen
@@ -54,6 +55,10 @@ class MainActivity : ComponentActivity() {
             // One-time: turn old glossary words into concepts (old glossary data is kept)
             LaunchedEffect(Unit) {
                 migrateGlossaryToConceptsIfNeeded(this@MainActivity)
+                // TEMPORARY: sample ghosts for UI review (debug builds only)
+                if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+                    addSampleGhostConceptsOnce(this@MainActivity)
+                }
             }
 
             // Update window background to match app theme — prevents flash on navigation

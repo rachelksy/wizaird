@@ -54,6 +54,16 @@ data class Concept(
     /** True when the concept has no written content yet. */
     val isEmpty: Boolean get() = intro.isBlank() && body.isBlank()
 
+    /**
+     * A ghost is a name-only placeholder. It stops being a ghost as soon as it has any
+     * content: a description/article/aliases (generated or written by hand) or a linked chat.
+     */
+    val hasContent: Boolean get() =
+        intro.isNotBlank() || body.isNotBlank() || aliases.isNotBlank() || sources.any { it.chatId != null }
+
+    /** Applies the ghost rule: a ghost with content becomes a full concept. */
+    fun withGhostRule(): Concept = if (isGhost && hasContent) copy(status = ConceptStatus.FULL) else this
+
     fun aliasList(): List<String> =
         aliases.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
@@ -73,7 +83,6 @@ enum class ConceptFilter { ALL, HIDE_GHOSTS }
 
 private val KEY_CONCEPTS = stringPreferencesKey("concepts")
 private val KEY_GLOSSARY_MIGRATED = booleanPreferencesKey("concepts_glossary_migrated")
-private val KEY_SAMPLE_GHOSTS_ADDED = booleanPreferencesKey("concepts_sample_ghosts_added")
 private val conceptGson = Gson()
 private val conceptListType = object : TypeToken<List<Concept>>() {}.type
 
@@ -125,6 +134,7 @@ suspend fun findDuplicateConcept(context: Context, projectId: String, term: Stri
         .firstOrNull { it.projectId == projectId && it.id != excludeId && it.matchesName(term) }
 
 suspend fun upsertConcept(context: Context, concept: Concept) {
+    val concept = concept.withGhostRule()
     context.dataStore.edit { prefs ->
         val current = readConcepts(prefs).toMutableList()
         val idx = current.indexOfFirst { it.id == concept.id }
@@ -242,40 +252,51 @@ suspend fun migrateGlossaryWordsToConcepts(context: Context, words: List<Glossar
     return added
 }
 
-// ── TEMPORARY: sample ghost concepts for UI review ────────────────────────────
-// Nothing creates ghosts yet (the extraction step comes later), so debug builds add two
-// sample ghosts once to every project that already has concepts. Delete them in the app
-// when done; remove this block once ghosts are created for real.
+// ── TEMPORARY: sample concepts for UI review ──────────────────────────────────
+// Nothing creates ghosts yet (the extraction step comes later), so debug builds add, once,
+// to every project that already has concepts:
+//   • "Sample ghost" — a name-only ghost
+//   • "Sample concept with links" — a full concept linked to the project's recent chats and
+//     insights, to review the section lists
+// Delete them in the app when done; remove this block once ghosts are created for real.
 
-suspend fun addSampleGhostConceptsOnce(context: Context) {
+private val KEY_SAMPLES_V2_ADDED = booleanPreferencesKey("concepts_samples_v2_added")
+
+suspend fun addSampleConceptsOnce(context: Context) {
     context.dataStore.edit { prefs ->
-        if (prefs[KEY_SAMPLE_GHOSTS_ADDED] == true) return@edit
-        val concepts = readConcepts(prefs).toMutableList()
+        if (prefs[KEY_SAMPLES_V2_ADDED] == true) return@edit
+        val chatType = object : TypeToken<List<ChatData>>() {}.type
+        val insightType = object : TypeToken<List<StoredInsight>>() {}.type
+        val chats: List<ChatData> = prefs[stringPreferencesKey("chats")]?.let { conceptGson.fromJson(it, chatType) } ?: emptyList()
+        val insights: List<StoredInsight> = prefs[stringPreferencesKey("stored_insights")]?.let { conceptGson.fromJson(it, insightType) } ?: emptyList()
+
+        // Drop the first round of samples (a "written ghost" isn't a real state)
+        val concepts = readConcepts(prefs)
+            .filterNot { it.name == "Sample ghost (empty)" || it.name == "Sample ghost (written)" }
+            .toMutableList()
         val now = System.currentTimeMillis()
         concepts.map { it.projectId }.distinct().forEach { projectId ->
             concepts.add(
-                Concept(
-                    projectId = projectId,
-                    name = "Sample ghost (empty)",
-                    status = ConceptStatus.GHOST,
-                    createdAt = now,
-                    updatedAt = now
-                )
+                Concept(projectId = projectId, name = "Sample ghost", status = ConceptStatus.GHOST, createdAt = now, updatedAt = now)
             )
+            val sources = chats.filter { it.projectId == projectId }.sortedByDescending { it.createdAt }.take(5).map {
+                ConceptSource(type = ConceptSourceType.CHAT_MESSAGE, chatId = it.id, snippet = it.title)
+            } + insights.filter { it.projectId == projectId }.sortedByDescending { it.createdAt }.take(2).map {
+                ConceptSource(type = ConceptSourceType.INSIGHT, insightId = it.id, snippet = buildSnippet(it.text, ""))
+            }
             concepts.add(
                 Concept(
                     projectId = projectId,
-                    name = "Sample ghost (written)",
-                    intro = "A ghost concept is one the app noticed in your learning but you haven't saved yet.",
-                    body = "## What it is\nThis is placeholder text so you can see how a ghost concept with a written page looks.\n\n## Why it's muted\nGhosts appear in the secondary color until you tap **Save concept**.",
-                    aliases = "placeholder, sample",
-                    status = ConceptStatus.GHOST,
+                    name = "Sample concept with links",
+                    intro = "Placeholder concept linked to this project's recent chats and insights, so the lists can be reviewed.",
+                    status = ConceptStatus.FULL,
+                    sources = sources,
                     createdAt = now - 1,
                     updatedAt = now - 1
                 )
             )
         }
         prefs[KEY_CONCEPTS] = conceptGson.toJson(concepts)
-        prefs[KEY_SAMPLE_GHOSTS_ADDED] = true
+        prefs[KEY_SAMPLES_V2_ADDED] = true
     }
 }

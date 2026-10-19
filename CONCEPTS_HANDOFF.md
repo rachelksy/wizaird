@@ -23,7 +23,7 @@ Wizaird has a Glossary today. We are replacing it with **Concepts**. A concept i
 - Users can both delete and edit individual chat messages today (confirmed in code).
 - Add empty fields to the concept from day one so later features need no migration: where it was met (insight / chat / message / note references plus a one-line snippet), first met, last touched, related concept IDs.
 - Tag concepts at message level, store the message reference plus a snippet so deleted messages leave no blanks. Chat messages already have a stable ID.
-- "Save concept" button on the concept page: on a ghost it turns the ghost into a full concept; full concepts also have it, because the user can edit a concept by hand.
+- Ghost = a name-only placeholder (later created by AI extraction). It becomes a full concept automatically as soon as it has content: a description/article/aliases (Generate or manual edit → Save on the edit screen) or a linked chat. There is no "written ghost" and no Save button on the concept page. (Rule lives in `Concept.withGhostRule()`, applied in `upsertConcept`.)
 - The concept page is a read-only info page (not a text editor like notes): title, brief description, connected chats, tags, and whatever else a concept needs. Editing happens elsewhere.
 - Auto-generate: offered on a ghost concept page and when creating a concept manually. A generated concept can be regenerated.
 - Notes: the note editor does not change. A note can be tagged/linked to existing concepts, and the note card shows the tag pill(s).
@@ -84,4 +84,6 @@ Built and tested on the emulator with `Backups/backup.json` (20 glossary words �
 - Chats on a concept page: only chats with a stored link (met there via "Add to concepts"). Linking/unlinking from the concept page was removed for now; chats are linked from the chat page.
 - Insights link both ways: the concept page lists the insights it was added from, and insight cards + the insight preview show pills for concepts added from that insight. Insights tab now has its own route (`project/{id}/insights`) so Back returns to it.
 - Empty concept: muted "No description or article yet." text + inline GENERATE / EDIT MANUALLY buttons (no card).
-- TEMPORARY: debug builds add two sample ghost concepts ("Sample ghost (empty)" / "(written)") once to each project that has concepts (`addSampleGhostConceptsOnce`, flag `concepts_sample_ghosts_added`). Remove once ghosts are created for real.
+- Ghost UI: list card is outlined with no fill and muted text ("Ghost — not explored yet"); the page shows name, "GHOST CONCEPT", empty text + GENERATE / EDIT MANUALLY, and no anchors or empty sections (only Insights, if it came from one).
+- Section rows on the concept page are text only (no icons/chevrons); chats show just the chat name.
+- TEMPORARY: debug builds add, once, "Sample ghost" and "Sample concept with links" (linked to the project's 5 latest chats + 2 latest insights) to each project that has concepts (`addSampleConceptsOnce`, flag `concepts_samples_v2_added`). Remove once ghosts are created for real.

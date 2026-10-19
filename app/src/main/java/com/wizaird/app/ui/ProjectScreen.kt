@@ -2168,8 +2168,9 @@ fun ConceptListItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .pixelRoundedClickable(interactionSource = interaction, onClick = onClick),
-            fillColor = colors.secondarySurface,
-            borderColor = androidx.compose.ui.graphics.Color.Transparent,
+            // Ghosts are outlined placeholders (no fill); full concepts are filled cards
+            fillColor = if (concept.isGhost) colors.background else colors.secondarySurface,
+            borderColor = if (concept.isGhost) colors.textXLow else androidx.compose.ui.graphics.Color.Transparent,
             cornerStyle = PixelCornerStyle.Rounded
         ) {
             Box(
@@ -2196,7 +2197,7 @@ fun ConceptListItem(
                     // Summary — max 3 lines; ghosts without text say so
                     val summary = concept.intro.ifBlank { concept.body }
                     Text(
-                        text = summary.ifBlank { if (concept.isGhost) "Ghost concept — nothing written yet" else "Nothing written yet" },
+                        text = summary.ifBlank { if (concept.isGhost) "Ghost — not explored yet" else "Nothing written yet" },
                         style = minecraftStyle(12, if (summary.isBlank()) colors.textXLow else textColor),
                         maxLines = 3,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,

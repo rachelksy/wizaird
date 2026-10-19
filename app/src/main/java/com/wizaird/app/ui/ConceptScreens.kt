@@ -357,7 +357,6 @@ fun ConceptPill(
 
 /** One row in a [ConceptSectionCard]. */
 data class SectionRow(
-    val iconAsset: String,
     val title: String,
     val subtitle: String? = null,
     val subtitleIsDate: Boolean = false,  // dates use the small pixel font, text uses the body font
@@ -371,9 +370,7 @@ data class SectionRow(
  */
 @Composable
 fun ConceptSectionCard(label: String, emptyText: String, rows: List<SectionRow>, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
     val colors = LocalWizairdColors.current
-    val svgLoader = rememberSvgLoader()
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, style = pixelStyle(12, colors.textXLow), modifier = Modifier.offset(x = 4.dp, y = (-2).dp))
         PixelBox(
@@ -412,15 +409,6 @@ fun ConceptSectionCard(label: String, emptyText: String, rows: List<SectionRow>,
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data("file:///android_asset/pixelarticons/${row.iconAsset}")
-                                .build(),
-                            imageLoader = svgLoader,
-                            contentDescription = null,
-                            colorFilter = ColorFilter.tint(colors.textXLow),
-                            modifier = Modifier.size(20.dp)
-                        )
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
                                 row.title,
@@ -439,17 +427,6 @@ fun ConceptSectionCard(label: String, emptyText: String, rows: List<SectionRow>,
                                     modifier = Modifier.offset(y = (-2).dp)
                                 )
                             }
-                        }
-                        if (row.onClick != null) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data("file:///android_asset/pixelarticons/chevron-right.svg")
-                                    .build(),
-                                imageLoader = svgLoader,
-                                contentDescription = null,
-                                colorFilter = ColorFilter.tint(colors.textXLow),
-                                modifier = Modifier.size(20.dp)
-                            )
                         }
                     }
                 }
@@ -651,29 +628,15 @@ fun ConceptPageScreen(
                         modifier = Modifier.offset(y = (-2).dp)
                     )
                     if (concept.isGhost) {
+                        // Ghosts turn into full concepts on their own once they get content
                         Text(
                             "GHOST CONCEPT",
                             style = pixelStyle(8, colors.secondaryIconSoft),
                             modifier = Modifier.offset(y = (-2).dp)
                         )
-                        PixelButtonSmall(
-                            label = "SAVE CONCEPT",
-                            primary = true,
-                            onClick = {
-                                scope.launch {
-                                    upsertConcept(
-                                        context,
-                                        concept.copy(status = ConceptStatus.FULL, updatedAt = System.currentTimeMillis())
-                                    )
-                                    toastMessage = "CONCEPT SAVED"
-                                    kotlinx.coroutines.delay(1500)
-                                    toastMessage = null
-                                }
-                            }
-                        )
                     }
-                    // Jump buttons: skip past a long article to what this concept connects to
-                    FlowRow(
+                    // Jump buttons: skip past a long article to what this concept connects to (not on ghosts)
+                    if (!concept.isGhost) FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
@@ -770,31 +733,28 @@ fun ConceptPageScreen(
                     )
                 }
 
-                // Sections — same card style as the App Settings sections
-                ConceptSectionCard(
+                // Sections — same card style as the App Settings sections.
+                // A ghost has nothing linked yet (except possibly the insight it came from).
+                if (!concept.isGhost) ConceptSectionCard(
                     label = "CHATS",
                     emptyText = "Not connected to any chats yet",
                     rows = connectedChats.map { chat ->
                         SectionRow(
-                            iconAsset = "message.svg",
                             title = chat.title.ifBlank { "Untitled chat" },
-                            subtitle = chat.formattedCreatedAt(),
-                            subtitleIsDate = true,
                             onClick = { onChatClick(chat.projectId, chat.id) }
                         )
                     } + deletedChatSources.map { src ->
-                        SectionRow(iconAsset = "message.svg", title = "Deleted chat", subtitle = src.snippet, muted = true)
+                        SectionRow(title = "Deleted chat", subtitle = src.snippet, muted = true)
                     },
                     modifier = Modifier.onGloballyPositioned { sectionOffsets["chats"] = it.positionInParent().y.toInt() }
                 )
 
-                ConceptSectionCard(
+                if (!concept.isGhost || insightSources.isNotEmpty()) ConceptSectionCard(
                     label = "INSIGHTS",
                     emptyText = "Not added from any insights yet",
                     rows = insightSources.map { src ->
                         val insight = insights.firstOrNull { it.id == src.insightId }
                         SectionRow(
-                            iconAsset = "lightbulb-off.svg",
                             title = insight?.formattedCreatedAt() ?: "Deleted insight",
                             subtitle = src.snippet,
                             muted = insight == null,
@@ -804,12 +764,11 @@ fun ConceptPageScreen(
                     modifier = Modifier.onGloballyPositioned { sectionOffsets["insights"] = it.positionInParent().y.toInt() }
                 )
 
-                ConceptSectionCard(
+                if (!concept.isGhost) ConceptSectionCard(
                     label = "NOTES",
                     emptyText = "No notes tagged yet",
                     rows = taggedNotes.map { note ->
                         SectionRow(
-                            iconAsset = "sticky-note-text.svg",
                             title = note.createdAt,
                             subtitle = htmlToPlainText(note.body),
                             onClick = { onNoteClick(note.id) }
@@ -818,11 +777,11 @@ fun ConceptPageScreen(
                     modifier = Modifier.onGloballyPositioned { sectionOffsets["notes"] = it.positionInParent().y.toInt() }
                 )
 
-                ConceptSectionCard(
+                if (!concept.isGhost) ConceptSectionCard(
                     label = "RELATED CONCEPTS",
                     emptyText = "No related concepts yet",
                     rows = related.map { r ->
-                        SectionRow(iconAsset = "book-open.svg", title = r.name, muted = r.isGhost, onClick = { onConceptClick(r.id) })
+                        SectionRow(title = r.name, muted = r.isGhost, onClick = { onConceptClick(r.id) })
                     },
                     modifier = Modifier.onGloballyPositioned { sectionOffsets["related"] = it.positionInParent().y.toInt() }
                 )
@@ -1010,8 +969,7 @@ fun ConceptEditScreen(
                     intro = intro.trim(),
                     body = body.trim(),
                     aliases = aliases.trim(),
-                    // Saving by hand makes a ghost a full concept
-                    status = ConceptStatus.FULL,
+                    // Ghost → full happens in upsertConcept once the concept has content
                     updatedAt = now,
                     lastTouchedAt = now,
                     sources = if (source != null) base.sources + source else base.sources,

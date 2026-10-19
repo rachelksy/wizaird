@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const SpotlightSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M21 2H3v2h18V2Zm0 18H3v2h18v-2ZM5 4H3v16h2V4Zm16 0h-2v16h2V4Zm-8 2H7v2h6V6Zm-4 4H7v8h2v-8Zm8 0h-2v8h2v-8Zm-8 0h6v2H9zm0 6h6v2H9z"}));

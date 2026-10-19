@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const ArrowUpZASharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M14 9h7v2h-7zm0-6h7v2h-7zm2 4h2v2h-2zm2-2h2v2h-2zM6 21h2V3H6z"}), h('path', {d: "M4 7h6V5H4zM2 9h10V7H2zm12 6h2v6h-2zm0-2h7v2h-7zm5 2h2v6h-2zm-3 2h3v2h-3z"}));

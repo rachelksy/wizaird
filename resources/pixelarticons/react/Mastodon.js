@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const Mastodon = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M11 20v2H7v-2h4Zm-4-2v2H5v-2h2Zm6 0v2h-2v-2h2ZM5 6v12H3V6h2Zm6 10v2H9v-2h2Zm8-2v2h-8v-2h8Zm2-8v8h-2V6h2ZM9 8v4H7V8h2Zm8 0v4h-2V8h2Zm-4 0v2h-2V8h2Zm-2-2v2H9V6h2Zm4 0v2h-2V6h2ZM7 4v2H5V4h2Zm12 0v2h-2V4h2Zm-2-2v2H7V2h10Z"}));

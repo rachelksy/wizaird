@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const MessageTextSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M22 2H2v2h20zm0 14H6v2h16zm0-12h-2v12h2zM4 4H2v18h2zm2 14H4v2h2zm0-6h4v2H6zm0-4h8v2H6z"}));

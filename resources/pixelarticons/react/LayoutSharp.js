@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const LayoutSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M22 20H2V4h20v16Zm-12-2h10v-8H10v8Zm-6 0h4v-8H4v8ZM4 8h16V6H4v2Z"}));

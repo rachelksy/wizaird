@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const AlignVerticalJustifyStart = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M2 4h20V2H2zm5 4v3h2V8zm2-2v2h6V6zm6 2v3h2V8zm-6 3v2h6v-2zm-5 6v3h2v-3zm2-2v2h12v-2zm12 2v3h2v-3zM6 20v2h12v-2z"}));

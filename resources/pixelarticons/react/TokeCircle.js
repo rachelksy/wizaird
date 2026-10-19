@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const TokeCircle = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M6 2h12v2H6zm0 18h12v2H6zM4 4h2v2H4zm16 0h-2v2h2zM2 6h2v12H2zm20 0h-2v12h2zM4 18h2v2H4zm16 0h-2v2h2zM11 7h2v2h-2zm0 8h2v2h-2zm-4-4h2v2H7zm8 0h2v2h-2zM9 9h2v2H9zm4 0h2v2h-2zm0 4h2v2h-2zm-4 0h2v2H9z"}));

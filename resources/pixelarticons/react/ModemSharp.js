@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const ModemSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M2 12h20v2H2zm0 8h20v2H2zm0-6h2v6H2zm18 0h2v6h-2zm-4 2h2v2h-2zm-4 0h2v2h-2zm2-6h2v2h-2zm-3-2h2v2h-2zM9 4h2v2H9zm10 0h2v2h-2zm-2 4h2v2h-2zm-4-2h4v2h-4zm-2-4h8v2h-8z"}));

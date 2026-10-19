@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const MoreHorizontalSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M1 9h6v2H1zm8 0h6v2H9zm8 0h6v2h-6zM1 11h2v2H1zm8 0h2v2H9zm8 0h2v2h-2zM1 13h6v2H1zm8 0h6v2H9zm8 0h6v2h-6zM5 11h2v2H5zm8 0h2v2h-2zm8 0h2v2h-2z"}));

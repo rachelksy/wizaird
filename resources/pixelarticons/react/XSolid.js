@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const XSolid = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M6 20H4v-2h2v2ZM8 6h2v2h2v2h2v2h2v2h2v2h2v2h2v2h-6v-2h-2v-2h-2v-2h-2v-2H8v-2H6V8H4V6H2V4h6v2Zm0 12H6v-2h2v2Zm2-2H8v-2h2v2Zm6-6h-2V8h2v2Zm2-2h-2V6h2v2Zm2-2h-2V4h2v2Z"}));

@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const DiscordSolid = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M9 5h6V3h4v2h2v2h2v10h-2v2h-2v2h-4v-2h-2v-2h4v-2H7v2h4v2H9v2H5v-2H3v-2H1V7h2V5h2V3h4v2Zm4 8h3v-3h-3v3Zm-5 0h3v-3H8v3Z"}));

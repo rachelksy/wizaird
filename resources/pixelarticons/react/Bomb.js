@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const Bomb = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M12 6H14V10H16V12H18V18H16V20H14V22H6V20H4V18H2V12H4V10H6V6H10V4H12V6ZM12 16H14V14H12V16ZM10 14H12V12H10V14ZM22 13H20V11H22V13ZM22 10H20V6H22V10ZM20 6H18V4H20V6ZM18 4H12V2H18V4Z"}));

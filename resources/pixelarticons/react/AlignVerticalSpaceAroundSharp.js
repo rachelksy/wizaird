@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const AlignVerticalSpaceAroundSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M18 10v4h-2v-4zm0-2v2H6V8zM8 10v4H6v-4zm10 4v2H6v-2zm4-10H2v2h20zm0 14H2v2h20z"}));

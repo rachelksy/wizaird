@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const AlignVerticalJustifyEndSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M2 20h20v2H2zm2-4v-3h2v3zm0 2v-2h16v2zm14-2v-3h2v3zM4 13v-2h16v2zm3-6V4h2v3zm0 2V7h10v2zm8-2V4h2v3zM7 4V2h10v2z"}));

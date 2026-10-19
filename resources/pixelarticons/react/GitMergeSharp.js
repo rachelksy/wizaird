@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const GitMergeSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M2 2h8v2H2zm0 6h8v2H2zm0-4h2v4H2zm6 0h2v4H8zm6 10h8v2h-8zm0 6h8v2h-8zm0-4h2v4h-2zm6 0h2v4h-2zM5 12h2v10H5zm7 0h2v2h-2zm-2-2h2v2h-2z"}));

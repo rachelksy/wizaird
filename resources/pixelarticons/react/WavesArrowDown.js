@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const WavesArrowDown = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M2 21h4v-2H2zm0-6h4v-2H2zm4 8h4v-2H6zm0-6h4v-2H6zm4 4h4v-2h-4zm4 2h4v-2h-4zm0-6h4v-2h-4zm-4-2h4v-2h-4zm8 6h4v-2h-4zm0-6h4v-2h-4zM11 1h2v10h-2z"}), h('path', {d: "M9 7h6v2H9zM7 5h10v2H7z"}));

@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const WatchSolid = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M15 23h-2v-4h-2v4H9v-6H7v-2H5V9h2V7h2V1h2v4h2V1h2v6h2v2h2v6h-2v2h-2v6Zm-4-10h4v-2h-2V9h-2v4Z"}));

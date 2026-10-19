@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const SprayCan = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M9 3h4v4H9zM7 7h8v2H7zM5 21h12v2H5zM15 9h2v12h-2zM5 9h2v12H5zm4 8h6v2H9z"}), h('path', {d: "M9 13h2v6H9z"}), h('path', {d: "M9 13h8v2H9zm6-10h2v2h-2zm2-2h2v2h-2zm0 4h2v2h-2z"}));

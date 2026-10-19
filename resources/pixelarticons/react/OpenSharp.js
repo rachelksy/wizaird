@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const OpenSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M3 5h8v2H3zm10-2h8v2h-8zM3 19h16v2H3zM3 7h2v12H3zm14 6h2v6h-2z"}), h('path', {d: "M19 3h2v8h-2zm-8 8h2v2h-2zm6-4h-2v2h2zm2-2h-2v2h2zm-4 4h-2v2h2zm-4 4H9v2h2z"}));

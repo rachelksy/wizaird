@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const BlocksSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M13 1h10v2H13zm0 2h2v6h-2zm0 6h10v2H13zm8-6h2v6h-2zM1 5h10v2H1zm0 2h2v16H1zm2 14h14v2H3zm14-8h2v10h-2zM3 13h14v2H3z"}), h('path', {d: "M9 7h2v14H9z"}));

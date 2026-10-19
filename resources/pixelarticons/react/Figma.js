@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const Figma = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M11 22H7v-2h4v2Zm-4-2H5v-4h2v4ZM17 4h-4v4h4v2h-4v4h4v2h-4v4h-2v-4H7v-2h4v-4H7V8h4V4H7V2h10v2ZM7 14H5v-4h2v4Zm12 0h-2v-4h2v4ZM7 8H5V4h2v4Zm12 0h-2V4h2v4Z"}));

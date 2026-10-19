@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const Shirt = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M4 3h6v2H4zM2 3h2v8H2zm2 6h4v2H4z"}), h('path', {d: "M6 9h2v10H6zm2 10h8v2H8zm8-10h2v10h-2z"}), h('path', {d: "M16 9h4v2h-4zm4-6h2v8h-2zm-6 0h6v2h-6zm-4 2h4v2h-4z"}));

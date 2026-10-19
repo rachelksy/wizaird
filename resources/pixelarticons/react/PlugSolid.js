@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const PlugSolid = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M10 7h4V2h2v5h5v2h-1v5h-2v2h-2v2h-3v4h-2v-4H8v-2H6v-2H4V9H3V7h5V2h2v5Z"}));

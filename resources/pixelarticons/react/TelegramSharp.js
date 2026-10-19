@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const TelegramSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M23 23H1V1H23V23ZM3 21H21V3H3V21ZM18 19H16V17H12V15H16V7H13V5H18V19ZM14 11V13H12V15H10V17H8V13H10V11H14ZM8 13H5V11H8V13ZM10 11H8V9H10V11ZM13 9H10V7H13V9Z"}));

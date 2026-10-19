@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const ClipboardSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M4 6h2v14H4zm0 14h16v2H4zM18 6h2v14h-2zM4 4h4v2H4zm12 0h4v2h-4zm-6-2h4v2h-4zm0 4h4v2h-4zM8 2h2v6H8zm6 0h2v6h-2z"}));

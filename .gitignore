@@ -16,3 +16,6 @@ captures/
 
 # Google services
 google-services.json
+
+# Local backups (contain API keys)
+Backups/

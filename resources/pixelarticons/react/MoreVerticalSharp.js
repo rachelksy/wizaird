@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const MoreVerticalSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M15 1v6h-2V1zm0 8v6h-2V9zm0 8v6h-2v-6zM13 1v2h-2V1zm0 8v2h-2V9zm0 8v2h-2v-2zM11 1v6H9V1zm0 8v6H9V9zm0 8v6H9v-6zm2-12v2h-2V5zm0 8v2h-2v-2zm0 8v2h-2v-2z"}));

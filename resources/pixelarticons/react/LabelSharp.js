@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const LabelSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M4 17h12v2H2v-4h2v2Zm14 0h-2v-2h2v2ZM6 15H4v-2h2v2Zm14 0h-2v-2h2v2ZM8 13H6v-2h2v2Zm14 0h-2v-2h2v2ZM6 11H4V9h2v2Zm14 0h-2V9h2v2Zm-4-4H4v2H2V5h14v2Zm2 2h-2V7h2v2Z"}));

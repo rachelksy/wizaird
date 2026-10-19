@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const LetterV = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M14 21H10V19H14V21ZM10 19H8V15H10V19ZM16 19H14V15H16V19ZM8 15H6V3H8V15ZM18 15H16V3H18V15Z"}));

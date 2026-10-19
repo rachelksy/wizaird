@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const IconCategory = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M3 3h8v2H3zm0 6h8v2H3zm0-4h2v4H3zm6 0h2v4H9zm4-2h8v2h-8zm0 6h8v2h-8zm0-4h2v4h-2zm6 0h2v4h-2zM3 13h8v2H3zm0 6h8v2H3zm0-4h2v4H3zm6 0h2v4H9zm6-2h4v2h-4zm-2 2h2v4h-2zm2 4h4v2h-4zm4-4h2v4h-2z"}));

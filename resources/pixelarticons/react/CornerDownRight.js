@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const CornerDownRight = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M6 16h14v-2H6zm-2-2h2V4H4z"}), h('path', {d: "M16 10h-2v8h2zm2 2h-2v2h2zm0 4h-2v2h2zm-2 2h-2v2h2z"}));

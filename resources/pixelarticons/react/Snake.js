@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const Snake = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M4 20H20V22H2V18H4V20ZM8 8H12V12H14V4H16V12H18V16H20V8H22V20H20V18H4V14H6V16H16V14H6V12H10V10H6V8H4V6H6V4H8V8ZM4 10H2V8H4V10ZM4 6H2V4H4V6ZM12 6H10V4H8V2H14V4H12V6Z"}));

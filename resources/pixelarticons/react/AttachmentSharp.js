@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const AttachmentSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M7 3v14H5V3zm12 0v16h-2V3zm-8 6v10H9V9zm4 0v8h-2V9zm2-6v2H7V3zm-2 4v2H9V7zm4 12v2H9v-2z"}));

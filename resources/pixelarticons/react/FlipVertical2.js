@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const FlipVertical2 = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M17 11v2h-4v-2zm6 0v2h-4v-2zm-12 0v2H7v-2zm-6 0v2H1v-2zm8-4v2h-2V7zm0 10v-2h-2v2zm0-12v2H9V5zm0 14v-2H9v2zm2-14v2h-2V5zm0 14v-2h-2v2zm2-16v2H7V3zm0 18v-2H7v2z"}));

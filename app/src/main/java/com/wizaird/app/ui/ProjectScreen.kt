@@ -1694,20 +1694,27 @@ fun InsightPreviewOverlay(
                                 }
                         )
 
-                        // Thinking icon — always shown
+                        // Thinking icon — only interactive when thinking content exists
+                        val hasThinking = insight.thinkingContent != null
                         val thinkingInteraction = remember { MutableInteractionSource() }
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data("file:///android_asset/pixelarticons/ai-app-mac.svg")
                                 .build(),
                             imageLoader = svgLoader,
-                            contentDescription = "View AI reasoning",
-                            colorFilter = ColorFilter.tint(colors.textXLow),
+                            contentDescription = if (hasThinking) "View AI reasoning" else "No thought process captured",
+                            colorFilter = ColorFilter.tint(
+                                if (hasThinking) colors.textXLow
+                                else colors.textXLow.copy(alpha = 0.35f)
+                            ),
                             modifier = Modifier
                                 .size(20.dp)
-                                .pixelRounded8ClickableOversize(
-                                    interactionSource = thinkingInteraction
-                                ) { showThinking = true }
+                                .then(
+                                    if (hasThinking) Modifier.pixelRounded8ClickableOversize(
+                                        interactionSource = thinkingInteraction
+                                    ) { showThinking = true }
+                                    else Modifier
+                                )
                         )
                     }
                 }

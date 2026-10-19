@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const AspectRatioSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M2 4h20v2H2zm0 2h2v12H2zm0 12h20v2H2zM20 6h2v12h-2zM6 8h4v2H6zm8 6h4v2h-4zm-8-4h2v2H6zm10 2h2v2h-2z"}));

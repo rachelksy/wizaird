@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const Vercel = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M3 18h18v-1h2v3H1v-3h2v1Zm2-1H3v-3h2v3Zm16 0h-2v-3h2v3ZM7 14H5v-3h2v3Zm12 0h-2v-3h2v3ZM9 11H7V8h2v3Zm8 0h-2V8h2v3Zm-6-3H9V5h2v3Zm4 0h-2V5h2v3Zm-2-3h-2V3h2v2Z"}));

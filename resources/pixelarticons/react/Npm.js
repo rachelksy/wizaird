@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const Npm = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M24 16H12v2H6v-2H0V7h24v9ZM8 16h2v-2h3V9H8v7Zm-6-2h1v-4h2v4h1V9H2v5Zm13 0h1v-4h2v4h1v-4h2v4h1V9h-7v5Zm-3-1h-2v-3h2v3Z"}));

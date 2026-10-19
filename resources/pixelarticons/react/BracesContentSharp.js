@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const BracesContentSharp = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M3 4h6v2H3zm18 0h-6v2h6zM3 20h6v-2H3zm18 0h-6v-2h6zM3 6h2v5H3zm18 0h-2v5h2zM3 18h2v-5H3zm18 0h-2v-5h2zM1 11h2v2H1zm10 0h2v2h-2zm-4 0h2v2H7zm8 0h2v2h-2zm8 0h-2v2h2z"}));

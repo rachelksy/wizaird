@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const DragAndDropGlyph = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M21 11H11v10H7V7h14v4Zm0 10h-2v-2h2v2Zm-2-6h-2v2h-2v2h-2v-6h6v2Zm0 4h-2v-2h2v2ZM5 17H3v-2h2v2Zm0-4H3v-2h2v2Zm0-4H3V7h2v2Zm0-4H3V3h2v2Zm4 0H7V3h2v2Zm4 0h-2V3h2v2Zm4 0h-2V3h2v2Z"}));

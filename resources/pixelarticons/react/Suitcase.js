@@ -1,0 +1,2 @@
+import { createElement as h } from 'react';
+export const Suitcase = (props) => h('svg', Object.assign({viewBox: '0 0 24 24', width: '24', height: '24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg'}, props), h('path', {d: "M4 6h16v2H4zM2 8h2v12H2zm18 0h2v12h-2zM4 20h16v2H4zM8 4h2v2H8zm2-2h4v2h-4zm4 2h2v2h-2zm-8 6h2v8H6zm10 0h2v8h-2z"}));

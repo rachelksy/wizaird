@@ -332,7 +332,7 @@ fun MoreOptionsButton(onClick: () -> Unit) {
 fun ConceptPill(
     label: String,
     ghost: Boolean = false,
-    fillColor: Color = Coral.copy(alpha = 0.25f),  // light orange for concepts; pass another fill for other pills
+    fillColor: Color = LocalWizairdColors.current.tertiarySurface,  // same as the search bar; pass another fill for other pills
     onClick: (() -> Unit)? = null
 ) {
     val colors = LocalWizairdColors.current
@@ -405,7 +405,7 @@ fun LinkedCountChip(label: String, expanded: Boolean, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     PixelBox(
         modifier = Modifier.pixelRounded8Clickable(interactionSource = interaction, onClick = onClick),
-        fillColor = Coral.copy(alpha = 0.25f),
+        fillColor = colors.tertiarySurface,
         borderColor = Color.Transparent,
         cornerStyle = PixelCornerStyle.Rounded8
     ) {

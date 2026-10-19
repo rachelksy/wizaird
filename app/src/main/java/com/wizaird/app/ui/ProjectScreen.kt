@@ -1005,18 +1005,20 @@ fun ChatListItem(
             .fillMaxWidth()
             .pixelRoundedClickable(interactionSource = interaction, onClick = onClick),
         fillColor = colors.secondarySurface,
+        borderColor = Color.Transparent,
         cornerStyle = PixelCornerStyle.Rounded
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            // Title in the body font (concept cards use the caps pixel font)
             Text(
-                text = chat.title.uppercase(),
-                style = pixelStyle(12, colors.secondaryIcon).copy(
-                    lineHeight = (12 * 1.6f).sp
+                text = chat.title,
+                style = minecraftStyle(14, colors.secondaryIcon).copy(
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                 ),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -1077,7 +1079,7 @@ fun NoteListItem(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, top = 12.dp, end = 10.dp, bottom = 12.dp)
+                    .padding(start = 14.dp, top = 10.dp, end = 8.dp, bottom = 10.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -1374,7 +1376,7 @@ fun InsightListItem(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, top = 12.dp, end = 10.dp, bottom = 12.dp)
+                    .padding(start = 14.dp, top = 10.dp, end = 8.dp, bottom = 10.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -2188,15 +2190,15 @@ fun ConceptListItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .pixelRoundedClickable(interactionSource = interaction, onClick = onClick),
-            // Ghosts are low-key placeholders: the normal card fill at 35%
+            // Full concepts: filled card with a soft stroke. Ghosts: the fill at 35%, no stroke.
             fillColor = if (concept.isGhost) colors.secondarySurface.copy(alpha = 0.35f) else colors.secondarySurface,
-            borderColor = androidx.compose.ui.graphics.Color.Transparent,
+            borderColor = if (concept.isGhost) androidx.compose.ui.graphics.Color.Transparent else colors.textLow,
             cornerStyle = PixelCornerStyle.Rounded
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, top = 12.dp, end = 10.dp, bottom = 12.dp)
+                    .padding(start = 14.dp, top = 10.dp, end = 8.dp, bottom = 10.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -2204,13 +2206,10 @@ fun ConceptListItem(
                         .padding(end = 32.dp), // Leave space for the options button
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Name — minecraft font, bold (regular for ghosts), 2sp bigger than the summary
+                    // Name — caps pixel font (chat cards use the body font)
                     Text(
                         text = concept.name,
-                        style = minecraftStyle(14, nameColor).copy(
-                            fontWeight = if (concept.isGhost) androidx.compose.ui.text.font.FontWeight.Normal
-                                         else androidx.compose.ui.text.font.FontWeight.Bold
-                        ),
+                        style = pixelStyle(12, nameColor).copy(lineHeight = (12 * 1.6f).sp),
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier.offset(y = (-2).dp)

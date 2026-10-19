@@ -1480,6 +1480,26 @@ fun PixelButtonLarge(
 }
 
 // ── 40dp pixel-circle icon button ────────────────────────────────
+// ── Text button ──────────────────────────────────────────────────
+// For low-emphasis inline actions ("Show less" etc.): body font in Coral so it reads
+// as tappable, no fill. The press overlay is clipped to the pixel shape.
+
+@Composable
+fun PixelTextButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    Text(
+        label,
+        style = minecraftStyle(12, Coral),
+        modifier = modifier
+            .pixelRounded8Clickable(interactionSource = interactionSource, onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 2.dp)
+    )
+}
+
 @Composable
 fun PixelCircleIconButton(
     iconRes: Int,

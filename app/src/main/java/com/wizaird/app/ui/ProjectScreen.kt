@@ -1010,23 +1010,22 @@ fun ChatListItem(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .padding(start = 14.dp, end = 14.dp, top = 9.dp, bottom = 10.dp),  // 9 top: the font adds space above the title
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Title in the body font (concept cards use the caps pixel font)
+            // Title in the body font (concept cards use the caps pixel font).
+            // No -2dp nudge here: it made the bottom padding look larger than the top.
             Text(
                 text = chat.title,
                 style = minecraftStyle(14, colors.secondaryIcon).copy(
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                 ),
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.offset(y = (-2).dp)
+                overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = chat.formattedCreatedAt(),
-                style = pixelStyle(8, colors.secondaryIconSoft),
-                modifier = Modifier.offset(y = (-2).dp)
+                text = chat.formattedCreatedDate(),
+                style = pixelStyle(8, colors.textXLow)
             )
         }
     }

@@ -34,6 +34,10 @@ data class ChatData(
     val insightId: String? = null,  // Link to the insight that started this chat
     val contextWindowSize: Int = 50  // Number of last messages to send to AI for context
 ) {
+    /** Date only, e.g. "Oct 15, 2025" (chat cards). */
+    fun formattedCreatedDate(): String =
+        SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(createdAt))
+
     fun formattedCreatedAt(): String {
         val date = Date(createdAt)
         val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())

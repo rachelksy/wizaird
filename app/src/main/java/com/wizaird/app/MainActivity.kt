@@ -20,6 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.wizaird.app.data.AiSettings
 import com.wizaird.app.data.addSampleConceptsOnce
+import com.wizaird.app.data.addSampleLinkedConceptsOnce
 import com.wizaird.app.data.migrateGlossaryToConceptsIfNeeded
 import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.ui.AccountSettingsScreen
@@ -58,6 +59,7 @@ class MainActivity : ComponentActivity() {
                 // TEMPORARY: sample concepts for UI review (debug builds only)
                 if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
                     addSampleConceptsOnce(this@MainActivity)
+                    addSampleLinkedConceptsOnce(this@MainActivity)
                 }
             }
 

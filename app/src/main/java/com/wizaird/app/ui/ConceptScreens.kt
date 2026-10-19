@@ -355,6 +355,68 @@ fun ConceptPill(
     }
 }
 
+/**
+ * Concept pills on a single line; if they don't all fit, a single "Linked to N concepts ⌄" chip
+ * instead, which calls [onShowAll] (the caller shows the linked-concepts sheet).
+ */
+@Composable
+fun ConceptPillsOrCount(
+    concepts: List<Concept>,
+    onConceptClick: (String) -> Unit,
+    onShowAll: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = LocalWizairdColors.current
+    val density = LocalDensity.current
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val pillTextStyle = pixelStyle(8, colors.textLow)
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        // Pill width = text + 8dp padding each side; 6dp between pills
+        val totalWidthPx = with(density) {
+            concepts.sumOf { measurer.measure(it.name, pillTextStyle).size.width + 16.dp.roundToPx() } +
+                (concepts.size - 1) * 6.dp.roundToPx()
+        }
+        if (totalWidthPx <= constraints.maxWidth) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                concepts.forEach { c -> ConceptPill(label = c.name, ghost = c.isGhost, onClick = { onConceptClick(c.id) }) }
+            }
+        } else {
+            LinkedCountChip(count = concepts.size, onClick = onShowAll)
+        }
+    }
+}
+
+/** Concept-pill-styled chip: "Linked to N concepts" + down chevron. */
+@Composable
+fun LinkedCountChip(count: Int, onClick: () -> Unit) {
+    val colors = LocalWizairdColors.current
+    val interaction = remember { MutableInteractionSource() }
+    PixelBox(
+        modifier = Modifier.pixelRounded8Clickable(interactionSource = interaction, onClick = onClick),
+        fillColor = Coral.copy(alpha = 0.25f),
+        borderColor = Color.Transparent,
+        cornerStyle = PixelCornerStyle.Rounded8
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                "LINKED TO $count CONCEPTS",
+                style = pixelStyle(8, colors.textLow),
+                modifier = Modifier.offset(y = (-1).dp)
+            )
+            androidx.compose.foundation.Image(
+                painter = painterResource(id = com.wizaird.app.R.drawable.ic_chevron_down),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(colors.textLow),
+                modifier = Modifier.size(10.dp)
+            )
+        }
+    }
+}
+
 /** One row in a [ConceptSectionCard]. */
 data class SectionRow(
     val title: String,

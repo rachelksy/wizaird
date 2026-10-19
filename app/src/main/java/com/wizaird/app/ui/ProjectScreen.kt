@@ -119,6 +119,7 @@ fun ProjectScreen(
     var conceptSortOrder by remember { mutableStateOf(ConceptSortOrder.DATE_DESC) }
     var conceptFilter by remember { mutableStateOf(ConceptFilter.ALL) }
     var showFilterMenu by remember { mutableStateOf(false) }
+    var linkedConceptsSheet by remember { mutableStateOf<List<Concept>?>(null) }  // chat's linked concepts
     var showSortBottomSheet by remember { mutableStateOf(false) }
     
     // Concepts — live from DataStore with search, sort and filter
@@ -566,7 +567,8 @@ fun ProjectScreen(
                                     chat = chat,
                                     onClick = { onChatClick(chat.id) },
                                     concepts = conceptsByChat[chat.id] ?: emptyList(),
-                                    onConceptClick = onChatConceptClick
+                                    onConceptClick = onChatConceptClick,
+                                    onShowLinkedConcepts = { linkedConceptsSheet = it }
                                 )
                             }
                         }
@@ -950,6 +952,22 @@ fun ProjectScreen(
             )
         }
 
+        // Linked concepts of a chat card
+        linkedConceptsSheet?.let { linked ->
+            LinkedConceptsBottomSheet(
+                concepts = linked,
+                onConceptClick = { id ->
+                    linkedConceptsSheet = null
+                    onChatConceptClick(id)
+                },
+                onEditConcept = { id ->
+                    linkedConceptsSheet = null
+                    onEditConceptClick(id)
+                },
+                onDismiss = { linkedConceptsSheet = null }
+            )
+        }
+
         // Ghost filter bottom sheet for concepts
         if (showFilterMenu) {
             val filterOptions = listOf(
@@ -996,7 +1014,8 @@ fun ChatListItem(
     chat: com.wizaird.app.data.ChatData,
     onClick: () -> Unit = {},
     concepts: List<Concept> = emptyList(),  // concepts linked to this chat
-    onConceptClick: (String) -> Unit = {}
+    onConceptClick: (String) -> Unit = {},
+    onShowLinkedConcepts: (List<Concept>) -> Unit = {}  // opens the linked-concepts sheet
 ) {
     val colors = LocalWizairdColors.current
     val interaction = remember { MutableInteractionSource() }
@@ -1027,17 +1046,14 @@ fun ChatListItem(
                 style = pixelStyle(8, colors.secondaryIconSoft),
                 modifier = Modifier.offset(y = (-2).dp)
             )
-            // Concepts linked to this chat
+            // Concepts linked to this chat — pills on one line, or a "linked to N" chip when they don't fit
             if (concepts.isNotEmpty()) {
-                FlowRow(
-                    modifier = Modifier.padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    concepts.forEach { concept ->
-                        ConceptPill(label = concept.name, ghost = concept.isGhost, onClick = { onConceptClick(concept.id) })
-                    }
-                }
+                ConceptPillsOrCount(
+                    concepts = concepts,
+                    onConceptClick = onConceptClick,
+                    onShowAll = { onShowLinkedConcepts(concepts) },
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
         }
     }
@@ -2299,24 +2315,15 @@ fun ConceptListItem(
     }
 }
 
-/** Bottom sheet with a single-choice list (selected row gets a check). Used for concept sort and filter. */
+/** Bottom sheet frame: dark scrim + sheet with rounded pixel top corners. Back or tapping the scrim closes it. */
 @Composable
-fun PixelOptionsBottomSheet(
-    options: List<String>,
-    selectedIndex: Int,
-    onSelect: (Int) -> Unit,
-    onDismiss: () -> Unit
+fun PixelBottomSheet(
+    onDismiss: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
 ) {
     // System Back closes the sheet instead of leaving the screen
     androidx.activity.compose.BackHandler(onBack = onDismiss)
-    val context = LocalContext.current
     val colors = LocalWizairdColors.current
-    
-    val svgLoader = remember {
-        ImageLoader.Builder(context)
-            .components { add(SvgDecoder.Factory()) }
-            .build()
-    }
 
     // Scrim background with darkened overlay
     Box(
@@ -2377,44 +2384,98 @@ fun PixelOptionsBottomSheet(
                     .navigationBarsPadding(),
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                options.forEachIndexed { index, label ->
-                    val optionInteraction = remember { MutableInteractionSource() }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp)
-                            .pixelRoundedClickable(
-                                interactionSource = optionInteraction,
-                                onClick = { onSelect(index) }
-                            ),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = label,
-                                style = pixelStyle(14, colors.textLow),
-                                modifier = Modifier.offset(y = (-2).dp)
-                            )
-                            if (index == selectedIndex) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data("file:///android_asset/pixelarticons/check.svg")
-                                        .build(),
-                                    imageLoader = svgLoader,
-                                    contentDescription = "Selected",
-                                    colorFilter = ColorFilter.tint(Coral),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
+                content()
+            }
+        }
+    }
+}
+
+/** Bottom sheet with a single-choice list (selected row gets a check). Used for concept sort and filter. */
+@Composable
+fun PixelOptionsBottomSheet(
+    options: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val colors = LocalWizairdColors.current
+    val svgLoader = remember {
+        ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
+    }
+    PixelBottomSheet(onDismiss = onDismiss) {
+        options.forEachIndexed { index, label ->
+            val optionInteraction = remember { MutableInteractionSource() }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .pixelRoundedClickable(
+                        interactionSource = optionInteraction,
+                        onClick = { onSelect(index) }
+                    ),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = label,
+                        style = pixelStyle(14, colors.textLow),
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
+                    if (index == selectedIndex) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/check.svg")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = "Selected",
+                            colorFilter = ColorFilter.tint(Coral),
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Sheet listing the concepts linked to a chat, as concept cards. Tapping one opens it. */
+@Composable
+fun LinkedConceptsBottomSheet(
+    concepts: List<Concept>,
+    onConceptClick: (String) -> Unit,
+    onEditConcept: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = LocalWizairdColors.current
+    PixelBottomSheet(onDismiss = onDismiss) {
+        Text(
+            "LINKED CONCEPTS",
+            style = pixelStyle(12, colors.textXLow),
+            modifier = Modifier
+                .padding(start = 8.dp, top = 8.dp, bottom = 8.dp)
+                .offset(y = (-2).dp)
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 480.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            concepts.forEach { concept ->
+                ConceptListItem(
+                    concept = concept,
+                    onClick = { onConceptClick(concept.id) },
+                    onEdit = { onEditConcept(concept.id) }
+                )
             }
         }
     }

@@ -313,3 +313,34 @@ suspend fun addSampleConceptsOnce(context: Context) {
         prefs[KEY_SAMPLES_V2_ADDED] = true
     }
 }
+
+// TEMPORARY (UI review): five sample concepts linked to each project's newest chat, so the
+// "Linked to N concepts" chip and sheet can be checked. Delete them in the app when done.
+private val KEY_SAMPLES_V3_ADDED = booleanPreferencesKey("concepts_samples_v3_added")
+
+suspend fun addSampleLinkedConceptsOnce(context: Context) {
+    context.dataStore.edit { prefs ->
+        if (prefs[KEY_SAMPLES_V3_ADDED] == true) return@edit
+        val chatType = object : TypeToken<List<ChatData>>() {}.type
+        val chats: List<ChatData> = prefs[stringPreferencesKey("chats")]?.let { conceptGson.fromJson(it, chatType) } ?: emptyList()
+        val concepts = readConcepts(prefs).toMutableList()
+        val now = System.currentTimeMillis()
+        concepts.map { it.projectId }.distinct().forEach { projectId ->
+            val chat = chats.filter { it.projectId == projectId }.maxByOrNull { it.createdAt } ?: return@forEach
+            (1..5).forEach { n ->
+                concepts.add(
+                    Concept(
+                        projectId = projectId,
+                        name = "Sample linked concept $n",
+                        intro = "Placeholder linked to \"${chat.title}\" to test the linked-concepts chip.",
+                        sources = listOf(ConceptSource(type = ConceptSourceType.CHAT_MESSAGE, chatId = chat.id, snippet = chat.title)),
+                        createdAt = now - 10 - n,
+                        updatedAt = now - 10 - n
+                    )
+                )
+            }
+        }
+        prefs[KEY_CONCEPTS] = conceptGson.toJson(concepts)
+        prefs[KEY_SAMPLES_V3_ADDED] = true
+    }
+}

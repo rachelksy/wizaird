@@ -90,3 +90,5 @@ Built and tested on the emulator with `Backups/backup.json` (20 glossary words �
 - Concept list: filter button opens a bottom sheet (All / Hide ghosts) like sort (shared `PixelOptionsBottomSheet`). Card preview = brief description only; empty → "No description or article" (secondary text).
 - Concept page section order: Related concepts, Chats, Insights, Notes. Empty texts: "No chats/insights/notes linked to this concept yet", "No related concepts yet".
 - Chat cards (Chats tab) show pills for concepts linked to that chat, like insight cards. Related concepts on the concept page are pills with no card; empty = small secondary "No related concepts".
+- Chat cards: if the linked concept pills do not fit on one line, a single "LINKED TO N CONCEPTS ⌄" chip shows instead; tapping it opens a "Linked concepts" bottom sheet with concept-list cards (`ConceptPillsOrCount`, `LinkedConceptsBottomSheet`, shared frame `PixelBottomSheet`).
+- TEMPORARY: debug builds also add "Sample linked concept 1–5" linked to each project's newest chat (`addSampleLinkedConceptsOnce`, flag `concepts_samples_v3_added`).

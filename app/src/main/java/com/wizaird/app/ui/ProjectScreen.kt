@@ -2289,6 +2289,7 @@ fun ConceptListItem(
 @Composable
 fun PixelBottomSheet(
     onDismiss: () -> Unit,
+    fillColor: Color? = null,  // null = secondaryButton (sort/filter sheets)
     content: @Composable ColumnScope.() -> Unit
 ) {
     // System Back closes the sheet instead of leaving the screen
@@ -2318,7 +2319,7 @@ fun PixelBottomSheet(
                     val p = PixelSize.toPx()
                     val w = size.width
                     val h = size.height
-                    val fill = colors.secondaryButton
+                    val fill = fillColor ?: colors.secondaryButton
 
                     // Fill the sheet
                     drawRect(fill)

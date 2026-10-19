@@ -1454,7 +1454,7 @@ fun LinkConceptsBottomSheet(
     val visible = if (q.isEmpty()) ordered
                   else ordered.filter { it.name.lowercase().contains(q) || it.aliases.lowercase().contains(q) }
 
-    PixelBottomSheet(onDismiss = onDismiss) {
+    PixelBottomSheet(onDismiss = onDismiss, fillColor = colors.background) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1470,13 +1470,13 @@ fun LinkConceptsBottomSheet(
             )
             PixelButtonSmall(label = "SAVE", primary = true, onClick = { onSave(selected) })
         }
-        // Search — input fill (like the other text inputs) so it stands apart from the selected rows
+        // Search — same field as the Concepts tab
         PixelBox(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 4.dp)
                 .padding(bottom = 8.dp),
-            fillColor = colors.secondarySurface,
+            fillColor = colors.tertiarySurface,
             borderColor = Color.Transparent,
             cornerStyle = PixelCornerStyle.Rounded8
         ) {
@@ -1517,7 +1517,7 @@ fun LinkConceptsBottomSheet(
                     label = concept.name,
                     checked = concept.id in selected,
                     onToggle = { selected = if (concept.id in selected) selected - concept.id else selected + concept.id },
-                    selectedFill = colors.background,  // differs from the sheet (secondaryButton) and the search field (tertiarySurface)
+                    selectedFill = colors.secondaryButton,  // sheet = app background, search = tertiarySurface
                     muted = concept.isGhost
                 )
             }

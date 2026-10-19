@@ -1470,13 +1470,13 @@ fun LinkConceptsBottomSheet(
             )
             PixelButtonSmall(label = "SAVE", primary = true, onClick = { onSave(selected) })
         }
-        // Search — same field as the Concepts tab
+        // Search — input fill (like the other text inputs) so it stands apart from the selected rows
         PixelBox(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 4.dp)
                 .padding(bottom = 8.dp),
-            fillColor = colors.tertiarySurface,
+            fillColor = colors.secondarySurface,
             borderColor = Color.Transparent,
             cornerStyle = PixelCornerStyle.Rounded8
         ) {
@@ -1517,7 +1517,7 @@ fun LinkConceptsBottomSheet(
                     label = concept.name,
                     checked = concept.id in selected,
                     onToggle = { selected = if (concept.id in selected) selected - concept.id else selected + concept.id },
-                    selectedFill = colors.tertiarySurface,  // the sheet itself is secondaryButton
+                    selectedFill = colors.background,  // differs from the sheet (secondaryButton) and the search field (tertiarySurface)
                     muted = concept.isGhost
                 )
             }

@@ -16,11 +16,13 @@ import com.wizaird.app.data.upsertChat
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.launch
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun ChatSettingsScreen(
     projectId: String,
     chatId: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onConceptClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -128,43 +130,29 @@ fun ChatSettingsScreen(
                     )
                 }
 
-                // Linked concepts — tap to pick concepts in a bottom sheet
+                // Linked concepts — pills (tap to open the concept) + an Edit text button for the picker sheet
                 SettingsField(label = "LINKED CONCEPTS") {
-                    val linkInteraction = remember { MutableInteractionSource() }
-                    PixelBox(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .pixelRoundedClickable(interactionSource = linkInteraction) { showConceptsSheet = true },
-                        fillColor = colors.secondarySurface,
-                        cornerStyle = PixelCornerStyle.Rounded
+                    androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                        if (linkedConcepts.isEmpty()) {
                             Text(
-                                text = if (linkedConcepts.isEmpty()) "No concepts linked"
-                                       else linkedConcepts.joinToString(", ") { it.name },
-                                style = minecraftStyle(12, if (linkedConcepts.isEmpty()) colors.secondaryIconSoft else colors.secondaryIcon),
-                                maxLines = 2,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                "No concepts linked",
+                                style = minecraftStyle(12, colors.secondaryIconSoft),
                                 modifier = Modifier
-                                    .weight(1f)
+                                    .align(Alignment.CenterVertically)
                                     .offset(y = (-2).dp)
                             )
-                            coil.compose.AsyncImage(
-                                model = coil.request.ImageRequest.Builder(context)
-                                    .data("file:///android_asset/pixelarticons/chevron-right.svg")
-                                    .build(),
-                                imageLoader = rememberSvgLoader(),
-                                contentDescription = null,
-                                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIcon),
-                                modifier = Modifier.size(20.dp)
-                            )
                         }
+                        linkedConcepts.forEach { concept ->
+                            ConceptPill(label = concept.name, ghost = concept.isGhost, onClick = { onConceptClick(concept.id) })
+                        }
+                        PixelTextButton(
+                            label = "Edit",
+                            onClick = { showConceptsSheet = true },
+                            modifier = Modifier.align(Alignment.CenterVertically)
+                        )
                     }
                 }
 

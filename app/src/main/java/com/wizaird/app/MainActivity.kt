@@ -329,7 +329,8 @@ class MainActivity : ComponentActivity() {
                         ChatSettingsScreen(
                             projectId = projectId,
                             chatId    = chatId,
-                            onBack    = { nav.popBackStack() }
+                            onBack    = { nav.popBackStack() },
+                            onConceptClick = { conceptId -> nav.navigate("concept/${projectId}/${conceptId}") }
                         )
                     }
                 }

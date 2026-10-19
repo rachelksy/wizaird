@@ -2168,9 +2168,9 @@ fun ConceptListItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .pixelRoundedClickable(interactionSource = interaction, onClick = onClick),
-            // Ghosts are low-key placeholders: no fill, faint outline; full concepts are filled cards
-            fillColor = if (concept.isGhost) colors.background else colors.secondarySurface,
-            borderColor = if (concept.isGhost) colors.textXLow.copy(alpha = 0.35f) else androidx.compose.ui.graphics.Color.Transparent,
+            // Ghosts are low-key placeholders: the normal card fill at 35%
+            fillColor = if (concept.isGhost) colors.secondarySurface.copy(alpha = 0.35f) else colors.secondarySurface,
+            borderColor = androidx.compose.ui.graphics.Color.Transparent,
             cornerStyle = PixelCornerStyle.Rounded
         ) {
             Box(

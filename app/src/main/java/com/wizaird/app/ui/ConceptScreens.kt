@@ -683,10 +683,17 @@ fun ConceptPageScreen(
                     }
                 } else if (concept.isEmpty) {
                     // Empty concept (usually a ghost): offer AI or manual writing
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
                         Text(
-                            "No description or article yet.",
-                            style = minecraftStyle(14, colors.secondaryIconSoft).copy(lineHeight = (14 * 1.6f).sp),
+                            "NO DESCRIPTION OR ARTICLE YET",
+                            style = pixelStyle(14, colors.secondaryIconSoft),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             modifier = Modifier.offset(y = (-2).dp)
                         )
                         Row(

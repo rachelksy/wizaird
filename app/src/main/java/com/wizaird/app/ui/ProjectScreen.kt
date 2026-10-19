@@ -119,7 +119,6 @@ fun ProjectScreen(
     var conceptSortOrder by remember { mutableStateOf(ConceptSortOrder.DATE_DESC) }
     var conceptFilter by remember { mutableStateOf(ConceptFilter.ALL) }
     var showFilterMenu by remember { mutableStateOf(false) }
-    var linkedConceptsSheet by remember { mutableStateOf<List<Concept>?>(null) }  // chat's linked concepts
     var showSortBottomSheet by remember { mutableStateOf(false) }
     
     // Concepts — live from DataStore with search, sort and filter
@@ -567,8 +566,7 @@ fun ProjectScreen(
                                     chat = chat,
                                     onClick = { onChatClick(chat.id) },
                                     concepts = conceptsByChat[chat.id] ?: emptyList(),
-                                    onConceptClick = onChatConceptClick,
-                                    onShowLinkedConcepts = { linkedConceptsSheet = it }
+                                    onConceptClick = onChatConceptClick
                                 )
                             }
                         }
@@ -952,22 +950,6 @@ fun ProjectScreen(
             )
         }
 
-        // Linked concepts of a chat card
-        linkedConceptsSheet?.let { linked ->
-            LinkedConceptsBottomSheet(
-                concepts = linked,
-                onConceptClick = { id ->
-                    linkedConceptsSheet = null
-                    onChatConceptClick(id)
-                },
-                onEditConcept = { id ->
-                    linkedConceptsSheet = null
-                    onEditConceptClick(id)
-                },
-                onDismiss = { linkedConceptsSheet = null }
-            )
-        }
-
         // Ghost filter bottom sheet for concepts
         if (showFilterMenu) {
             val filterOptions = listOf(
@@ -1014,8 +996,7 @@ fun ChatListItem(
     chat: com.wizaird.app.data.ChatData,
     onClick: () -> Unit = {},
     concepts: List<Concept> = emptyList(),  // concepts linked to this chat
-    onConceptClick: (String) -> Unit = {},
-    onShowLinkedConcepts: (List<Concept>) -> Unit = {}  // opens the linked-concepts sheet
+    onConceptClick: (String) -> Unit = {}
 ) {
     val colors = LocalWizairdColors.current
     val interaction = remember { MutableInteractionSource() }
@@ -1051,7 +1032,6 @@ fun ChatListItem(
                 ConceptPillsOrCount(
                     concepts = concepts,
                     onConceptClick = onConceptClick,
-                    onShowAll = { onShowLinkedConcepts(concepts) },
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
@@ -2440,42 +2420,6 @@ fun PixelOptionsBottomSheet(
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-/** Sheet listing the concepts linked to a chat, as concept cards. Tapping one opens it. */
-@Composable
-fun LinkedConceptsBottomSheet(
-    concepts: List<Concept>,
-    onConceptClick: (String) -> Unit,
-    onEditConcept: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val colors = LocalWizairdColors.current
-    PixelBottomSheet(onDismiss = onDismiss) {
-        Text(
-            "LINKED CONCEPTS",
-            style = pixelStyle(12, colors.textXLow),
-            modifier = Modifier
-                .padding(start = 8.dp, top = 8.dp, bottom = 8.dp)
-                .offset(y = (-2).dp)
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 480.dp)
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            concepts.forEach { concept ->
-                ConceptListItem(
-                    concept = concept,
-                    onClick = { onConceptClick(concept.id) },
-                    onEdit = { onEditConcept(concept.id) }
-                )
             }
         }
     }

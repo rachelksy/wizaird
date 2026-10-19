@@ -356,39 +356,46 @@ fun ConceptPill(
 }
 
 /**
- * Concept pills on a single line; if they don't all fit, a single "Linked to N concepts ⌄" chip
- * instead, which calls [onShowAll] (the caller shows the linked-concepts sheet).
+ * Concept pills on a single line; if they don't all fit, a "Linked to N concepts ⌄" chip instead.
+ * Tapping the chip expands to all pills (wrapping onto more lines) plus a chip to collapse again.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ConceptPillsOrCount(
     concepts: List<Concept>,
     onConceptClick: (String) -> Unit,
-    onShowAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = LocalWizairdColors.current
     val density = LocalDensity.current
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
     val pillTextStyle = pixelStyle(8, colors.textLow)
+    var expanded by remember { mutableStateOf(false) }
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         // Pill width = text + 8dp padding each side; 6dp between pills
         val totalWidthPx = with(density) {
             concepts.sumOf { measurer.measure(it.name, pillTextStyle).size.width + 16.dp.roundToPx() } +
                 (concepts.size - 1) * 6.dp.roundToPx()
         }
-        if (totalWidthPx <= constraints.maxWidth) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        when {
+            totalWidthPx <= constraints.maxWidth -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 concepts.forEach { c -> ConceptPill(label = c.name, ghost = c.isGhost, onClick = { onConceptClick(c.id) }) }
             }
-        } else {
-            LinkedCountChip(count = concepts.size, onClick = onShowAll)
+            !expanded -> LinkedCountChip(label = "LINKED TO ${concepts.size} CONCEPTS", expanded = false, onClick = { expanded = true })
+            else -> FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                concepts.forEach { c -> ConceptPill(label = c.name, ghost = c.isGhost, onClick = { onConceptClick(c.id) }) }
+                LinkedCountChip(label = "SHOW LESS", expanded = true, onClick = { expanded = false })
+            }
         }
     }
 }
 
-/** Concept-pill-styled chip: "Linked to N concepts" + down chevron. */
+/** Concept-pill-styled chip with a chevron (down to expand, up to collapse). */
 @Composable
-fun LinkedCountChip(count: Int, onClick: () -> Unit) {
+fun LinkedCountChip(label: String, expanded: Boolean, onClick: () -> Unit) {
     val colors = LocalWizairdColors.current
     val interaction = remember { MutableInteractionSource() }
     PixelBox(
@@ -403,7 +410,7 @@ fun LinkedCountChip(count: Int, onClick: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                "LINKED TO $count CONCEPTS",
+                label,
                 style = pixelStyle(8, colors.textLow),
                 modifier = Modifier.offset(y = (-1).dp)
             )
@@ -411,7 +418,9 @@ fun LinkedCountChip(count: Int, onClick: () -> Unit) {
                 painter = painterResource(id = com.wizaird.app.R.drawable.ic_chevron_down),
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(colors.textLow),
-                modifier = Modifier.size(10.dp)
+                modifier = Modifier
+                    .size(10.dp)
+                    .graphicsLayer { rotationZ = if (expanded) 180f else 0f }
             )
         }
     }

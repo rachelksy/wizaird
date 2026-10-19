@@ -396,7 +396,8 @@ fun ProjectScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(tabScrollState)
-                    .padding(start = 16.dp, end = 16.dp),
+                    // 2dp start so the first tab's icon lines up with the search bar below (tabs have 6dp inner padding)
+                    .padding(start = 2.dp, end = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(0.dp)
             ) {
                 val svgLoader = remember {

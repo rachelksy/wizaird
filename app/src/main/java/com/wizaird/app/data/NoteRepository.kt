@@ -120,6 +120,8 @@ suspend fun setNoteConcepts(context: Context, noteId: String, conceptIds: List<S
             prefs[KEY_NOTES] = noteGson.toJson(current)
         }
     }
+    // A ghost linked to a note is no longer a ghost
+    promoteGhosts(context, conceptIds)
 }
 
 /** Remove a deleted concept from every note's tags. */

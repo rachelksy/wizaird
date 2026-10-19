@@ -652,10 +652,10 @@ fun ConceptPageScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val anchorFill = colors.secondaryButton
+                        ConceptPill(label = "RELATED ${related.size}", fillColor = anchorFill, onClick = { jumpTo("related") })
                         ConceptPill(label = "CHATS ${connectedChats.size + deletedChatSources.size}", fillColor = anchorFill, onClick = { jumpTo("chats") })
                         ConceptPill(label = "INSIGHTS ${insightSources.size}", fillColor = anchorFill, onClick = { jumpTo("insights") })
                         ConceptPill(label = "NOTES ${taggedNotes.size}", fillColor = anchorFill, onClick = { jumpTo("notes") })
-                        ConceptPill(label = "RELATED ${related.size}", fillColor = anchorFill, onClick = { jumpTo("related") })
                     }
                 }
 
@@ -751,11 +751,19 @@ fun ConceptPageScreen(
                     )
                 }
 
-                // Sections — same card style as the App Settings sections.
-                // A ghost has nothing linked yet (except possibly the insight it came from).
+                // Sections — same card style as the App Settings sections. A ghost has nothing linked.
+                if (!concept.isGhost) ConceptSectionCard(
+                    label = "RELATED CONCEPTS",
+                    emptyText = "No related concepts yet",
+                    rows = related.map { r ->
+                        SectionRow(title = r.name, muted = r.isGhost, onClick = { onConceptClick(r.id) })
+                    },
+                    modifier = Modifier.onGloballyPositioned { sectionOffsets["related"] = it.positionInParent().y.toInt() }
+                )
+
                 if (!concept.isGhost) ConceptSectionCard(
                     label = "CHATS",
-                    emptyText = "Not connected to any chats yet",
+                    emptyText = "No chats linked to this concept yet",
                     rows = connectedChats.map { chat ->
                         SectionRow(
                             title = chat.title.ifBlank { "Untitled chat" },
@@ -770,9 +778,9 @@ fun ConceptPageScreen(
                     modifier = Modifier.onGloballyPositioned { sectionOffsets["chats"] = it.positionInParent().y.toInt() }
                 )
 
-                if (!concept.isGhost || insightSources.isNotEmpty()) ConceptSectionCard(
+                if (!concept.isGhost) ConceptSectionCard(
                     label = "INSIGHTS",
-                    emptyText = "Not added from any insights yet",
+                    emptyText = "No insights linked to this concept yet",
                     rows = insightSources.map { src ->
                         val insight = insights.firstOrNull { it.id == src.insightId }
                         SectionRow(
@@ -788,7 +796,7 @@ fun ConceptPageScreen(
 
                 if (!concept.isGhost) ConceptSectionCard(
                     label = "NOTES",
-                    emptyText = "No notes tagged yet",
+                    emptyText = "No notes linked to this concept yet",
                     rows = taggedNotes.map { note ->
                         SectionRow(
                             title = note.createdAt,
@@ -798,15 +806,6 @@ fun ConceptPageScreen(
                         )
                     },
                     modifier = Modifier.onGloballyPositioned { sectionOffsets["notes"] = it.positionInParent().y.toInt() }
-                )
-
-                if (!concept.isGhost) ConceptSectionCard(
-                    label = "RELATED CONCEPTS",
-                    emptyText = "No related concepts yet",
-                    rows = related.map { r ->
-                        SectionRow(title = r.name, muted = r.isGhost, onClick = { onConceptClick(r.id) })
-                    },
-                    modifier = Modifier.onGloballyPositioned { sectionOffsets["related"] = it.positionInParent().y.toInt() }
                 )
             }
         }

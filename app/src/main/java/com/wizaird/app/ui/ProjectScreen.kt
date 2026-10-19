@@ -715,14 +715,12 @@ fun ProjectScreen(
                                 )
                             }
 
-                            // Ghost filter dropdown
+                            // Ghost filter — opens a bottom sheet like sort
                             Box(modifier = Modifier.fillMaxHeight()) {
                                 val filterInteraction = remember { MutableInteractionSource() }
-                                var filterButtonHeightPx by remember { mutableStateOf(0) }
                                 PixelBox(
                                     modifier = Modifier
                                         .fillMaxHeight()
-                                        .onGloballyPositioned { filterButtonHeightPx = it.size.height }
                                         .pixelRounded8Clickable(interactionSource = filterInteraction) {
                                             showFilterMenu = true
                                         },
@@ -747,29 +745,6 @@ fun ProjectScreen(
                                             colorFilter = ColorFilter.tint(colors.secondaryIcon),
                                             modifier = Modifier.size(14.dp)
                                         )
-                                    }
-                                }
-                                if (showFilterMenu) {
-                                    PixelOptionsMenu(
-                                        fillColor = colors.secondarySurface,
-                                        onDismiss = { showFilterMenu = false },
-                                        anchorHeight = with(density) { filterButtonHeightPx.toDp() }
-                                    ) {
-                                        listOf(
-                                            ConceptFilter.ALL to "All",
-                                            ConceptFilter.HIDE_GHOSTS to "Hide ghosts"
-                                        ).forEach { (filter, label) ->
-                                            PixelOptionsMenuItem(
-                                                label = label,
-                                                iconAsset = "check.svg",
-                                                tint = if (conceptFilter == filter) Coral else androidx.compose.ui.graphics.Color.Transparent,
-                                                labelColor = colors.secondaryIcon,
-                                                onClick = {
-                                                    conceptFilter = filter
-                                                    showFilterMenu = false
-                                                }
-                                            )
-                                        }
                                     }
                                 }
                             }
@@ -951,13 +926,35 @@ fun ProjectScreen(
 
         // Sort bottom sheet for concepts
         if (showSortBottomSheet) {
-            ConceptSortBottomSheet(
-                currentSortOrder = conceptSortOrder,
-                onSortSelected = { newOrder ->
-                    conceptSortOrder = newOrder
+            val sortOptions = listOf(
+                ConceptSortOrder.DATE_DESC to "Date added (newest first)",
+                ConceptSortOrder.ALPHABETICAL to "Alphabetical (A-Z)"
+            )
+            PixelOptionsBottomSheet(
+                options = sortOptions.map { it.second },
+                selectedIndex = sortOptions.indexOfFirst { it.first == conceptSortOrder },
+                onSelect = { index ->
+                    conceptSortOrder = sortOptions[index].first
                     showSortBottomSheet = false
                 },
                 onDismiss = { showSortBottomSheet = false }
+            )
+        }
+
+        // Ghost filter bottom sheet for concepts
+        if (showFilterMenu) {
+            val filterOptions = listOf(
+                ConceptFilter.ALL to "All",
+                ConceptFilter.HIDE_GHOSTS to "Hide ghosts"
+            )
+            PixelOptionsBottomSheet(
+                options = filterOptions.map { it.second },
+                selectedIndex = filterOptions.indexOfFirst { it.first == conceptFilter },
+                onSelect = { index ->
+                    conceptFilter = filterOptions[index].first
+                    showFilterMenu = false
+                },
+                onDismiss = { showFilterMenu = false }
             )
         }
 
@@ -2195,11 +2192,15 @@ fun ConceptListItem(
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier.offset(y = (-2).dp)
                     )
-                    // Summary — max 3 lines; ghosts without text say so
-                    val summary = concept.intro.ifBlank { concept.body }
+                    // Preview — the brief description, max 3 lines
+                    val summary = concept.intro
                     Text(
-                        text = summary.ifBlank { if (concept.isGhost) "Ghost — not explored yet" else "Nothing written yet" },
-                        style = minecraftStyle(12, if (summary.isBlank() || concept.isGhost) colors.textXLow else textColor),
+                        text = summary.ifBlank { "No description or article" },
+                        style = minecraftStyle(12, when {
+                            concept.isGhost -> colors.textXLow
+                            summary.isBlank() -> colors.secondaryIconSoft
+                            else -> textColor
+                        }),
                         maxLines = 3,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier.offset(y = (-2).dp)
@@ -2271,12 +2272,16 @@ fun ConceptListItem(
     }
 }
 
+/** Bottom sheet with a single-choice list (selected row gets a check). Used for concept sort and filter. */
 @Composable
-fun ConceptSortBottomSheet(
-    currentSortOrder: ConceptSortOrder,
-    onSortSelected: (ConceptSortOrder) -> Unit,
+fun PixelOptionsBottomSheet(
+    options: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
+    // System Back closes the sheet instead of leaving the screen
+    androidx.activity.compose.BackHandler(onBack = onDismiss)
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
     
@@ -2345,80 +2350,41 @@ fun ConceptSortBottomSheet(
                     .navigationBarsPadding(),
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                // Date added (desc) option
-                val dateInteraction = remember { MutableInteractionSource() }
-                val isDateSelected = currentSortOrder == ConceptSortOrder.DATE_DESC
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .pixelRoundedClickable(
-                            interactionSource = dateInteraction,
-                            onClick = { onSortSelected(ConceptSortOrder.DATE_DESC) }
-                        ),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Row(
+                options.forEachIndexed { index, label ->
+                    val optionInteraction = remember { MutableInteractionSource() }
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .height(56.dp)
+                            .pixelRoundedClickable(
+                                interactionSource = optionInteraction,
+                                onClick = { onSelect(index) }
+                            ),
+                        contentAlignment = Alignment.CenterStart
                     ) {
-                        Text(
-                            text = "Date added (newest first)",
-                            style = pixelStyle(14, colors.textLow),
-                            modifier = Modifier.offset(y = (-2).dp)
-                        )
-                        if (isDateSelected) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data("file:///android_asset/pixelarticons/check.svg")
-                                    .build(),
-                                imageLoader = svgLoader,
-                                contentDescription = "Selected",
-                                colorFilter = ColorFilter.tint(Coral),
-                                modifier = Modifier.size(20.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = label,
+                                style = pixelStyle(14, colors.textLow),
+                                modifier = Modifier.offset(y = (-2).dp)
                             )
-                        }
-                    }
-                }
-
-                // Alphabetical option
-                val alphaInteraction = remember { MutableInteractionSource() }
-                val isAlphaSelected = currentSortOrder == ConceptSortOrder.ALPHABETICAL
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .pixelRoundedClickable(
-                            interactionSource = alphaInteraction,
-                            onClick = { onSortSelected(ConceptSortOrder.ALPHABETICAL) }
-                        ),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Alphabetical (A-Z)",
-                            style = pixelStyle(14, colors.textLow),
-                            modifier = Modifier.offset(y = (-2).dp)
-                        )
-                        if (isAlphaSelected) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data("file:///android_asset/pixelarticons/check.svg")
-                                    .build(),
-                                imageLoader = svgLoader,
-                                contentDescription = "Selected",
-                                colorFilter = ColorFilter.tint(Coral),
-                                modifier = Modifier.size(20.dp)
-                            )
+                            if (index == selectedIndex) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data("file:///android_asset/pixelarticons/check.svg")
+                                        .build(),
+                                    imageLoader = svgLoader,
+                                    contentDescription = "Selected",
+                                    colorFilter = ColorFilter.tint(Coral),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 }

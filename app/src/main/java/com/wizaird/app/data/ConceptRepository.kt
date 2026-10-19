@@ -55,11 +55,12 @@ data class Concept(
     val isEmpty: Boolean get() = intro.isBlank() && body.isBlank()
 
     /**
-     * A ghost is a name-only placeholder. It stops being a ghost as soon as it has any
-     * content: a description/article/aliases (generated or written by hand) or a linked chat.
+     * A ghost is a name-only placeholder. It stops being a ghost as soon as anything is filled in:
+     * a description/article/aliases, or a linked chat or insight. (Tagged notes are stored on the
+     * note, so tagging promotes ghosts separately — see [promoteGhosts].)
      */
     val hasContent: Boolean get() =
-        intro.isNotBlank() || body.isNotBlank() || aliases.isNotBlank() || sources.any { it.chatId != null }
+        intro.isNotBlank() || body.isNotBlank() || aliases.isNotBlank() || sources.isNotEmpty()
 
     /** Applies the ghost rule: a ghost with content becomes a full concept. */
     fun withGhostRule(): Concept = if (isGhost && hasContent) copy(status = ConceptStatus.FULL) else this
@@ -140,6 +141,18 @@ suspend fun upsertConcept(context: Context, concept: Concept) {
         val idx = current.indexOfFirst { it.id == concept.id }
         if (idx >= 0) current[idx] = concept else current.add(concept)
         prefs[KEY_CONCEPTS] = conceptGson.toJson(current)
+    }
+}
+
+/** Turns any ghosts among [conceptIds] into full concepts (used when a note is tagged with them). */
+suspend fun promoteGhosts(context: Context, conceptIds: List<String>) {
+    if (conceptIds.isEmpty()) return
+    context.dataStore.edit { prefs ->
+        val concepts = readConcepts(prefs)
+        if (concepts.none { it.id in conceptIds && it.isGhost }) return@edit
+        prefs[KEY_CONCEPTS] = conceptGson.toJson(concepts.map {
+            if (it.id in conceptIds && it.isGhost) it.copy(status = ConceptStatus.FULL) else it
+        })
     }
 }
 

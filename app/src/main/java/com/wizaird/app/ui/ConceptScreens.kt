@@ -1463,7 +1463,7 @@ fun LinkConceptsBottomSheet(
         ) {
             Text(
                 "LINKED CONCEPTS",
-                style = pixelStyle(12, colors.textXLow),
+                style = pixelStyle(12, colors.textHigh),
                 modifier = Modifier
                     .weight(1f)
                     .offset(y = (-2).dp)
@@ -1517,7 +1517,7 @@ fun LinkConceptsBottomSheet(
                     label = concept.name,
                     checked = concept.id in selected,
                     onToggle = { selected = if (concept.id in selected) selected - concept.id else selected + concept.id },
-                    selectedFill = colors.secondarySurface,
+                    selectedFill = colors.tertiarySurface,  // the sheet itself is secondaryButton
                     muted = concept.isGhost
                 )
             }

@@ -77,4 +77,6 @@ Built and tested on the emulator with `Backups/backup.json` (20 glossary words �
 - Notes: ⋮ → "Tag concepts" dialog; tagged notes show concept pills (tap → concept page). Moving a note to another project clears its tags. Deleting a concept removes it from note tags.
 - Concepts can't be moved; ⋮ → "Copy to" makes a new concept (new ID, `copiedFromId` → original) without sources.
 - Not testable on the emulator: real AI output (the provider returned 403 there), and the ghost style (nothing creates ghosts yet).
-- Pill style decision: tappable pills with the real concept name (not #hashtags).
+- Pill style decision: tappable pills with the real concept name (not #hashtags). Pills are only for concepts (note tags, related concepts); aliases are plain text ("Also known as: …") under the article.
+- Concept page header follows the chat screen (back, project name centered, ⋮); tapping it scrolls to top. Under the title, jump buttons (CHATS n / NOTES n / RELATED n) scroll to those sections. Regenerate (⋮) rewrites summary + article.
+- Concept list: search, filter dropdown (All / Hide ghosts) and sort on one row. "Ghosts only" was dropped.

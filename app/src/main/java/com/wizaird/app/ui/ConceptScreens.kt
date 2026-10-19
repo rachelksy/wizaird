@@ -2,6 +2,7 @@ package com.wizaird.app.ui
 
 import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -21,6 +22,8 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -187,9 +190,15 @@ fun ConceptHeader(title: String, onBack: () -> Unit, trailing: @Composable RowSc
 
 /** The ⋮ options popup used on cards, extracted so concept screens share one copy. */
 @Composable
-fun PixelOptionsMenu(fillColor: Color, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+fun PixelOptionsMenu(
+    fillColor: Color,
+    onDismiss: () -> Unit,
+    anchorHeight: androidx.compose.ui.unit.Dp = 32.dp,  // height of the button the menu opens from
+    gap: androidx.compose.ui.unit.Dp = 4.dp,
+    content: @Composable ColumnScope.() -> Unit
+) {
     val density = LocalDensity.current
-    val offsetY = with(density) { (32 + 4).dp.roundToPx() } // Button height + 4dp gap
+    val offsetY = with(density) { (anchorHeight + gap).roundToPx() }
     Popup(
         alignment = Alignment.TopEnd,
         offset = IntOffset(x = 0, y = offsetY),
@@ -254,7 +263,8 @@ fun PixelOptionsMenuItem(
     onClick: () -> Unit,
     iconAsset: String? = null,
     iconRes: Int? = null,
-    tint: Color = LocalWizairdColors.current.secondaryIcon
+    tint: Color = LocalWizairdColors.current.secondaryIcon,
+    labelColor: Color = tint  // separate label color, e.g. a check icon that's hidden when not selected
 ) {
     val context = LocalContext.current
     val svgLoader = rememberSvgLoader()
@@ -287,7 +297,7 @@ fun PixelOptionsMenuItem(
                     modifier = Modifier.size(18.dp)
                 )
             }
-            Text(label, style = pixelStyle(10, tint), modifier = Modifier.offset(y = (-2).dp))
+            Text(label, style = pixelStyle(10, labelColor), modifier = Modifier.offset(y = (-2).dp))
         }
     }
 }
@@ -334,7 +344,7 @@ fun ConceptPill(label: String, ghost: Boolean = false, onClick: (() -> Unit)? = 
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .padding(horizontal = 8.dp, vertical = 2.dp)
                 .offset(y = (-1).dp)
         )
     }
@@ -429,7 +439,7 @@ fun ConceptPageScreen(
             // Deleted or still loading
             Column(modifier = Modifier.fillMaxSize()) {
                 Spacer(modifier = Modifier.height(if (isCoverScreen) 8.dp else 48.dp))
-                ConceptHeader(title = "CONCEPT", onBack = onBack)
+                ConceptHeader(title = "", onBack = onBack)
             }
         } else {
         val chats by remember(concept.projectId) { chatsFlow(context, concept.projectId) }.collectAsState(initial = emptyList())
@@ -438,31 +448,90 @@ fun ConceptPageScreen(
         val projectConcepts by remember(concept.projectId) { conceptsFlow(context, concept.projectId) }.collectAsState(initial = emptyList())
         val related = concept.relatedConceptIds.mapNotNull { id -> projectConcepts.firstOrNull { it.id == id } }
 
+        val projects by projectsFlow(context).collectAsState(initial = emptyList())
+        val projectName = projects.firstOrNull { it.id == concept.projectId }?.name?.ifEmpty { "UNNAMED PROJECT" } ?: ""
+
+        // Connected chats: chats where it was met + chats started from insights where it was met
+        val chatIds = concept.sources.mapNotNull { it.chatId }.distinct()
+        val insightIds = concept.sources.mapNotNull { it.insightId }.distinct()
+        val connectedChats = chats.filter { it.id in chatIds || (it.insightId != null && it.insightId in insightIds) }
+        val deletedChatSources = concept.sources
+            .filter { it.chatId != null && chats.none { c -> c.id == it.chatId } }
+            .distinctBy { it.chatId }
+        val insightSources = concept.sources.filter { it.type == ConceptSourceType.INSIGHT && it.insightId != null }
+            .distinctBy { it.insightId }
+
+        // Section positions inside the scrolling column, for the jump buttons
+        val scrollState = rememberScrollState()
+        val sectionOffsets = remember { mutableStateMapOf<String, Int>() }
+        fun jumpTo(section: String) {
+            sectionOffsets[section]?.let { y -> scope.launch { scrollState.animateScrollTo(y) } }
+        }
+
         Column(modifier = Modifier.fillMaxSize()) {
             Spacer(modifier = Modifier.height(if (isCoverScreen) 8.dp else 48.dp))
 
-            ConceptHeader(title = if (concept.isGhost) "GHOST CONCEPT" else "CONCEPT", onBack = onBack) {
-                if (concept.isGhost) {
-                    PixelButtonSmall(
-                        label = "SAVE CONCEPT",
-                        primary = true,
-                        onClick = {
-                            scope.launch {
-                                upsertConcept(
-                                    context,
-                                    concept.copy(status = ConceptStatus.FULL, updatedAt = System.currentTimeMillis())
-                                )
-                                toastMessage = "CONCEPT SAVED"
-                                kotlinx.coroutines.delay(1500)
-                                toastMessage = null
-                            }
-                        }
+            // Header — same layout as the chat screen: back, project name centered, ⋮.
+            // Tapping the header scrolls back to the top.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { scope.launch { scrollState.animateScrollTo(0) } }
+            ) {
+                val backInteraction = remember { MutableInteractionSource() }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .size(40.dp)
+                        .drawPixelCircle(
+                            fillColor = colors.secondaryButton,
+                            borderColor = Color.Transparent,
+                            cutColor = colors.background
+                        )
+                        .pixelCircleClickable(interactionSource = backInteraction) { onBack() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .drawPixelArrowButton(
+                                fillColor = colors.secondaryButton,
+                                cutColor = colors.secondaryButton,
+                                arrowColor = colors.secondaryIcon,
+                                direction = -1f
+                            )
                     )
                 }
-                Box {
-                    MoreOptionsButton(onClick = { showMenu = true })
+
+                Text(
+                    text = projectName,
+                    style = pixelStyle(10, colors.secondaryIcon),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 56.dp)
+                        .offset(y = (-2).dp)
+                )
+
+                Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+                    PixelCircleIconButton(
+                        iconRes = com.wizaird.app.R.drawable.ic_more_vertical,
+                        contentDescription = "More options",
+                        fillColor = colors.secondaryButton,
+                        onClick = { showMenu = true }
+                    )
                     if (showMenu) {
-                        PixelOptionsMenu(fillColor = colors.secondarySurface, onDismiss = { showMenu = false }) {
+                        PixelOptionsMenu(
+                            fillColor = colors.secondarySurface,
+                            onDismiss = { showMenu = false },
+                            anchorHeight = 40.dp,
+                            gap = 8.dp
+                        ) {
                             PixelOptionsMenuItem("Edit", iconAsset = "pen-square.svg", onClick = {
                                 showMenu = false
                                 onEdit()
@@ -490,12 +559,12 @@ fun ConceptPageScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 48.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Title, date and aliases
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Title, date, ghost actions, jump buttons
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         concept.name,
                         style = minecraftStyle(20, if (concept.isGhost) colors.secondaryIconSoft else colors.textHigh).copy(
@@ -505,24 +574,44 @@ fun ConceptPageScreen(
                         modifier = Modifier.offset(y = (-2).dp)
                     )
                     Text(
-                        "ADDED ${concept.formattedCreatedAt().uppercase()}",
+                        (if (concept.isGhost) "GHOST CONCEPT  •  " else "") + "ADDED ${concept.formattedCreatedAt().uppercase()}",
                         style = pixelStyle(8, colors.secondaryIconSoft),
                         modifier = Modifier.offset(y = (-2).dp)
                     )
-                    val aliases = concept.aliasList()
-                    if (aliases.isNotEmpty()) {
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            aliases.forEach { ConceptPill(label = it, ghost = concept.isGhost) }
+                    if (concept.isGhost) {
+                        PixelButtonSmall(
+                            label = "SAVE CONCEPT",
+                            primary = true,
+                            onClick = {
+                                scope.launch {
+                                    upsertConcept(
+                                        context,
+                                        concept.copy(status = ConceptStatus.FULL, updatedAt = System.currentTimeMillis())
+                                    )
+                                    toastMessage = "CONCEPT SAVED"
+                                    kotlinx.coroutines.delay(1500)
+                                    toastMessage = null
+                                }
+                            }
+                        )
+                    }
+                    // Jump buttons: skip past a long article to what this concept connects to
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        PixelButtonSmall(label = "CHATS ${connectedChats.size + deletedChatSources.size}", primary = false, onClick = { jumpTo("chats") })
+                        if (insightSources.isNotEmpty()) {
+                            PixelButtonSmall(label = "INSIGHTS ${insightSources.size}", primary = false, onClick = { jumpTo("insights") })
                         }
+                        PixelButtonSmall(label = "NOTES ${taggedNotes.size}", primary = false, onClick = { jumpTo("notes") })
+                        PixelButtonSmall(label = "RELATED ${related.size}", primary = false, onClick = { jumpTo("related") })
                     }
                 }
 
                 // Description
                 if (isGenerating) {
-                    // Keep the existing summary visible while the full page is written
+                    // Keep the existing summary visible while the page is rewritten
                     if (concept.intro.isNotBlank()) {
                         Text(
                             concept.intro,
@@ -587,26 +676,21 @@ fun ConceptPageScreen(
                                 markdown = concept.body,
                                 style = minecraftStyle(13, colors.secondaryIcon).copy(lineHeight = (13 * 1.6f).sp)
                             )
-                        } else {
-                            // Short definition only (e.g. migrated from the glossary)
-                            PixelButtonLarge(
-                                label = "WRITE FULL PAGE WITH AI",
-                                primary = false,
-                                modifier = Modifier.fillMaxWidth(),
-                                onClick = { ConceptGeneration.start(context, conceptId) }
-                            )
                         }
                     }
                 }
 
-                // Connected chats: chats where it was met + chats started from insights where it was met
-                val chatIds = concept.sources.mapNotNull { it.chatId }.distinct()
-                val insightIds = concept.sources.mapNotNull { it.insightId }.distinct()
-                val connectedChats = chats.filter { it.id in chatIds || (it.insightId != null && it.insightId in insightIds) }
-                val deletedChatSources = concept.sources
-                    .filter { it.chatId != null && chats.none { c -> c.id == it.chatId } }
-                    .distinctBy { it.chatId }
-                SettingsField(label = "CHATS") {
+                // Aliases — plain text at the end of the article
+                val aliases = concept.aliasList()
+                if (aliases.isNotEmpty()) {
+                    Text(
+                        "Also known as: " + aliases.joinToString(", "),
+                        style = minecraftStyle(12, colors.secondaryIconSoft).copy(lineHeight = (12 * 1.6f).sp),
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
+                }
+
+                SettingsField(label = "CHATS", modifier = Modifier.onGloballyPositioned { sectionOffsets["chats"] = it.positionInParent().y.toInt() }) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (connectedChats.isEmpty() && deletedChatSources.isEmpty()) {
                             EmptySectionText("Not connected to any chats yet")
@@ -621,10 +705,8 @@ fun ConceptPageScreen(
                 }
 
                 // Insights where it was met
-                val insightSources = concept.sources.filter { it.type == ConceptSourceType.INSIGHT && it.insightId != null }
-                    .distinctBy { it.insightId }
                 if (insightSources.isNotEmpty()) {
-                    SettingsField(label = "INSIGHTS") {
+                    SettingsField(label = "INSIGHTS", modifier = Modifier.onGloballyPositioned { sectionOffsets["insights"] = it.positionInParent().y.toInt() }) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             insightSources.forEach { src ->
                                 val stillExists = insights.any { it.id == src.insightId }
@@ -639,7 +721,7 @@ fun ConceptPageScreen(
                 }
 
                 // Notes tagged with this concept
-                SettingsField(label = "NOTES") {
+                SettingsField(label = "NOTES", modifier = Modifier.onGloballyPositioned { sectionOffsets["notes"] = it.positionInParent().y.toInt() }) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (taggedNotes.isEmpty()) {
                             EmptySectionText("No notes tagged yet")
@@ -650,8 +732,8 @@ fun ConceptPageScreen(
                     }
                 }
 
-                // Related concepts (filled in by a later feature)
-                SettingsField(label = "RELATED CONCEPTS") {
+                // Related concepts — tappable concept pills (filled in by a later feature)
+                SettingsField(label = "RELATED CONCEPTS", modifier = Modifier.onGloballyPositioned { sectionOffsets["related"] = it.positionInParent().y.toInt() }) {
                     if (related.isEmpty()) {
                         EmptySectionText("No related concepts yet")
                     } else {
@@ -669,7 +751,7 @@ fun ConceptPageScreen(
         if (showRegenerateDialog) {
             PixelConfirmationDialog(
                 title = "REGENERATE",
-                message = "This replaces the description of \"${concept.name}\" with a new one. Aliases, chats and notes stay the same.",
+                message = "This rewrites the summary and article of \"${concept.name}\". Aliases, chats and notes stay the same.",
                 confirmLabel = "REGENERATE",
                 cancelLabel = "CANCEL",
                 onConfirm = {

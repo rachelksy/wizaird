@@ -69,7 +69,7 @@ enum class ConceptSortOrder {
     ALPHABETICAL    // A-Z
 }
 
-enum class ConceptFilter { ALL, GHOSTS_ONLY, HIDE_GHOSTS }
+enum class ConceptFilter { ALL, HIDE_GHOSTS }
 
 private val KEY_CONCEPTS = stringPreferencesKey("concepts")
 private val KEY_GLOSSARY_MIGRATED = booleanPreferencesKey("concepts_glossary_migrated")
@@ -103,7 +103,6 @@ fun conceptsFlow(
                 (q.isEmpty() || c.name.lowercase().contains(q) || c.aliases.lowercase().contains(q)) &&
                 when (filter) {
                     ConceptFilter.ALL -> true
-                    ConceptFilter.GHOSTS_ONLY -> c.isGhost
                     ConceptFilter.HIDE_GHOSTS -> !c.isGhost
                 }
         }

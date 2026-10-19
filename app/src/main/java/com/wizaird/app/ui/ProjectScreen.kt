@@ -115,6 +115,7 @@ fun ProjectScreen(
     var conceptSearchQuery by remember { mutableStateOf("") }
     var conceptSortOrder by remember { mutableStateOf(ConceptSortOrder.DATE_DESC) }
     var conceptFilter by remember { mutableStateOf(ConceptFilter.ALL) }
+    var showFilterMenu by remember { mutableStateOf(false) }
     var showSortBottomSheet by remember { mutableStateOf(false) }
     
     // Concepts — live from DataStore with search, sort and filter
@@ -668,17 +669,18 @@ fun ProjectScreen(
                             .weight(1f)
                             .fillMaxWidth()
                     ) {
-                        // Search bar and sort button
-                        Box(
+                        // Search, ghost filter and sort — one row, all the same height
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp)
+                                .height(IntrinsicSize.Min)
+                                .padding(start = 12.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // Search bar
                             PixelBox(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(end = 40.dp), // Leave space for sort button with ripple
+                                modifier = Modifier.weight(1f),
                                 fillColor = colors.tertiarySurface,
                                 borderColor = androidx.compose.ui.graphics.Color.Transparent,
                                 cornerStyle = PixelCornerStyle.Rounded8
@@ -702,13 +704,72 @@ fun ProjectScreen(
                                     }
                                 )
                             }
-                            
-                            // Sort button - aligned to the right with ripple
+
+                            // Ghost filter dropdown
+                            Box(modifier = Modifier.fillMaxHeight()) {
+                                val filterInteraction = remember { MutableInteractionSource() }
+                                var filterButtonHeightPx by remember { mutableStateOf(0) }
+                                PixelBox(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .onGloballyPositioned { filterButtonHeightPx = it.size.height }
+                                        .pixelRounded8Clickable(interactionSource = filterInteraction) {
+                                            showFilterMenu = true
+                                        },
+                                    fillColor = colors.secondaryButton,
+                                    borderColor = androidx.compose.ui.graphics.Color.Transparent,
+                                    cornerStyle = PixelCornerStyle.Rounded8
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxHeight()
+                                            .padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            if (conceptFilter == ConceptFilter.HIDE_GHOSTS) "Hide ghosts" else "All",
+                                            style = minecraftStyle(12, colors.secondaryIcon)
+                                        )
+                                        androidx.compose.foundation.Image(
+                                            painter = painterResource(id = com.wizaird.app.R.drawable.ic_chevron_down),
+                                            contentDescription = "Filter",
+                                            colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
+                                if (showFilterMenu) {
+                                    PixelOptionsMenu(
+                                        fillColor = colors.secondarySurface,
+                                        onDismiss = { showFilterMenu = false },
+                                        anchorHeight = with(density) { filterButtonHeightPx.toDp() }
+                                    ) {
+                                        listOf(
+                                            ConceptFilter.ALL to "All",
+                                            ConceptFilter.HIDE_GHOSTS to "Hide ghosts"
+                                        ).forEach { (filter, label) ->
+                                            PixelOptionsMenuItem(
+                                                label = label,
+                                                iconAsset = "check.svg",
+                                                tint = if (conceptFilter == filter) Coral else androidx.compose.ui.graphics.Color.Transparent,
+                                                labelColor = colors.secondaryIcon,
+                                                onClick = {
+                                                    conceptFilter = filter
+                                                    showFilterMenu = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Sort button
                             val sortInteraction = remember { MutableInteractionSource() }
                             Box(
                                 modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .size(40.dp) // Fixed size for consistent alignment
+                                    .fillMaxHeight()
+                                    .width(36.dp)
                                     .pixelRounded8ClickableOversize(interactionSource = sortInteraction) {
                                         showSortBottomSheet = true
                                     },
@@ -722,26 +783,6 @@ fun ProjectScreen(
                                     contentDescription = "Sort",
                                     colorFilter = ColorFilter.tint(colors.secondaryIconSoft),
                                     modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-
-                        // Ghost filter chips — selected chip is coral, others muted
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf(
-                                ConceptFilter.ALL to "ALL",
-                                ConceptFilter.GHOSTS_ONLY to "GHOSTS",
-                                ConceptFilter.HIDE_GHOSTS to "HIDE GHOSTS"
-                            ).forEach { (filter, label) ->
-                                PixelButtonSmall(
-                                    label = label,
-                                    primary = conceptFilter == filter,
-                                    onClick = { conceptFilter = filter }
                                 )
                             }
                         }

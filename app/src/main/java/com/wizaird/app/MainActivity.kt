@@ -123,7 +123,8 @@ class MainActivity : ComponentActivity() {
                     fun tabRoute(id: String, tab: ProjectTab) = when (tab) {
                         ProjectTab.CONCEPTS -> "project/${id}/concepts"
                         ProjectTab.NOTES -> "project/${id}/notes"
-                        ProjectTab.CHATS, ProjectTab.INSIGHTS -> "project/${id}"
+                        ProjectTab.INSIGHTS -> "project/${id}/insights"
+                        ProjectTab.CHATS -> "project/${id}"
                     }
                     fun openFromTab(id: String, from: ProjectTab, target: ProjectTab, destination: String) {
                         val fromRoute = tabRoute(id, from)
@@ -138,6 +139,7 @@ class MainActivity : ComponentActivity() {
                     listOf(
                         ProjectTab.CHATS to "project/{id}",
                         ProjectTab.CONCEPTS to "project/{id}/concepts",
+                        ProjectTab.INSIGHTS to "project/{id}/insights",
                         ProjectTab.NOTES to "project/{id}/notes"
                     ).forEach { (tab, pattern) ->
                         composable(pattern) { backStackEntry ->
@@ -151,7 +153,7 @@ class MainActivity : ComponentActivity() {
                                 onNoteClick = { noteId -> openFromTab(id, tab, ProjectTab.NOTES, "note/${id}/${noteId}") },
                                 onNewNoteClick = { openFromTab(id, tab, ProjectTab.NOTES, "note/${id}/new") },
                                 onInsightChatClick = { insightId ->
-                                    openFromTab(id, tab, ProjectTab.CHATS, "chat/${id}/insight/${insightId}")
+                                    openFromTab(id, tab, ProjectTab.INSIGHTS, "chat/${id}/insight/${insightId}")
                                 },
                                 onNewConceptClick = { openFromTab(id, tab, ProjectTab.CONCEPTS, "concept/${id}/new") },
                                 onConceptClick = { conceptId ->
@@ -160,6 +162,11 @@ class MainActivity : ComponentActivity() {
                                 onNoteConceptClick = { conceptId ->
                                     // Tag pill on a note card: Back should return to Notes
                                     openFromTab(id, tab, ProjectTab.NOTES, "concept/${id}/${conceptId}")
+                                },
+                                onInsightNewConceptClick = { openFromTab(id, tab, ProjectTab.INSIGHTS, "concept/${id}/new") },
+                                onInsightConceptClick = { conceptId ->
+                                    // Concept pill on an insight: Back should return to Insights
+                                    openFromTab(id, tab, ProjectTab.INSIGHTS, "concept/${id}/${conceptId}")
                                 },
                                 onEditConceptClick = { conceptId ->
                                     openFromTab(id, tab, ProjectTab.CONCEPTS, "concept/${id}/${conceptId}/edit")
@@ -190,8 +197,8 @@ class MainActivity : ComponentActivity() {
                             conceptId = conceptId,
                             onBack = { nav.popBackStack() },
                             onEdit = { nav.navigate("concept/${projectId}/${conceptId}/edit") },
-                            onChatClick = { chatId -> nav.navigate("chat/${projectId}/${chatId}") },
-                            onInsightClick = { insightId -> nav.navigate("chat/${projectId}/insight/${insightId}") },
+                            onChatClick = { chatProjectId, chatId -> nav.navigate("chat/${chatProjectId}/${chatId}") },
+                            onInsightClick = { insightProjectId, insightId -> nav.navigate("chat/${insightProjectId}/insight/${insightId}") },
                             onNoteClick = { noteId -> nav.navigate("note/${projectId}/${noteId}") },
                             onConceptClick = { otherId -> nav.navigate("concept/${projectId}/${otherId}") }
                         )

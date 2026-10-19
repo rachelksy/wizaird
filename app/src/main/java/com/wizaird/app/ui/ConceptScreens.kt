@@ -43,7 +43,9 @@ import com.wizaird.app.data.ConceptSource
 import com.wizaird.app.data.ConceptSourceType
 import com.wizaird.app.data.ConceptStatus
 import com.wizaird.app.data.addSourceToConcept
-import com.wizaird.app.data.chatsFlow
+import com.wizaird.app.data.allChatsFlow
+import com.wizaird.app.data.allStoredInsightsFlow
+import com.wizaird.app.data.setConceptChats
 import com.wizaird.app.data.conceptFlow
 import com.wizaird.app.data.conceptsFlow
 import com.wizaird.app.data.copyConceptToProject
@@ -53,7 +55,6 @@ import com.wizaird.app.data.generateConcept
 import com.wizaird.app.data.getConceptById
 import com.wizaird.app.data.notesForConceptFlow
 import com.wizaird.app.data.projectsFlow
-import com.wizaird.app.data.storedInsightsFlow
 import com.wizaird.app.data.upsertConcept
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.CoroutineScope
@@ -329,12 +330,17 @@ fun MoreOptionsButton(onClick: () -> Unit) {
 
 /** Small pill showing a concept name (or an alias). Ghost concepts use the muted color. */
 @Composable
-fun ConceptPill(label: String, ghost: Boolean = false, onClick: (() -> Unit)? = null) {
+fun ConceptPill(
+    label: String,
+    ghost: Boolean = false,
+    fillColor: Color = Coral.copy(alpha = 0.25f),  // light orange for concepts; pass another fill for other pills
+    onClick: (() -> Unit)? = null
+) {
     val colors = LocalWizairdColors.current
     val interaction = remember { MutableInteractionSource() }
     PixelBox(
         modifier = if (onClick != null) Modifier.pixelRounded8Clickable(interactionSource = interaction, onClick = onClick) else Modifier,
-        fillColor = colors.secondaryButton,
+        fillColor = fillColor,
         borderColor = Color.Transparent,
         cornerStyle = PixelCornerStyle.Rounded8
     ) {
@@ -355,6 +361,37 @@ fun ConceptPill(label: String, ghost: Boolean = false, onClick: (() -> Unit)? = 
 private fun EmptySectionText(text: String) {
     val colors = LocalWizairdColors.current
     Text(text, style = minecraftStyle(12, colors.textXLow), modifier = Modifier.offset(y = (-2).dp))
+}
+
+/** Thin divider between concept page sections — same style as the settings dividers. */
+@Composable
+private fun SectionDivider() {
+    val colors = LocalWizairdColors.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(colors.textXLow.copy(alpha = 0.35f))
+    )
+}
+
+/** Section label with a small action button on the right (e.g. CHATS ... EDIT). */
+@Composable
+private fun SectionWithAction(
+    label: String,
+    actionLabel: String,
+    onAction: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val colors = LocalWizairdColors.current
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = pixelStyle(12, colors.secondaryIconSoft), modifier = Modifier.weight(1f).offset(y = (-2).dp))
+            PixelButtonSmall(label = actionLabel, primary = false, onClick = onAction)
+        }
+        content()
+    }
 }
 
 /** Card for a place the concept was met that no longer exists (or has no chat yet): shows the stored snippet. */
@@ -397,8 +434,8 @@ fun ConceptPageScreen(
     conceptId: String,
     onBack: () -> Unit,
     onEdit: () -> Unit,
-    onChatClick: (String) -> Unit,
-    onInsightClick: (String) -> Unit,
+    onChatClick: (projectId: String, chatId: String) -> Unit,
+    onInsightClick: (projectId: String, insightId: String) -> Unit,
     onNoteClick: (String) -> Unit,
     onConceptClick: (String) -> Unit
 ) {
@@ -419,6 +456,7 @@ fun ConceptPageScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showRegenerateDialog by remember { mutableStateOf(false) }
     var showCopyDialog by remember { mutableStateOf(false) }
+    var showChatsDialog by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(conceptId in failedIds) {
@@ -442,8 +480,9 @@ fun ConceptPageScreen(
                 ConceptHeader(title = "", onBack = onBack)
             }
         } else {
-        val chats by remember(concept.projectId) { chatsFlow(context, concept.projectId) }.collectAsState(initial = emptyList())
-        val insights by remember(concept.projectId) { storedInsightsFlow(context, concept.projectId) }.collectAsState(initial = emptyList())
+        // All projects: a copied concept keeps links to the original project's chats and insights
+        val chats by remember { allChatsFlow(context) }.collectAsState(initial = emptyList())
+        val insights by remember { allStoredInsightsFlow(context) }.collectAsState(initial = emptyList())
         val taggedNotes by remember(conceptId) { notesForConceptFlow(context, conceptId) }.collectAsState(initial = emptyList())
         val projectConcepts by remember(concept.projectId) { conceptsFlow(context, concept.projectId) }.collectAsState(initial = emptyList())
         val related = concept.relatedConceptIds.mapNotNull { id -> projectConcepts.firstOrNull { it.id == id } }
@@ -451,10 +490,9 @@ fun ConceptPageScreen(
         val projects by projectsFlow(context).collectAsState(initial = emptyList())
         val projectName = projects.firstOrNull { it.id == concept.projectId }?.name?.ifEmpty { "UNNAMED PROJECT" } ?: ""
 
-        // Connected chats: chats where it was met + chats started from insights where it was met
-        val chatIds = concept.sources.mapNotNull { it.chatId }.distinct()
-        val insightIds = concept.sources.mapNotNull { it.insightId }.distinct()
-        val connectedChats = chats.filter { it.id in chatIds || (it.insightId != null && it.insightId in insightIds) }
+        // Linked chats (met in a message, or linked by hand), newest first; deleted ones keep their snippet
+        val linkedChatIds = concept.sources.mapNotNull { it.chatId }.distinct()
+        val connectedChats = chats.filter { it.id in linkedChatIds }.sortedByDescending { it.createdAt }
         val deletedChatSources = concept.sources
             .filter { it.chatId != null && chats.none { c -> c.id == it.chatId } }
             .distinctBy { it.chatId }
@@ -573,12 +611,12 @@ fun ConceptPageScreen(
                         ),
                         modifier = Modifier.offset(y = (-2).dp)
                     )
-                    Text(
-                        (if (concept.isGhost) "GHOST CONCEPT  •  " else "") + "ADDED ${concept.formattedCreatedAt().uppercase()}",
-                        style = pixelStyle(8, colors.secondaryIconSoft),
-                        modifier = Modifier.offset(y = (-2).dp)
-                    )
                     if (concept.isGhost) {
+                        Text(
+                            "GHOST CONCEPT",
+                            style = pixelStyle(8, colors.secondaryIconSoft),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
                         PixelButtonSmall(
                             label = "SAVE CONCEPT",
                             primary = true,
@@ -600,12 +638,11 @@ fun ConceptPageScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        PixelButtonSmall(label = "CHATS ${connectedChats.size + deletedChatSources.size}", primary = false, onClick = { jumpTo("chats") })
-                        if (insightSources.isNotEmpty()) {
-                            PixelButtonSmall(label = "INSIGHTS ${insightSources.size}", primary = false, onClick = { jumpTo("insights") })
-                        }
-                        PixelButtonSmall(label = "NOTES ${taggedNotes.size}", primary = false, onClick = { jumpTo("notes") })
-                        PixelButtonSmall(label = "RELATED ${related.size}", primary = false, onClick = { jumpTo("related") })
+                        val anchorFill = colors.secondaryButton
+                        ConceptPill(label = "CHATS ${connectedChats.size + deletedChatSources.size}", fillColor = anchorFill, onClick = { jumpTo("chats") })
+                        ConceptPill(label = "INSIGHTS ${insightSources.size}", fillColor = anchorFill, onClick = { jumpTo("insights") })
+                        ConceptPill(label = "NOTES ${taggedNotes.size}", fillColor = anchorFill, onClick = { jumpTo("notes") })
+                        ConceptPill(label = "RELATED ${related.size}", fillColor = anchorFill, onClick = { jumpTo("related") })
                     }
                 }
 
@@ -680,23 +717,40 @@ fun ConceptPageScreen(
                     }
                 }
 
-                // Aliases — plain text at the end of the article
-                val aliases = concept.aliasList()
-                if (aliases.isNotEmpty()) {
+                // Aliases (plain text) and dates at the end of the article
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val aliases = concept.aliasList()
+                    if (aliases.isNotEmpty()) {
+                        Text(
+                            "Also known as: " + aliases.joinToString(", "),
+                            style = minecraftStyle(12, colors.secondaryIconSoft).copy(lineHeight = (12 * 1.6f).sp),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                    }
+                    val edited = concept.updatedAt - concept.createdAt > 60_000
                     Text(
-                        "Also known as: " + aliases.joinToString(", "),
-                        style = minecraftStyle(12, colors.secondaryIconSoft).copy(lineHeight = (12 * 1.6f).sp),
+                        "ADDED ${concept.formattedCreatedAt().uppercase()}" +
+                            if (edited) "  •  EDITED ${concept.formattedUpdatedAt().uppercase()}" else "",
+                        style = pixelStyle(8, colors.secondaryIconSoft),
                         modifier = Modifier.offset(y = (-2).dp)
                     )
                 }
 
-                SettingsField(label = "CHATS", modifier = Modifier.onGloballyPositioned { sectionOffsets["chats"] = it.positionInParent().y.toInt() }) {
+                SectionDivider()
+
+                // Chats — linked automatically by "Add to concepts", or by hand with EDIT
+                SectionWithAction(
+                    label = "CHATS",
+                    actionLabel = "EDIT",
+                    onAction = { showChatsDialog = true },
+                    modifier = Modifier.onGloballyPositioned { sectionOffsets["chats"] = it.positionInParent().y.toInt() }
+                ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (connectedChats.isEmpty() && deletedChatSources.isEmpty()) {
                             EmptySectionText("Not connected to any chats yet")
                         }
                         connectedChats.forEach { chat ->
-                            ChatListItem(chat = chat, onClick = { onChatClick(chat.id) })
+                            ChatListItem(chat = chat, onClick = { onChatClick(chat.projectId, chat.id) })
                         }
                         deletedChatSources.forEach { src ->
                             SnippetCard(title = "DELETED CHAT", snippet = src.snippet, onClick = null)
@@ -704,21 +758,26 @@ fun ConceptPageScreen(
                     }
                 }
 
-                // Insights where it was met
-                if (insightSources.isNotEmpty()) {
-                    SettingsField(label = "INSIGHTS", modifier = Modifier.onGloballyPositioned { sectionOffsets["insights"] = it.positionInParent().y.toInt() }) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            insightSources.forEach { src ->
-                                val stillExists = insights.any { it.id == src.insightId }
-                                SnippetCard(
-                                    title = if (stillExists) "INSIGHT" else "DELETED INSIGHT",
-                                    snippet = src.snippet,
-                                    onClick = if (stillExists) ({ onInsightClick(src.insightId!!) }) else null
-                                )
-                            }
+                SectionDivider()
+
+                // Insights the concept was added from — tap to open the insight chat
+                SettingsField(label = "INSIGHTS", modifier = Modifier.onGloballyPositioned { sectionOffsets["insights"] = it.positionInParent().y.toInt() }) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (insightSources.isEmpty()) {
+                            EmptySectionText("Not added from any insights yet")
+                        }
+                        insightSources.forEach { src ->
+                            val insight = insights.firstOrNull { it.id == src.insightId }
+                            SnippetCard(
+                                title = insight?.formattedCreatedAt()?.uppercase() ?: "DELETED INSIGHT",
+                                snippet = src.snippet,
+                                onClick = insight?.let { { onInsightClick(it.projectId, it.id) } }
+                            )
                         }
                     }
                 }
+
+                SectionDivider()
 
                 // Notes tagged with this concept
                 SettingsField(label = "NOTES", modifier = Modifier.onGloballyPositioned { sectionOffsets["notes"] = it.positionInParent().y.toInt() }) {
@@ -731,6 +790,8 @@ fun ConceptPageScreen(
                         }
                     }
                 }
+
+                SectionDivider()
 
                 // Related concepts — tappable concept pills (filled in by a later feature)
                 SettingsField(label = "RELATED CONCEPTS", modifier = Modifier.onGloballyPositioned { sectionOffsets["related"] = it.positionInParent().y.toInt() }) {
@@ -746,6 +807,24 @@ fun ConceptPageScreen(
                     }
                 }
             }
+        }
+
+        if (showChatsDialog) {
+            // Chats from this concept's project, plus any already linked from elsewhere (copied concepts)
+            val choices = chats
+                .filter { it.projectId == concept.projectId || it.id in linkedChatIds }
+                .sortedByDescending { it.createdAt }
+            PixelChecklistDialog(
+                title = "LINK CHATS",
+                items = choices.map { it.id to it.title.ifBlank { "Untitled chat" } },
+                initialSelection = linkedChatIds,
+                emptyText = "No chats in this project yet",
+                onSave = { ids ->
+                    showChatsDialog = false
+                    scope.launch { setConceptChats(context, conceptId, choices.filter { it.id in ids }) }
+                },
+                onDismiss = { showChatsDialog = false }
+            )
         }
 
         if (showRegenerateDialog) {
@@ -1172,7 +1251,7 @@ fun CopyConceptDialog(
     }
 }
 
-/** Tag a note with existing concepts (multi-select). Same layout as the Move dialogs. */
+/** Tag a note with existing concepts (multi-select). */
 @Composable
 fun TagConceptsDialog(
     projectId: String,
@@ -1181,11 +1260,37 @@ fun TagConceptsDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val colors = LocalWizairdColors.current
-    val svgLoader = rememberSvgLoader()
-
     val concepts by remember(projectId) { conceptsFlow(context, projectId, sortOrder = com.wizaird.app.data.ConceptSortOrder.ALPHABETICAL) }
         .collectAsState(initial = emptyList())
+    PixelChecklistDialog(
+        title = "TAG CONCEPTS",
+        items = concepts.map { it.id to it.name },
+        mutedIds = concepts.filter { it.isGhost }.map { it.id }.toSet(),
+        initialSelection = initialSelection,
+        emptyText = "No concepts in this project yet",
+        onSave = onSave,
+        onDismiss = onDismiss
+    )
+}
+
+/**
+ * Multi-select list dialog (checkbox rows). Same layout as the Move dialogs.
+ * [items] are (id, label) pairs; [mutedIds] are shown in the muted color (e.g. ghost concepts).
+ * [onSave] gets the selected IDs in list order.
+ */
+@Composable
+fun PixelChecklistDialog(
+    title: String,
+    items: List<Pair<String, String>>,
+    initialSelection: List<String>,
+    emptyText: String,
+    onSave: (List<String>) -> Unit,
+    onDismiss: () -> Unit,
+    mutedIds: Set<String> = emptySet()
+) {
+    val context = LocalContext.current
+    val colors = LocalWizairdColors.current
+    val svgLoader = rememberSvgLoader()
     var selected by remember { mutableStateOf(initialSelection.toSet()) }
 
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
@@ -1205,11 +1310,11 @@ fun TagConceptsDialog(
                     .padding(horizontal = 20.dp, vertical = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("TAG CONCEPTS", style = pixelStyle(12, colors.textHigh), modifier = Modifier.offset(y = (-2).dp))
+                Text(title, style = pixelStyle(12, colors.textHigh), modifier = Modifier.offset(y = (-2).dp))
 
-                if (concepts.isEmpty()) {
+                if (items.isEmpty()) {
                     Text(
-                        text = "No concepts in this project yet",
+                        text = emptyText,
                         style = minecraftStyle(14, colors.textLow).copy(lineHeight = (14 * 1.6f).sp),
                         modifier = Modifier.offset(y = (-2).dp)
                     )
@@ -1221,15 +1326,15 @@ fun TagConceptsDialog(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        concepts.forEach { concept ->
-                            val isSelected = concept.id in selected
+                        items.forEach { (id, label) ->
+                            val isSelected = id in selected
                             val rowInteraction = remember { MutableInteractionSource() }
                             PixelBox(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .pixelRoundedClickable(
                                         interactionSource = rowInteraction,
-                                        onClick = { selected = if (isSelected) selected - concept.id else selected + concept.id }
+                                        onClick = { selected = if (isSelected) selected - id else selected + id }
                                     ),
                                 fillColor = if (isSelected) colors.userBubble else colors.background,
                                 borderColor = if (isSelected) Coral else Color.Transparent,
@@ -1252,8 +1357,8 @@ fun TagConceptsDialog(
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Text(
-                                        text = concept.name,
-                                        style = pixelStyle(10, if (concept.isGhost) colors.secondaryIconSoft else colors.secondaryIcon),
+                                        text = label,
+                                        style = pixelStyle(10, if (id in mutedIds) colors.secondaryIconSoft else colors.secondaryIcon),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.offset(y = (-2).dp)
@@ -1279,7 +1384,7 @@ fun TagConceptsDialog(
                         primary = true,
                         modifier = Modifier.weight(1f),
                         cutColor = colors.secondarySurface,
-                        onClick = { onSave(concepts.map { it.id }.filter { it in selected }) }
+                        onClick = { onSave(items.map { it.first }.filter { it in selected }) }
                     )
                 }
             }

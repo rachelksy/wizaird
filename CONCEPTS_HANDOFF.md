@@ -75,8 +75,11 @@ Built and tested on the emulator with `Backups/backup.json` (20 glossary words �
 - Concept = summary (`intro`) + markdown article (`body`). New concept prompt: see PROMPTS.md §4.
 - "Add to concepts" opens the New concept screen: duplicate check (name or alias) → "Already a concept" dialog (OPEN records where it was met) → otherwise the page is written with AI. Chat messages and insights are stored as sources, so chats show up on the concept page.
 - Notes: ⋮ → "Tag concepts" dialog; tagged notes show concept pills (tap → concept page). Moving a note to another project clears its tags. Deleting a concept removes it from note tags.
-- Concepts can't be moved; ⋮ → "Copy to" makes a new concept (new ID, `copiedFromId` → original) without sources.
+- Concepts can't be moved; ⋮ → "Copy to" makes a new concept (new ID, `copiedFromId` → original) that keeps its chat/insight links (they open in the original project).
 - Not testable on the emulator: real AI output (the provider returned 403 there), and the ghost style (nothing creates ghosts yet).
 - Pill style decision: tappable pills with the real concept name (not #hashtags). Pills are only for concepts (note tags, related concepts); aliases are plain text ("Also known as: …") under the article.
 - Concept page header follows the chat screen (back, project name centered, ⋮); tapping it scrolls to top. Under the title, jump buttons (CHATS n / NOTES n / RELATED n) scroll to those sections. Regenerate (⋮) rewrites summary + article.
 - Concept list: search, filter dropdown (All / Hide ghosts) and sort on one row. "Ghosts only" was dropped.
+- Concept page: dividers between sections; added/edited date sits under the "Also known as" line; jump pills use the pill style in the secondary button color. Concept pills are light orange (Coral 25%).
+- Chats on a concept page: only chats with a stored link (met there via "Add to concepts", or linked by hand). CHATS → EDIT opens a checklist to link/unlink chats (new source type CHAT).
+- Insights link both ways: the concept page lists the insights it was added from, and insight cards + the insight preview show pills for concepts added from that insight. Insights tab now has its own route (`project/{id}/insights`) so Back returns to it.

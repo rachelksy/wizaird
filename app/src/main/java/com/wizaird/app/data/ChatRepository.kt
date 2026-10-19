@@ -57,6 +57,14 @@ fun chatsFlow(context: Context, projectId: String): Flow<List<ChatData>> =
             .sortedByDescending { it.createdAt }
     }
 
+/** Flow of every chat in every project (concept pages can link chats from another project). */
+fun allChatsFlow(context: Context): Flow<List<ChatData>> =
+    context.dataStore.data.map { prefs ->
+        val json = prefs[KEY_CHATS] ?: return@map emptyList()
+        val type = object : TypeToken<List<ChatData>>() {}.type
+        chatGson.fromJson<List<ChatData>>(json, type) ?: emptyList()
+    }
+
 /** Flow of a single chat by ID. */
 fun chatFlow(context: Context, chatId: String): Flow<ChatData?> =
     context.dataStore.data.map { prefs ->

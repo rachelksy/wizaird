@@ -19,7 +19,7 @@ import java.util.UUID
 
 enum class ConceptStatus { FULL, GHOST }
 
-enum class ConceptSourceType { INSIGHT, CHAT_MESSAGE, NOTE }
+enum class ConceptSourceType { INSIGHT, CHAT_MESSAGE, CHAT, NOTE }  // CHAT = whole chat linked by hand
 
 /** Where a concept was met. Stores a snippet so a deleted message/insight leaves no blank. */
 data class ConceptSource(
@@ -57,11 +57,11 @@ data class Concept(
     fun aliasList(): List<String> =
         aliases.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
-    fun formattedCreatedAt(): String {
-        val date = Date(createdAt)
-        val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-        return dateFormat.format(date)
-    }
+    fun formattedCreatedAt(): String =
+        SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(createdAt))
+
+    fun formattedUpdatedAt(): String =
+        SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(updatedAt))
 }
 
 enum class ConceptSortOrder {
@@ -147,8 +147,8 @@ suspend fun deleteConcept(context: Context, conceptId: String) {
 
 /**
  * Copies a concept into another project as a new concept with its own ID.
- * The original keeps all its links; the copy remembers where it came from.
- * Sources are not copied because they point at chats/insights in the original project.
+ * The original keeps all its links; the copy remembers where it came from and keeps the
+ * same chat/insight links (they still point at the original project's chats and insights).
  */
 suspend fun copyConceptToProject(context: Context, conceptId: String, targetProjectId: String) {
     val original = getConceptById(context, conceptId) ?: return
@@ -160,8 +160,7 @@ suspend fun copyConceptToProject(context: Context, conceptId: String, targetProj
             projectId = targetProjectId,
             createdAt = now,
             updatedAt = now,
-            sources = emptyList(),
-            relatedConceptIds = emptyList(),
+            relatedConceptIds = emptyList(),  // related IDs point at concepts in the original project
             copiedFromId = original.id
         )
     )
@@ -186,9 +185,34 @@ suspend fun addSourceToConcept(context: Context, conceptId: String, source: Conc
     )
 }
 
+/**
+ * Sets which chats a concept is linked to (from the concept page's chat picker).
+ * Unlinking a chat removes every source in that chat; newly linked chats get a CHAT source
+ * with the chat title as snippet. Insight and note sources are left alone.
+ */
+suspend fun setConceptChats(context: Context, conceptId: String, chats: List<ChatData>) {
+    val concept = getConceptById(context, conceptId) ?: return
+    val keepIds = chats.map { it.id }.toSet()
+    val kept = concept.sources.filter { it.chatId == null || it.chatId in keepIds }
+    val alreadyLinked = kept.mapNotNull { it.chatId }.toSet()
+    val now = System.currentTimeMillis()
+    val added = chats.filter { it.id !in alreadyLinked }.map {
+        ConceptSource(type = ConceptSourceType.CHAT, chatId = it.id, snippet = it.title, createdAt = now)
+    }
+    upsertConcept(
+        context,
+        concept.copy(
+            sources = kept + added,
+            firstMetAt = concept.firstMetAt ?: added.firstOrNull()?.createdAt,
+            lastTouchedAt = now
+        )
+    )
+}
+
 /** Cuts a ~200 character snippet around [term] from [text], so the source still makes sense later. */
 fun buildSnippet(text: String, term: String, radius: Int = 100): String {
-    val plain = text.replace(Regex("\\s+"), " ").trim()
+    // Drop markdown symbols (bold, headings, code) so the snippet reads as plain text
+    val plain = text.replace(Regex("[*_`#>]+"), "").replace(Regex("\\s+"), " ").trim()
     if (plain.length <= radius * 2) return plain
     val idx = plain.lowercase().indexOf(term.lowercase()).takeIf { it >= 0 } ?: return plain.take(radius * 2).trimEnd() + "…"
     val start = (idx - radius).coerceAtLeast(0)

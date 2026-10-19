@@ -81,6 +81,8 @@ fun ProjectScreen(
     onConceptClick: (String) -> Unit = {},      // open the concept page
     onEditConceptClick: (String) -> Unit = {},  // open the concept edit screen
     onNoteConceptClick: (String) -> Unit = onConceptClick, // tag pill on a note card
+    onInsightConceptClick: (String) -> Unit = onConceptClick, // concept pill on an insight
+    onInsightNewConceptClick: () -> Unit = onNewConceptClick, // "Add to concepts" from an insight
     initialTab: ProjectTab = ProjectTab.CHATS
 ) {
     val context = LocalContext.current
@@ -126,6 +128,12 @@ fun ProjectScreen(
     // All concepts in the project, for the tag pills on note cards
     val allConcepts by remember(projectId) { conceptsFlow(context, projectId) }.collectAsState(initial = emptyList())
     val conceptsById = remember(allConcepts) { allConcepts.associateBy { it.id } }
+    // Concepts added from each insight, for the pills on insight cards
+    val conceptsByInsight = remember(allConcepts) {
+        allConcepts
+            .flatMap { c -> c.sources.mapNotNull { it.insightId }.distinct().map { it to c } }
+            .groupBy({ it.first }, { it.second })
+    }
 
     Box(
         modifier = Modifier
@@ -657,7 +665,9 @@ fun ProjectScreen(
                                 InsightListItem(
                                     insight = insight,
                                     onChatClick = { onInsightChatClick(insight.id) },
-                                    onNewConceptClick = onNewConceptClick
+                                    onNewConceptClick = onInsightNewConceptClick,
+                                    concepts = conceptsByInsight[insight.id] ?: emptyList(),
+                                    onConceptClick = onInsightConceptClick
                                 )
                             }
                         }
@@ -1306,11 +1316,14 @@ fun NoteListItem(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun InsightListItem(
     insight: StoredInsight,
     onChatClick: () -> Unit = {},
-    onNewConceptClick: () -> Unit = {}
+    onNewConceptClick: () -> Unit = {},
+    concepts: List<Concept> = emptyList(),  // concepts added from this insight
+    onConceptClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -1364,6 +1377,22 @@ fun InsightListItem(
                         modifier = Modifier.offset(y = (-2).dp),
                         maxLines = 5
                     )
+                    // Concepts added from this insight
+                    if (concepts.isNotEmpty()) {
+                        FlowRow(
+                            modifier = Modifier.padding(top = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            concepts.forEach { concept ->
+                                ConceptPill(
+                                    label = concept.name,
+                                    ghost = concept.isGhost,
+                                    onClick = { onConceptClick(concept.id) }
+                                )
+                            }
+                        }
+                    }
                 }
                 
                 // More options button - offset so icon sits at top-right edge
@@ -1571,18 +1600,23 @@ fun InsightListItem(
                     showPreview = false
                     onChatClick()
                 },
-                onNewConceptClick = onNewConceptClick
+                onNewConceptClick = onNewConceptClick,
+                concepts = concepts,
+                onConceptClick = onConceptClick
             )
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun InsightPreviewOverlay(
     insight: StoredInsight,
     onDismiss: () -> Unit,
     onChatClick: () -> Unit = {},
-    onNewConceptClick: () -> Unit = {}
+    onNewConceptClick: () -> Unit = {},
+    concepts: List<Concept> = emptyList(),  // concepts added from this insight
+    onConceptClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -1716,6 +1750,25 @@ fun InsightPreviewOverlay(
                                     onNewConceptClick()
                                 }
                             )
+                        }
+                        // Concepts added from this insight — tap to open the concept
+                        if (concepts.isNotEmpty()) {
+                            FlowRow(
+                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                concepts.forEach { concept ->
+                                    ConceptPill(
+                                        label = concept.name,
+                                        ghost = concept.isGhost,
+                                        onClick = {
+                                            onDismiss()
+                                            onConceptClick(concept.id)
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                     

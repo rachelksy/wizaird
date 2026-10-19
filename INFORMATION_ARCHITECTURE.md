@@ -49,7 +49,7 @@ home  ────────────────────────�
 | **ProjectSettingsScreen** | `project_settings/{id}` | Edit project name, picture, AI instructions, background, learning progress |
 | **ChatScreen** | `chat/{projectId}` | New-chat entry point — user sends first message, chat is created |
 | **ExistingChatScreen** | `chat/{projectId}/{chatId}` | Full conversation UI with markdown rendering |
-| **ChatSettingsScreen** | `chat_settings/{projectId}/{chatId}` | Chat title, context-window size, delete |
+| **ChatSettingsScreen** | `chat_settings/{projectId}/{chatId}` | Chat title, linked concepts (checkbox bottom sheet), context-window size |
 | **InsightChatScreen** | `chat/{projectId}/insight/{insightId}` | Conversation pre-seeded with a stored insight |
 | **NoteScreen** | `note/{projectId}/{noteId}` | WYSIWYG rich-text note editor |
 | **ConceptPageScreen** | `concept/{projectId}/{conceptId}` | Read-only concept info page: name, aliases, summary, article, connected chats/insights/notes, related concepts. Ghosts get Save concept / Generate with AI / Edit manually |

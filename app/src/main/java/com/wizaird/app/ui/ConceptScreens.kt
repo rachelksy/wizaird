@@ -1462,3 +1462,99 @@ fun PixelChecklistDialog(
         }
     }
 }
+
+/**
+ * Bottom sheet for linking concepts to a chat: every concept in the project with a checkbox.
+ * Linked ones are listed first (order fixed when the sheet opens); SAVE applies the changes.
+ */
+@Composable
+fun LinkConceptsBottomSheet(
+    concepts: List<Concept>,
+    initiallyLinked: Set<String>,
+    onSave: (Set<String>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val colors = LocalWizairdColors.current
+    val svgLoader = rememberSvgLoader()
+    var selected by remember { mutableStateOf(initiallyLinked) }
+    val ordered = remember(concepts) {
+        concepts.filter { it.id in initiallyLinked } + concepts.filter { it.id !in initiallyLinked }
+    }
+
+    PixelBottomSheet(onDismiss = onDismiss) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, end = 4.dp, top = 4.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "LINKED CONCEPTS",
+                style = pixelStyle(12, colors.textXLow),
+                modifier = Modifier
+                    .weight(1f)
+                    .offset(y = (-2).dp)
+            )
+            PixelButtonSmall(label = "SAVE", primary = true, onClick = { onSave(selected) })
+        }
+        if (ordered.isEmpty()) {
+            Text(
+                "No concepts in this project yet",
+                style = minecraftStyle(12, colors.secondaryIconSoft),
+                modifier = Modifier
+                    .padding(start = 8.dp, bottom = 16.dp)
+                    .offset(y = (-2).dp)
+            )
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 420.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            ordered.forEach { concept ->
+                val isSelected = concept.id in selected
+                val rowInteraction = remember { MutableInteractionSource() }
+                PixelBox(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pixelRoundedClickable(
+                            interactionSource = rowInteraction,
+                            onClick = { selected = if (isSelected) selected - concept.id else selected + concept.id }
+                        ),
+                    fillColor = if (isSelected) colors.userBubble else colors.background,
+                    borderColor = if (isSelected) Coral else Color.Transparent,
+                    cornerStyle = PixelCornerStyle.Rounded
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/${if (isSelected) "checkbox-on.svg" else "checkbox.svg"}")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = null,
+                            colorFilter = ColorFilter.tint(if (isSelected) Coral else colors.secondaryIcon),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = concept.name,
+                            style = pixelStyle(10, if (concept.isGhost) colors.secondaryIconSoft else colors.secondaryIcon),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

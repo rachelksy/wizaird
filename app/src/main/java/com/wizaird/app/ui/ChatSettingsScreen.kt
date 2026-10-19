@@ -32,6 +32,13 @@ fun ChatSettingsScreen(
     var title by remember(chat) { mutableStateOf(chat?.title ?: "") }
     var contextWindowSize by remember(chat) { mutableStateOf(chat?.contextWindowSize?.toString() ?: "50") }
 
+    // Concepts in this project, and the ones linked to this chat
+    val projectConcepts by remember(projectId) {
+        com.wizaird.app.data.conceptsFlow(context, projectId, sortOrder = com.wizaird.app.data.ConceptSortOrder.ALPHABETICAL)
+    }.collectAsState(initial = emptyList())
+    val linkedConcepts = projectConcepts.filter { c -> c.sources.any { it.chatId == chatId } }
+    var showConceptsSheet by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -121,6 +128,46 @@ fun ChatSettingsScreen(
                     )
                 }
 
+                // Linked concepts — tap to pick concepts in a bottom sheet
+                SettingsField(label = "LINKED CONCEPTS") {
+                    val linkInteraction = remember { MutableInteractionSource() }
+                    PixelBox(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .pixelRoundedClickable(interactionSource = linkInteraction) { showConceptsSheet = true },
+                        fillColor = colors.secondarySurface,
+                        cornerStyle = PixelCornerStyle.Rounded
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = if (linkedConcepts.isEmpty()) "No concepts linked"
+                                       else linkedConcepts.joinToString(", ") { it.name },
+                                style = minecraftStyle(12, if (linkedConcepts.isEmpty()) colors.secondaryIconSoft else colors.secondaryIcon),
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .offset(y = (-2).dp)
+                            )
+                            coil.compose.AsyncImage(
+                                model = coil.request.ImageRequest.Builder(context)
+                                    .data("file:///android_asset/pixelarticons/chevron-right.svg")
+                                    .build(),
+                                imageLoader = rememberSvgLoader(),
+                                contentDescription = null,
+                                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIcon),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
                 // Context window size
                 SettingsField(label = "CONTEXT WINDOW SIZE") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -141,6 +188,20 @@ fun ChatSettingsScreen(
                         )
                     }
                 }
+            }
+        }
+    
+        if (showConceptsSheet) {
+            chat?.let { currentChat ->
+                LinkConceptsBottomSheet(
+                    concepts = projectConcepts,
+                    initiallyLinked = linkedConcepts.map { it.id }.toSet(),
+                    onSave = { ids ->
+                        showConceptsSheet = false
+                        scope.launch { com.wizaird.app.data.setChatConcepts(context, currentChat, ids) }
+                    },
+                    onDismiss = { showConceptsSheet = false }
+                )
             }
         }
     }

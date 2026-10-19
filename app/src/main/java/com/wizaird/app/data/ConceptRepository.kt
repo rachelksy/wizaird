@@ -19,7 +19,7 @@ import java.util.UUID
 
 enum class ConceptStatus { FULL, GHOST }
 
-enum class ConceptSourceType { INSIGHT, CHAT_MESSAGE, NOTE }
+enum class ConceptSourceType { INSIGHT, CHAT_MESSAGE, CHAT, NOTE }  // CHAT = whole chat linked from chat settings
 
 /** Where a concept was met. Stores a snippet so a deleted message/insight leaves no blank. */
 data class ConceptSource(
@@ -207,6 +207,34 @@ suspend fun addSourceToConcept(context: Context, conceptId: String, source: Conc
             lastTouchedAt = now
         )
     )
+}
+
+/**
+ * Sets which concepts a chat is linked to (chat settings → Linked concepts).
+ * Newly linked concepts get a CHAT source; unlinked ones lose every source in that chat.
+ * Linking a ghost turns it into a full concept.
+ */
+suspend fun setChatConcepts(context: Context, chat: ChatData, conceptIds: Set<String>) {
+    val now = System.currentTimeMillis()
+    context.dataStore.edit { prefs ->
+        val updated = readConcepts(prefs).map { c ->
+            if (c.projectId != chat.projectId && c.sources.none { it.chatId == chat.id }) return@map c
+            val linked = c.sources.any { it.chatId == chat.id }
+            when {
+                c.id in conceptIds && !linked -> c.copy(
+                    sources = c.sources + ConceptSource(type = ConceptSourceType.CHAT, chatId = chat.id, snippet = chat.title, createdAt = now),
+                    firstMetAt = c.firstMetAt ?: now,
+                    lastTouchedAt = now
+                ).withGhostRule()
+                c.id !in conceptIds && linked -> c.copy(
+                    sources = c.sources.filter { it.chatId != chat.id },
+                    lastTouchedAt = now
+                )
+                else -> c
+            }
+        }
+        prefs[KEY_CONCEPTS] = conceptGson.toJson(updated)
+    }
 }
 
 /** Cuts a ~200 character snippet around [term] from [text], so the source still makes sense later. */

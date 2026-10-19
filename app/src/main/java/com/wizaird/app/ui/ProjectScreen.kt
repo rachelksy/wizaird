@@ -130,6 +130,7 @@ fun ProjectScreen(
     val allConcepts by remember(projectId) { conceptsFlow(context, projectId) }.collectAsState(initial = emptyList())
     val conceptsById = remember(allConcepts) { allConcepts.associateBy { it.id } }
     // Concepts linked to each chat, for the pills on chat cards
+    // (Not shown on chat cards for now — links are managed in chat settings)
     val conceptsByChat = remember(allConcepts) {
         allConcepts
             .flatMap { c -> c.sources.mapNotNull { it.chatId }.distinct().map { it to c } }
@@ -565,8 +566,6 @@ fun ProjectScreen(
                                 ChatListItem(
                                     chat = chat,
                                     onClick = { onChatClick(chat.id) },
-                                    concepts = conceptsByChat[chat.id] ?: emptyList(),
-                                    onConceptClick = onChatConceptClick
                                 )
                             }
                         }
@@ -1029,14 +1028,6 @@ fun ChatListItem(
                 style = pixelStyle(8, colors.secondaryIconSoft),
                 modifier = Modifier.offset(y = (-2).dp)
             )
-            // Concepts linked to this chat — pills on one line, or a "linked to N" chip when they don't fit
-            if (concepts.isNotEmpty()) {
-                ConceptPillsOrCount(
-                    concepts = concepts,
-                    onConceptClick = onConceptClick,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
         }
     }
 }

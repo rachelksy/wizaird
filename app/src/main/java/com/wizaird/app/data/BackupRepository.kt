@@ -28,7 +28,8 @@ data class BackupData(
     val notes: List<NoteData> = emptyList(),
     val chats: List<ChatData> = emptyList(),
     val storedInsights: List<StoredInsight> = emptyList(),
-    val glossaryWords: List<GlossaryWord> = emptyList(),
+    val glossaryWords: List<GlossaryWord> = emptyList(),  // legacy; migrated into concepts on import
+    val concepts: List<Concept> = emptyList(),
     val settings: AiSettings = AiSettings(),
     val imageFiles: List<String> = emptyList()  // List of image filenames included in backup
 )
@@ -105,6 +106,15 @@ suspend fun exportBackup(context: Context, destinationUri: Uri): Result<String> 
             emptyList()
         }
         
+        // Parse concepts
+        val conceptsJson = prefs[stringPreferencesKey("concepts")]
+        val conceptsType = object : TypeToken<List<Concept>>() {}.type
+        val concepts: List<Concept> = if (conceptsJson != null) {
+            gson.fromJson(conceptsJson, conceptsType) ?: emptyList()
+        } else {
+            emptyList()
+        }
+        
         // Collect image files
         val imageFiles = mutableListOf<String>()
         val imagePaths = projects.mapNotNull { project ->
@@ -121,6 +131,7 @@ suspend fun exportBackup(context: Context, destinationUri: Uri): Result<String> 
             chats = chats,
             storedInsights = insights,
             glossaryWords = glossaryWords,
+            concepts = concepts,
             settings = settings,
             imageFiles = imagePaths.map { File(it).name }
         )
@@ -156,7 +167,7 @@ suspend fun exportBackup(context: Context, destinationUri: Uri): Result<String> 
             append("• ${notes.size} notes\n")
             append("• ${chats.size} chats\n")
             append("• ${insights.size} insights\n")
-            append("• ${glossaryWords.size} glossary words\n")
+            append("• ${concepts.size} concepts\n")
             append("• ${imagePaths.size} images\n")
             append("• Settings")
         }
@@ -302,6 +313,19 @@ suspend fun importBackup(
                 prefs[stringPreferencesKey("glossary_words")] = gson.toJson(mergedGlossaryWords)
             }
             
+            // Merge concepts (by ID)
+            val existingConceptsJson = prefs[stringPreferencesKey("concepts")]
+            val conceptsType = object : TypeToken<List<Concept>>() {}.type
+            val existingConcepts: List<Concept> = if (existingConceptsJson != null) {
+                gson.fromJson(existingConceptsJson, conceptsType) ?: emptyList()
+            } else {
+                emptyList()
+            }
+            val mergedConcepts = mergeById(existingConcepts, backup.concepts) { it.id }
+            context.dataStore.edit { prefs ->
+                prefs[stringPreferencesKey("concepts")] = gson.toJson(mergedConcepts)
+            }
+            
             // Don't merge settings in merge mode - keep existing
         } else {
             // Replace all data
@@ -311,9 +335,15 @@ suspend fun importBackup(
                 prefs[stringPreferencesKey("chats")] = gson.toJson(backup.chats)
                 prefs[stringPreferencesKey("stored_insights")] = gson.toJson(backup.storedInsights)
                 prefs[stringPreferencesKey("glossary_words")] = gson.toJson(backup.glossaryWords)
+                prefs[stringPreferencesKey("concepts")] = gson.toJson(backup.concepts)
                 prefs[stringPreferencesKey("ai_settings")] = gson.toJson(backup.settings)
             }
         }
+        
+        // Older backups have glossary words but no concepts: turn them into concepts
+        val migratedConcepts = if (backup.concepts.isEmpty() && backup.glossaryWords.isNotEmpty()) {
+            migrateGlossaryWordsToConcepts(context, backup.glossaryWords)
+        } else 0
         
         val stats = buildString {
             append("Backup restored successfully!\n\n")
@@ -322,7 +352,7 @@ suspend fun importBackup(
             append("• ${backup.notes.size} notes\n")
             append("• ${backup.chats.size} chats\n")
             append("• ${backup.storedInsights.size} insights\n")
-            append("• ${backup.glossaryWords.size} glossary words\n")
+            append("• ${backup.concepts.size + migratedConcepts} concepts\n")
             append("• ${imageFiles.size} images\n")
             if (!mergeMode) {
                 append("• Settings")

@@ -167,6 +167,7 @@ fun BackupScreen(
                         "• ${backupInfo!!.notes.size} notes\n" +
                         "• ${backupInfo!!.chats.size} chats\n" +
                         "• ${backupInfo!!.storedInsights.size} insights\n" +
+                        "• ${backupInfo!!.concepts.size.takeIf { it > 0 } ?: backupInfo!!.glossaryWords.size} concepts\n" +
                         "• ${backupInfo!!.imageFiles.size} images\n\n" +
                         "Export Date: ${backupInfo!!.exportDate}\n\n" +
                         "This cannot be undone.",

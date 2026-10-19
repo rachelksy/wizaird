@@ -62,7 +62,7 @@ fun HomeScreen(
     onNewProjectClick: () -> Unit = {},
     onProjectClick: (String) -> Unit = {},
     onChatCreated: (projectId: String, chatId: String) -> Unit = { _, _ -> },
-    onNewGlossaryWordClick: (String) -> Unit = {}
+    onNewConceptClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -218,6 +218,8 @@ fun HomeScreen(
                         thinkingContent = bubbleThinking,
                         projectName = activeProject?.name,
                         projectId = activeProject?.id,
+                        // Only link to the insight when the bubble is actually showing it
+                        insightId = activeProject?.insightHistory?.lastOrNull()?.takeIf { it.text == bubbleText }?.id,
                         isPinned = activeProject?.pinnedInsight ?: false,
                         onTogglePin = {
                             activeProject?.let { project ->
@@ -244,11 +246,11 @@ fun HomeScreen(
                             } else {
                                 toastMessage = message
                                 showToast = true
-                                isToastLoading = message == "ADDING TO GLOSSARY"
+                                isToastLoading = message == "ADDING TO CONCEPTS"
                             }
                         },
-                        onNewGlossaryWordClick = { projectIdFromBubble ->
-                            onNewGlossaryWordClick(projectIdFromBubble)
+                        onNewConceptClick = { projectIdFromBubble ->
+                            onNewConceptClick(projectIdFromBubble)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -364,6 +366,8 @@ fun HomeScreen(
                         thinkingContent = bubbleThinking,
                         projectName = activeProject?.name,
                         projectId = activeProject?.id,
+                        // Only link to the insight when the bubble is actually showing it
+                        insightId = activeProject?.insightHistory?.lastOrNull()?.takeIf { it.text == bubbleText }?.id,
                         isPinned = activeProject?.pinnedInsight ?: false,
                         onTogglePin = {
                             activeProject?.let { project ->
@@ -390,11 +394,11 @@ fun HomeScreen(
                             } else {
                                 toastMessage = message
                                 showToast = true
-                                isToastLoading = message == "ADDING TO GLOSSARY"
+                                isToastLoading = message == "ADDING TO CONCEPTS"
                             }
                         },
-                        onNewGlossaryWordClick = { projectIdFromBubble ->
-                            onNewGlossaryWordClick(projectIdFromBubble)
+                        onNewConceptClick = { projectIdFromBubble ->
+                            onNewConceptClick(projectIdFromBubble)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -758,12 +762,13 @@ fun ChatBubble(
     thinkingContent: String? = null, 
     projectName: String? = null,
     projectId: String? = null,
+    insightId: String? = null,
     isPinned: Boolean = false,
     onTogglePin: () -> Unit = {},
     onRegenerate: () -> Unit = {},
     onProjectClick: () -> Unit = {},
     onShowToast: (String) -> Unit = {},
-    onNewGlossaryWordClick: (String) -> Unit = {}, // Changed to accept projectId
+    onNewConceptClick: (String) -> Unit = {}, // Changed to accept projectId
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -946,30 +951,13 @@ fun ChatBubble(
                         markdown = text,
                         style = minecraftStyle(14, colors.textHigh),
                         modifier = Modifier.fillMaxWidth(),
-                        onAddToGlossary = { selectedText ->
-                            val capturedProjectId = currentProjectId // Capture BEFORE coroutine
-                            onShowToast("ADDING TO GLOSSARY")
-                            
-                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                val definition = com.wizaird.app.data.generateGlossaryDefinition(
-                                    context = context,
-                                    highlightedTerm = selectedText,
-                                    contextText = text
-                                )
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    onShowToast("")
-                                    
-                                    GlossaryNavigationData.setPendingData(
-                                        term = definition.term,
-                                        explanation = definition.definition,
-                                        aliases = definition.aliases
-                                    )
-                                    
-                                    if (capturedProjectId != null) {
-                                        onNewGlossaryWordClick(capturedProjectId)
-                                    }
-                                }
-                            }
+                        onAddToConcepts = { selectedText ->
+                            ConceptNavigationData.setPendingData(
+                                name = selectedText,
+                                contextText = text,
+                                source = insightId?.let { com.wizaird.app.data.ConceptSource(type = com.wizaird.app.data.ConceptSourceType.INSIGHT, insightId = it, snippet = com.wizaird.app.data.buildSnippet(text, selectedText)) }
+                            )
+                            currentProjectId?.let { onNewConceptClick(it) }
                         }
                     )
                 }

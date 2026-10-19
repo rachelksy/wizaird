@@ -38,21 +38,24 @@ import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.wizaird.app.data.NoteData
 import com.wizaird.app.data.StoredInsight
-import com.wizaird.app.data.GlossaryWord
-import com.wizaird.app.data.GlossarySortOrder
+import com.wizaird.app.data.Concept
+import com.wizaird.app.data.ConceptFilter
+import com.wizaird.app.data.ConceptSortOrder
 import com.wizaird.app.data.chatsFlow
 import com.wizaird.app.data.deleteInsight
 import com.wizaird.app.data.deleteNote
 import com.wizaird.app.data.deleteProject
-import com.wizaird.app.data.deleteGlossaryWord
+import com.wizaird.app.data.deleteConcept
+import com.wizaird.app.data.copyConceptToProject
+import com.wizaird.app.data.setNoteConcepts
 import com.wizaird.app.data.notesFlow
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.data.storedInsightsFlow
-import com.wizaird.app.data.searchGlossaryWords
+import com.wizaird.app.data.conceptsFlow
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.launch
 
-enum class ProjectTab { CHATS, NOTES, INSIGHTS, GLOSSARY }
+enum class ProjectTab { CHATS, CONCEPTS, INSIGHTS, NOTES }
 
 // Helper function to strip HTML tags from rich text notes for preview display
 private fun stripHtml(html: String): String {
@@ -74,8 +77,10 @@ fun ProjectScreen(
     onNewNoteClick: () -> Unit = {},
     onDeleteClick: () -> Unit = {},
     onInsightChatClick: (String) -> Unit = {}, // New callback for insight -> chat
-    onNewGlossaryWordClick: () -> Unit = {}, // New callback for adding glossary word
-    onEditGlossaryWordClick: (String) -> Unit = {}, // New callback for editing glossary word
+    onNewConceptClick: () -> Unit = {},
+    onConceptClick: (String) -> Unit = {},      // open the concept page
+    onEditConceptClick: (String) -> Unit = {},  // open the concept edit screen
+    onNoteConceptClick: (String) -> Unit = onConceptClick, // tag pill on a note card
     initialTab: ProjectTab = ProjectTab.CHATS
 ) {
     val context = LocalContext.current
@@ -106,14 +111,20 @@ fun ProjectScreen(
     // Insights — live from DataStore, filtered to this project
     val insights by storedInsightsFlow(context, projectId).collectAsState(initial = emptyList())
 
-    // Glossary — search and sort state
-    var glossarySearchQuery by remember { mutableStateOf("") }
-    var glossarySortOrder by remember { mutableStateOf(GlossarySortOrder.DATE_DESC) }
+    // Concepts — search, sort and ghost filter state
+    var conceptSearchQuery by remember { mutableStateOf("") }
+    var conceptSortOrder by remember { mutableStateOf(ConceptSortOrder.DATE_DESC) }
+    var conceptFilter by remember { mutableStateOf(ConceptFilter.ALL) }
     var showSortBottomSheet by remember { mutableStateOf(false) }
     
-    // Glossary words — live from DataStore with search and sort
-    val glossaryWords by searchGlossaryWords(context, projectId, glossarySearchQuery, glossarySortOrder)
-        .collectAsState(initial = emptyList())
+    // Concepts — live from DataStore with search, sort and filter
+    val concepts by remember(projectId, conceptSearchQuery, conceptSortOrder, conceptFilter) {
+        conceptsFlow(context, projectId, conceptSearchQuery, conceptSortOrder, conceptFilter)
+    }.collectAsState(initial = emptyList())
+
+    // All concepts in the project, for the tag pills on note cards
+    val allConcepts by remember(projectId) { conceptsFlow(context, projectId) }.collectAsState(initial = emptyList())
+    val conceptsById = remember(allConcepts) { allConcepts.associateBy { it.id } }
 
     Box(
         modifier = Modifier
@@ -378,9 +389,9 @@ fun ProjectScreen(
                 }
                 listOf(
                     ProjectTab.CHATS to "Chats",
+                    ProjectTab.CONCEPTS to "Concepts",
                     ProjectTab.INSIGHTS to "Insights",
-                    ProjectTab.NOTES to "Notes",
-                    ProjectTab.GLOSSARY to "Glossary"
+                    ProjectTab.NOTES to "Notes"
                 ).forEachIndexed { _, (tab, label) ->
                     val isActive = activeTab == tab
                     val tabInteraction = remember { MutableInteractionSource() }
@@ -389,12 +400,12 @@ fun ProjectScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.width(IntrinsicSize.Max)
                     ) {
-                        // Scroll to start when Chats is active, scroll to end when Glossary is active
+                        // Scroll to start when Chats is active, scroll to end when Notes (last tab) is active
                         LaunchedEffect(isActive) {
                             if (isActive) {
                                 when (tab) {
                                     ProjectTab.CHATS -> tabScrollState.animateScrollTo(0)
-                                    ProjectTab.GLOSSARY -> tabScrollState.animateScrollTo(tabScrollState.maxValue)
+                                    ProjectTab.NOTES -> tabScrollState.animateScrollTo(tabScrollState.maxValue)
                                     else -> {}
                                 }
                             }
@@ -447,10 +458,10 @@ fun ProjectScreen(
                                             modifier = Modifier.size(14.dp)
                                         )
                                     }
-                                    ProjectTab.GLOSSARY -> {
+                                    ProjectTab.CONCEPTS -> {
                                         AsyncImage(
                                             model = ImageRequest.Builder(context)
-                                                .data("file:///android_asset/pixelarticons/notebook.svg")
+                                                .data("file:///android_asset/pixelarticons/book-open.svg")
                                                 .build(),
                                             imageLoader = svgLoader,
                                             contentDescription = null,
@@ -601,7 +612,9 @@ fun ProjectScreen(
                             items(notes) { note ->
                                 NoteListItem(
                                     note = note,
-                                    onClick = { onNoteClick(note.id) }
+                                    onClick = { onNoteClick(note.id) },
+                                    conceptsById = conceptsById,
+                                    onConceptClick = onNoteConceptClick
                                 )
                             }
                         }
@@ -643,13 +656,13 @@ fun ProjectScreen(
                                 InsightListItem(
                                     insight = insight,
                                     onChatClick = { onInsightChatClick(insight.id) },
-                                    onNewGlossaryWordClick = onNewGlossaryWordClick
+                                    onNewConceptClick = onNewConceptClick
                                 )
                             }
                         }
                     }
                 }
-                ProjectTab.GLOSSARY -> {
+                ProjectTab.CONCEPTS -> {
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -659,7 +672,7 @@ fun ProjectScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 12.dp)
+                                .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp)
                         ) {
                             // Search bar
                             PixelBox(
@@ -671,15 +684,15 @@ fun ProjectScreen(
                                 cornerStyle = PixelCornerStyle.Rounded8
                             ) {
                                 androidx.compose.foundation.text.BasicTextField(
-                                    value = glossarySearchQuery,
-                                    onValueChange = { glossarySearchQuery = it },
+                                    value = conceptSearchQuery,
+                                    onValueChange = { conceptSearchQuery = it },
                                     textStyle = minecraftStyle(12, colors.textHigh),
                                     singleLine = true,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 12.dp, vertical = 8.dp),
                                     decorationBox = { innerTextField ->
-                                        if (glossarySearchQuery.isEmpty()) {
+                                        if (conceptSearchQuery.isEmpty()) {
                                             Text(
                                                 "Search",
                                                 style = minecraftStyle(12, colors.textXLow)
@@ -712,11 +725,31 @@ fun ProjectScreen(
                                 )
                             }
                         }
+
+                        // Ghost filter chips — selected chip is coral, others muted
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                ConceptFilter.ALL to "ALL",
+                                ConceptFilter.GHOSTS_ONLY to "GHOSTS",
+                                ConceptFilter.HIDE_GHOSTS to "HIDE GHOSTS"
+                            ).forEach { (filter, label) ->
+                                PixelButtonSmall(
+                                    label = label,
+                                    primary = conceptFilter == filter,
+                                    onClick = { conceptFilter = filter }
+                                )
+                            }
+                        }
                         
-                        // Word list or empty state
-                        if (glossaryWords.isEmpty()) {
-                            if (glossarySearchQuery.isEmpty()) {
-                                // No words yet - centered
+                        // Concept list or empty state
+                        if (concepts.isEmpty()) {
+                            if (conceptSearchQuery.isEmpty() && conceptFilter == ConceptFilter.ALL) {
+                                // No concepts yet - centered
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
@@ -728,7 +761,7 @@ fun ProjectScreen(
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Text(
-                                            "NO WORDS YET",
+                                            "NO CONCEPTS YET",
                                             style = pixelStyle(14, colors.secondaryIcon)
                                         )
                                         Row(
@@ -742,7 +775,7 @@ fun ProjectScreen(
                                             )
                                             AsyncImage(
                                                 model = ImageRequest.Builder(context)
-                                                    .data("file:///android_asset/pixelarticons/notebook.svg")
+                                                    .data("file:///android_asset/pixelarticons/book-open.svg")
                                                     .build(),
                                                 imageLoader = svgLoader,
                                                 contentDescription = null,
@@ -750,7 +783,7 @@ fun ProjectScreen(
                                                 modifier = Modifier.size(14.dp)
                                             )
                                             Text(
-                                                "TO ADD A WORD",
+                                                "TO ADD A CONCEPT",
                                                 style = pixelStyle(10, colors.secondaryIconSoft),
                                                 modifier = Modifier.offset(y = (-2).dp)
                                             )
@@ -781,10 +814,11 @@ fun ProjectScreen(
                                 verticalArrangement = Arrangement.spacedBy(10.dp),
                                 contentPadding = PaddingValues(top = 4.dp, bottom = 96.dp)
                             ) {
-                                items(glossaryWords) { word ->
-                                    GlossaryWordListItem(
-                                        word = word,
-                                        onEdit = { onEditGlossaryWordClick(word.id) }
+                                items(concepts, key = { it.id }) { concept ->
+                                    ConceptListItem(
+                                        concept = concept,
+                                        onClick = { onConceptClick(concept.id) },
+                                        onEdit = { onEditConceptClick(concept.id) }
                                     )
                                 }
                             }
@@ -794,8 +828,8 @@ fun ProjectScreen(
             }
         }
 
-        // FAB — switches based on active tab (only show for CHATS, NOTES, and GLOSSARY)
-        if (activeTab == ProjectTab.CHATS || activeTab == ProjectTab.NOTES || activeTab == ProjectTab.GLOSSARY) {
+        // FAB — switches based on active tab (only show for CHATS, NOTES, and CONCEPTS)
+        if (activeTab == ProjectTab.CHATS || activeTab == ProjectTab.NOTES || activeTab == ProjectTab.CONCEPTS) {
             val fabInteraction = remember { MutableInteractionSource() }
             PixelBox(
                 modifier = Modifier
@@ -808,7 +842,7 @@ fun ProjectScreen(
                         when (activeTab) {
                             ProjectTab.CHATS -> onNewChatClick()
                             ProjectTab.NOTES -> onNewNoteClick()
-                            ProjectTab.GLOSSARY -> onNewGlossaryWordClick()
+                            ProjectTab.CONCEPTS -> onNewConceptClick()
                             else -> {}
                         }
                     },
@@ -847,13 +881,13 @@ fun ProjectScreen(
                                 modifier = Modifier.size(28.dp)
                             )
                         }
-                        ProjectTab.GLOSSARY -> {
+                        ProjectTab.CONCEPTS -> {
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
-                                    .data("file:///android_asset/pixelarticons/notebook.svg")
+                                    .data("file:///android_asset/pixelarticons/book-open.svg")
                                     .build(),
                                 imageLoader = svgLoader,
-                                contentDescription = "New Word",
+                                contentDescription = "New Concept",
                                 colorFilter = ColorFilter.tint(colors.secondaryIcon),
                                 modifier = Modifier.size(28.dp)
                             )
@@ -864,12 +898,12 @@ fun ProjectScreen(
             }
         }
 
-        // Sort bottom sheet for glossary
+        // Sort bottom sheet for concepts
         if (showSortBottomSheet) {
-            GlossarySortBottomSheet(
-                currentSortOrder = glossarySortOrder,
+            ConceptSortBottomSheet(
+                currentSortOrder = conceptSortOrder,
                 onSortSelected = { newOrder ->
-                    glossarySortOrder = newOrder
+                    conceptSortOrder = newOrder
                     showSortBottomSheet = false
                 },
                 onDismiss = { showSortBottomSheet = false }
@@ -934,8 +968,15 @@ fun ChatListItem(chat: com.wizaird.app.data.ChatData, onClick: () -> Unit = {}) 
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit = {}) {
+fun NoteListItem(
+    note: NoteData,
+    onClick: () -> Unit = {},
+    onDelete: () -> Unit = {},
+    conceptsById: Map<String, Concept> = emptyMap(),
+    onConceptClick: (String) -> Unit = {}
+) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
     val scope = rememberCoroutineScope()
@@ -944,6 +985,10 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMoveDialog by remember { mutableStateOf(false) }
+    var showTagDialog by remember { mutableStateOf(false) }
+
+    // Tagged concepts that still exist
+    val taggedConcepts = note.conceptIds.mapNotNull { conceptsById[it] }
     
     val svgLoader = remember {
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
@@ -985,6 +1030,22 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier.offset(y = (-2).dp)
                     )
+                    // Concept tags — tap a pill to open the concept
+                    if (taggedConcepts.isNotEmpty()) {
+                        FlowRow(
+                            modifier = Modifier.padding(top = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            taggedConcepts.forEach { concept ->
+                                ConceptPill(
+                                    label = concept.name,
+                                    ghost = concept.isGhost,
+                                    onClick = { onConceptClick(concept.id) }
+                                )
+                            }
+                        }
+                    }
                 }
                 
                 // More options button - offset so icon sits at top-right edge
@@ -1073,6 +1134,12 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
                             .padding(4.dp),
                         verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
+                        // Tag concepts option
+                        PixelOptionsMenuItem("Tag concepts", iconAsset = "bookmark.svg", onClick = {
+                            showMenu = false
+                            showTagDialog = true
+                        })
+
                         // Move to option
                         val moveInteraction = remember { MutableInteractionSource() }
                         Box(
@@ -1167,6 +1234,19 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
             )
         }
         
+        // Tag concepts dialog
+        if (showTagDialog) {
+            TagConceptsDialog(
+                projectId = note.projectId,
+                initialSelection = note.conceptIds,
+                onSave = { ids ->
+                    showTagDialog = false
+                    scope.launch { setNoteConcepts(context, note.id, ids) }
+                },
+                onDismiss = { showTagDialog = false }
+            )
+        }
+
         // Move to project dialog
         if (showMoveDialog) {
             MoveNoteDialog(
@@ -1189,7 +1269,7 @@ fun NoteListItem(note: NoteData, onClick: () -> Unit = {}, onDelete: () -> Unit 
 fun InsightListItem(
     insight: StoredInsight,
     onChatClick: () -> Unit = {},
-    onNewGlossaryWordClick: () -> Unit = {}
+    onNewConceptClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -1450,7 +1530,7 @@ fun InsightListItem(
                     showPreview = false
                     onChatClick()
                 },
-                onNewGlossaryWordClick = onNewGlossaryWordClick
+                onNewConceptClick = onNewConceptClick
             )
         }
     }
@@ -1461,7 +1541,7 @@ fun InsightPreviewOverlay(
     insight: StoredInsight,
     onDismiss: () -> Unit,
     onChatClick: () -> Unit = {},
-    onNewGlossaryWordClick: () -> Unit = {}
+    onNewConceptClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -1585,28 +1665,14 @@ fun InsightPreviewOverlay(
                                     lineHeight = (14 * 1.6f).sp
                                 ),
                                 modifier = Modifier.offset(y = (-2).dp),
-                                onAddToGlossary = { selectedText ->
-                                    toastMessage = "ADDING TO GLOSSARY"
-                                    showToast = true
-                                    isToastLoading = true
-                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                        val definition = com.wizaird.app.data.generateGlossaryDefinition(
-                                            context = context,
-                                            highlightedTerm = selectedText,
-                                            contextText = insight.text
-                                        )
-                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                            isToastLoading = false
-                                            showToast = false
-                                            GlossaryNavigationData.setPendingData(
-                                                term = definition.term,
-                                                explanation = definition.definition,
-                                                aliases = definition.aliases
-                                            )
-                                            onDismiss()
-                                            onNewGlossaryWordClick()
-                                        }
-                                    }
+                                onAddToConcepts = { selectedText ->
+                                    ConceptNavigationData.setPendingData(
+                                        name = selectedText,
+                                        contextText = insight.text,
+                                        source = insight.id?.let { com.wizaird.app.data.ConceptSource(type = com.wizaird.app.data.ConceptSourceType.INSIGHT, insightId = it, snippet = com.wizaird.app.data.buildSnippet(insight.text, selectedText)) }
+                                    )
+                                    onDismiss()
+                                    onNewConceptClick()
                                 }
                             )
                         }
@@ -1985,9 +2051,9 @@ fun MoveInsightDialog(
 
 
 @Composable
-fun GlossaryWordListItem(
-    word: GlossaryWord,
-    onDelete: () -> Unit = {},
+fun ConceptListItem(
+    concept: Concept,
+    onClick: () -> Unit = {},
     onEdit: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -1997,15 +2063,17 @@ fun GlossaryWordListItem(
     
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showMoveDialog by remember { mutableStateOf(false) }
-    
-    val svgLoader = remember {
-        ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
-    }
+    var showCopyDialog by remember { mutableStateOf(false) }
+
+    // Ghost concepts use the muted text color
+    val nameColor = if (concept.isGhost) colors.secondaryIconSoft else colors.secondaryIcon
+    val textColor = if (concept.isGhost) colors.secondaryIconSoft else colors.secondaryIcon
     
     Box {
         PixelBox(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .pixelRoundedClickable(interactionSource = interaction, onClick = onClick),
             fillColor = colors.secondarySurface,
             borderColor = androidx.compose.ui.graphics.Color.Transparent,
             cornerStyle = PixelCornerStyle.Rounded
@@ -2021,213 +2089,48 @@ fun GlossaryWordListItem(
                         .padding(end = 32.dp), // Leave space for the options button
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Word — minecraft font, bold, 2sp bigger than explanation
+                    // Name — minecraft font, bold, 2sp bigger than the summary
                     Text(
-                        text = word.word,
-                        style = minecraftStyle(14, colors.secondaryIcon).copy(
+                        text = concept.name,
+                        style = minecraftStyle(14, nameColor).copy(
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                         ),
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier.offset(y = (-2).dp)
                     )
-                    // Explanation — minecraft font, no max lines
+                    // Summary — max 3 lines; ghosts without text say so
+                    val summary = concept.intro.ifBlank { concept.body }
                     Text(
-                        text = word.explanation,
-                        style = minecraftStyle(12, colors.secondaryIcon),
+                        text = summary.ifBlank { if (concept.isGhost) "Ghost concept — nothing written yet" else "Nothing written yet" },
+                        style = minecraftStyle(12, if (summary.isBlank()) colors.textXLow else textColor),
+                        maxLines = 3,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier.offset(y = (-2).dp)
                     )
                 }
                 
                 // More options button - offset so icon sits at top-right edge
-                val moreInteraction = remember { MutableInteractionSource() }
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .offset(x = 7.dp, y = (-7).dp) // Offset to position icon at edge
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .pixelRounded8Clickable(
-                                interactionSource = moreInteraction,
-                                onClick = { showMenu = true }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data("file:///android_asset/pixelarticons/more-vertical.svg")
-                                .build(),
-                            imageLoader = svgLoader,
-                            contentDescription = "More options",
-                            colorFilter = ColorFilter.tint(colors.secondaryIconSoft),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    
-                    // Options menu popup - positioned relative to button
+                    MoreOptionsButton(onClick = { showMenu = true })
                     if (showMenu) {
-                        val density = LocalDensity.current
-                        val offsetY = with(density) { (32 + 4).dp.roundToPx() } // Button height + 4dp gap
-                        Popup(
-                            alignment = Alignment.TopEnd,
-                            offset = IntOffset(x = 0, y = offsetY),
-                            onDismissRequest = { showMenu = false },
-                            properties = PopupProperties(focusable = false)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .graphicsLayer {
-                                        compositingStrategy = CompositingStrategy.Offscreen
-                                        shadowElevation = 8.dp.toPx()
-                                        shape = PixelRounded8Shape
-                                        clip = true
-                                    }
-                                    .drawBehind {
-                                        val p = PixelSize.toPx()
-                                        val w = size.width
-                                        val h = size.height
-                                        val fill = colors.secondarySurface
-                                        val cut = Color.Transparent
-
-                                        drawRect(fill)
-
-                                        // Top-left
-                                        drawRect(cut, Offset(0f, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(0f, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(0f, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(0f, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(0f, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
-                                        // Top-right
-                                        drawRect(cut, Offset(w-p*5, p*0), Size(p*5, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(w-p*3, p*1), Size(p*3, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(w-p*2, p*2), Size(p*2, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(w-p*1, p*3), Size(p*1, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(w-p*1, p*4), Size(p*1, p), blendMode = BlendMode.Clear)
-                                        // Bottom-left
-                                        drawRect(cut, Offset(0f, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(0f, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(0f, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(0f, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(0f, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
-                                        // Bottom-right
-                                        drawRect(cut, Offset(w-p*5, h-p*1), Size(p*5, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(w-p*3, h-p*2), Size(p*3, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(w-p*2, h-p*3), Size(p*2, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(w-p*1, h-p*4), Size(p*1, p), blendMode = BlendMode.Clear)
-                                        drawRect(cut, Offset(w-p*1, h-p*5), Size(p*1, p), blendMode = BlendMode.Clear)
-                                    }
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .width(IntrinsicSize.Max)
-                                        .padding(4.dp),
-                                    verticalArrangement = Arrangement.spacedBy(0.dp)
-                                ) {
-                                    // Edit option
-                                    val editInteraction = remember { MutableInteractionSource() }
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .pixelRounded8Clickable(
-                                                interactionSource = editInteraction,
-                                                onClick = {
-                                                    showMenu = false
-                                                    onEdit()
-                                                }
-                                            )
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                        ) {
-                                            AsyncImage(
-                                                model = ImageRequest.Builder(context)
-                                                    .data("file:///android_asset/pixelarticons/pen-square.svg")
-                                                    .build(),
-                                                imageLoader = svgLoader,
-                                                contentDescription = "Edit",
-                                                colorFilter = ColorFilter.tint(colors.secondaryIcon),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Text(
-                                                "Edit",
-                                                style = pixelStyle(10, colors.secondaryIcon),
-                                                modifier = Modifier.offset(y = (-2).dp)
-                                            )
-                                        }
-                                    }
-                                    
-                                    // Move to option
-                                    val moveInteraction = remember { MutableInteractionSource() }
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .pixelRounded8Clickable(
-                                                interactionSource = moveInteraction,
-                                                onClick = {
-                                                    showMenu = false
-                                                    showMoveDialog = true
-                                                }
-                                            )
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                        ) {
-                                            androidx.compose.foundation.Image(
-                                                painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),
-                                                contentDescription = "Move to",
-                                                colorFilter = ColorFilter.tint(colors.secondaryIcon),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Text(
-                                                "Move to",
-                                                style = pixelStyle(10, colors.secondaryIcon),
-                                                modifier = Modifier.offset(y = (-2).dp)
-                                            )
-                                        }
-                                    }
-                                    
-                                    // Delete option
-                                    val deleteInteraction = remember { MutableInteractionSource() }
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .pixelRounded8Clickable(
-                                                interactionSource = deleteInteraction,
-                                                onClick = {
-                                                    showMenu = false
-                                                    showDeleteDialog = true
-                                                }
-                                            )
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                        ) {
-                                            AsyncImage(
-                                                model = ImageRequest.Builder(context)
-                                                    .data("file:///android_asset/pixelarticons/delete.svg")
-                                                    .build(),
-                                                imageLoader = svgLoader,
-                                                contentDescription = "Delete",
-                                                colorFilter = ColorFilter.tint(colors.coral),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Text(
-                                                "Delete",
-                                                style = pixelStyle(10, colors.coral),
-                                                modifier = Modifier.offset(y = (-2).dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                        PixelOptionsMenu(fillColor = colors.secondarySurface, onDismiss = { showMenu = false }) {
+                            PixelOptionsMenuItem("Edit", iconAsset = "pen-square.svg", onClick = {
+                                showMenu = false
+                                onEdit()
+                            })
+                            PixelOptionsMenuItem("Copy to", iconAsset = "copy.svg", onClick = {
+                                showMenu = false
+                                showCopyDialog = true
+                            })
+                            PixelOptionsMenuItem("Delete", iconAsset = "delete.svg", tint = colors.coral, onClick = {
+                                showMenu = false
+                                showDeleteDialog = true
+                            })
                         }
                     }
                 }
@@ -2237,15 +2140,15 @@ fun GlossaryWordListItem(
         // Delete confirmation dialog
         if (showDeleteDialog) {
             PixelConfirmationDialog(
-                title = "DELETE WORD",
-                message = "Are you sure you want to delete \"${word.word}\"? This action cannot be undone.",
+                title = "DELETE CONCEPT",
+                message = "Are you sure you want to delete \"${concept.name}\"? It will also be removed from tagged notes. This action cannot be undone.",
                 confirmLabel = "DELETE",
                 cancelLabel = "CANCEL",
                 isDestructive = true,
                 onConfirm = {
                     showDeleteDialog = false
                     scope.launch {
-                        deleteGlossaryWord(context, word.id)
+                        deleteConcept(context, concept.id)
                     }
                 },
                 onDismiss = {
@@ -2254,18 +2157,18 @@ fun GlossaryWordListItem(
             )
         }
         
-        // Move to project dialog
-        if (showMoveDialog) {
-            MoveGlossaryWordDialog(
-                currentProjectId = word.projectId,
-                onMove = { targetProjectId ->
-                    showMoveDialog = false
+        // Copy to project dialog
+        if (showCopyDialog) {
+            CopyConceptDialog(
+                currentProjectId = concept.projectId,
+                onCopy = { targetProjectId ->
+                    showCopyDialog = false
                     scope.launch {
-                        com.wizaird.app.data.moveGlossaryWordToProject(context, word.id, targetProjectId)
+                        copyConceptToProject(context, concept.id, targetProjectId)
                     }
                 },
                 onDismiss = {
-                    showMoveDialog = false
+                    showCopyDialog = false
                 }
             )
         }
@@ -2273,130 +2176,9 @@ fun GlossaryWordListItem(
 }
 
 @Composable
-fun MoveGlossaryWordDialog(
-    currentProjectId: String,
-    onMove: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val colors = LocalWizairdColors.current
-    
-    val projects by projectsFlow(context).collectAsState(initial = emptyList())
-    val availableProjects = projects.filter { it.id != currentProjectId }
-    
-    var selectedProjectId by remember { mutableStateOf<String?>(null) }
-    
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        PixelBox(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp)
-                .clip(PixelRoundedShape),
-            fillColor = colors.secondarySurface,
-            borderColor = colors.border,
-            cutColor = colors.secondarySurface,
-            cornerStyle = PixelCornerStyle.Rounded
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "MOVE TO",
-                    style = pixelStyle(12, colors.textHigh),
-                    modifier = Modifier.offset(y = (-2).dp)
-                )
-                
-                // Project list
-                if (availableProjects.isEmpty()) {
-                    Text(
-                        text = "No other projects available",
-                        style = minecraftStyle(14, colors.textLow).copy(
-                            lineHeight = (14 * 1.6f).sp
-                        ),
-                        modifier = Modifier.offset(y = (-2).dp)
-                    )
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 300.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        availableProjects.forEach { project ->
-                            val isSelected = selectedProjectId == project.id
-                            val projectInteraction = remember { MutableInteractionSource() }
-                            
-                            PixelBox(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .pixelRoundedClickable(
-                                        interactionSource = projectInteraction,
-                                        onClick = { selectedProjectId = project.id }
-                                    ),
-                                fillColor = if (isSelected) colors.userBubble else colors.background,
-                                borderColor = if (isSelected) Coral else androidx.compose.ui.graphics.Color.Transparent,
-                                cornerStyle = PixelCornerStyle.Rounded
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    androidx.compose.foundation.Image(
-                                        painter = painterResource(id = com.wizaird.app.R.drawable.ic_folder),
-                                        contentDescription = null,
-                                        colorFilter = ColorFilter.tint(colors.secondaryIcon),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Text(
-                                        text = project.name.ifEmpty { "UNNAMED PROJECT" },
-                                        style = pixelStyle(10, colors.secondaryIcon),
-                                        modifier = Modifier.offset(y = (-2).dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(4.dp))
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    PixelButtonLarge(
-                        label = "CANCEL",
-                        primary = false,
-                        modifier = Modifier.weight(1f),
-                        cutColor = colors.secondarySurface,
-                        onClick = onDismiss
-                    )
-                    PixelButtonLarge(
-                        label = "MOVE",
-                        primary = true,
-                        modifier = Modifier.weight(1f),
-                        cutColor = colors.secondarySurface,
-                        onClick = {
-                            selectedProjectId?.let { onMove(it) }
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun GlossarySortBottomSheet(
-    currentSortOrder: GlossarySortOrder,
-    onSortSelected: (GlossarySortOrder) -> Unit,
+fun ConceptSortBottomSheet(
+    currentSortOrder: ConceptSortOrder,
+    onSortSelected: (ConceptSortOrder) -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -2469,14 +2251,14 @@ fun GlossarySortBottomSheet(
             ) {
                 // Date added (desc) option
                 val dateInteraction = remember { MutableInteractionSource() }
-                val isDateSelected = currentSortOrder == GlossarySortOrder.DATE_DESC
+                val isDateSelected = currentSortOrder == ConceptSortOrder.DATE_DESC
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
                         .pixelRoundedClickable(
                             interactionSource = dateInteraction,
-                            onClick = { onSortSelected(GlossarySortOrder.DATE_DESC) }
+                            onClick = { onSortSelected(ConceptSortOrder.DATE_DESC) }
                         ),
                     contentAlignment = Alignment.CenterStart
                 ) {
@@ -2508,14 +2290,14 @@ fun GlossarySortBottomSheet(
 
                 // Alphabetical option
                 val alphaInteraction = remember { MutableInteractionSource() }
-                val isAlphaSelected = currentSortOrder == GlossarySortOrder.ALPHABETICAL
+                val isAlphaSelected = currentSortOrder == ConceptSortOrder.ALPHABETICAL
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
                         .pixelRoundedClickable(
                             interactionSource = alphaInteraction,
-                            onClick = { onSortSelected(GlossarySortOrder.ALPHABETICAL) }
+                            onClick = { onSortSelected(ConceptSortOrder.ALPHABETICAL) }
                         ),
                     contentAlignment = Alignment.CenterStart
                 ) {

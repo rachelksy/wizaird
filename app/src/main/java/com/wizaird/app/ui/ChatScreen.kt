@@ -50,7 +50,7 @@ fun ChatScreen(
     onBack: () -> Unit,
     onChatCreated: (String) -> Unit = {},
     onMoreClick: () -> Unit = {},
-    onNewGlossaryWordClick: () -> Unit = {}
+    onNewConceptClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -385,27 +385,13 @@ fun ChatScreen(
                             modifier = Modifier
                                 .padding(16.dp)
                                 .offset(y = (-2).dp),
-                            onAddToGlossary = { selectedText ->
-                                toastMessage = "ADDING TO GLOSSARY"
-                                showToast = true
-                                isToastLoading = true
-                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    val definition = com.wizaird.app.data.generateGlossaryDefinition(
-                                        context = context,
-                                        highlightedTerm = selectedText,
-                                        contextText = bubbleText
-                                    )
-                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                        isToastLoading = false
-                                        showToast = false
-                                        GlossaryNavigationData.setPendingData(
-                                            term = definition.term,
-                                            explanation = definition.definition,
-                                            aliases = definition.aliases
-                                        )
-                                        onNewGlossaryWordClick()
-                                    }
-                                }
+                            onAddToConcepts = { selectedText ->
+                                ConceptNavigationData.setPendingData(
+                                    name = selectedText,
+                                    contextText = bubbleText,
+                                    source = null
+                                )
+                                onNewConceptClick()
                             }
                         )
                     }

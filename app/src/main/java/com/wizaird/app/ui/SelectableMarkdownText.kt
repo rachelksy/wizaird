@@ -45,14 +45,14 @@ import io.noties.prism4j.Prism4j
  * @param markdown The markdown text to display
  * @param style The text style to apply
  * @param modifier Modifier for the composable
- * @param onAddToGlossary Callback when "Add to Glossary" is selected with the selected text
+ * @param onAddToConcepts Callback when "Add to Concepts" is selected with the selected text
  */
 @Composable
 fun SelectableMarkdownText(
     markdown: String,
     style: TextStyle,
     modifier: Modifier = Modifier,
-    onAddToGlossary: ((String) -> Unit)? = null
+    onAddToConcepts: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     
@@ -169,11 +169,11 @@ fun SelectableMarkdownText(
                 // Set custom action mode callback for text selection
                 customSelectionActionModeCallback = object : ActionMode.Callback {
                     override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-                        // Add custom "Add to Glossary" menu item.
+                        // Add custom "Add to Concepts" menu item.
                         // The floating toolbar ignores setIcon(), so we use a sparkle
                         // unicode character as a visual AI indicator in the label itself.
-                        if (onAddToGlossary != null) {
-                            menu?.add(0, MENU_ITEM_ADD_TO_GLOSSARY, 0, "✨ Add to Glossary")
+                        if (onAddToConcepts != null) {
+                            menu?.add(0, MENU_ITEM_ADD_TO_CONCEPTS, 0, "✨ Add to Concepts")
                         }
                         return true
                     }
@@ -200,14 +200,14 @@ fun SelectableMarkdownText(
                     
                     override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
                         return when (item?.itemId) {
-                            MENU_ITEM_ADD_TO_GLOSSARY -> {
+                            MENU_ITEM_ADD_TO_CONCEPTS -> {
                                 // Get selected text
                                 val start = selectionStart
                                 val end = selectionEnd
                                 val selectedText = text.substring(start, end)
                                 
                                 // Invoke callback
-                                onAddToGlossary?.invoke(selectedText)
+                                onAddToConcepts?.invoke(selectedText)
                                 
                                 // Close action mode
                                 mode?.finish()
@@ -243,7 +243,7 @@ fun SelectableMarkdownText(
     )
 }
 
-private const val MENU_ITEM_ADD_TO_GLOSSARY = 1001
+private const val MENU_ITEM_ADD_TO_CONCEPTS = 1001
 
 /**
  * Grammar locator for Prism4j syntax highlighting.

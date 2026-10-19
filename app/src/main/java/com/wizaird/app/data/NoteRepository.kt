@@ -19,7 +19,8 @@ data class NoteData(
     val body: String = "",
     val createdAt: String = "",   // formatted display string, e.g. "Nov 12, 2024"
     val updatedAt: String = "",
-    val createdAtMs: Long = 0L    // epoch millis for sorting
+    val createdAtMs: Long = 0L,   // epoch millis for sorting
+    val conceptIds: List<String> = emptyList()  // concepts this note is tagged with
 )
 
 private val KEY_NOTES = stringPreferencesKey("notes")
@@ -91,8 +92,43 @@ suspend fun moveNoteToProject(context: Context, noteId: String, newProjectId: St
         val current: MutableList<NoteData> = noteGson.fromJson(json, type) ?: mutableListOf()
         val idx = current.indexOfFirst { it.id == noteId }
         if (idx >= 0) {
-            current[idx] = current[idx].copy(projectId = newProjectId)
+            // Concepts belong to a project, so tags don't follow the note
+            current[idx] = current[idx].copy(projectId = newProjectId, conceptIds = emptyList())
             prefs[KEY_NOTES] = noteGson.toJson(current)
         }
+    }
+}
+
+/** Notes in a project tagged with a concept. */
+fun notesForConceptFlow(context: Context, conceptId: String): Flow<List<NoteData>> =
+    context.dataStore.data.map { prefs ->
+        val json = prefs[KEY_NOTES] ?: return@map emptyList()
+        val type = object : TypeToken<List<NoteData>>() {}.type
+        val all: List<NoteData> = noteGson.fromJson(json, type) ?: emptyList()
+        all.filter { conceptId in it.conceptIds }.sortedByDescending { it.createdAtMs }
+    }
+
+/** Replace the concept tags on a note. */
+suspend fun setNoteConcepts(context: Context, noteId: String, conceptIds: List<String>) {
+    context.dataStore.edit { prefs ->
+        val json = prefs[KEY_NOTES] ?: return@edit
+        val type = object : TypeToken<List<NoteData>>() {}.type
+        val current: MutableList<NoteData> = noteGson.fromJson(json, type) ?: mutableListOf()
+        val idx = current.indexOfFirst { it.id == noteId }
+        if (idx >= 0) {
+            current[idx] = current[idx].copy(conceptIds = conceptIds)
+            prefs[KEY_NOTES] = noteGson.toJson(current)
+        }
+    }
+}
+
+/** Remove a deleted concept from every note's tags. */
+suspend fun removeConceptFromNotes(context: Context, conceptId: String) {
+    context.dataStore.edit { prefs ->
+        val json = prefs[KEY_NOTES] ?: return@edit
+        val type = object : TypeToken<List<NoteData>>() {}.type
+        val current: List<NoteData> = noteGson.fromJson(json, type) ?: return@edit
+        if (current.none { conceptId in it.conceptIds }) return@edit
+        prefs[KEY_NOTES] = noteGson.toJson(current.map { it.copy(conceptIds = it.conceptIds - conceptId) })
     }
 }

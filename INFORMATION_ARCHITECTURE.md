@@ -21,9 +21,10 @@ home  ────────────────────────�
   ├─► project/{id}          [tab: CHATS]                                     │
   │     ├─► project/{id}/notes      [tab: NOTES]                             │
   │     │     └─► note/{id}/new | note/{id}/{noteId}                         │
-  │     ├─► project/{id}/glossary   [tab: GLOSSARY]                          │
-  │     │     ├─► glossary/{id}/new                                          │
-  │     │     └─► glossary/{id}/{wordId}                                     │
+  │     ├─► project/{id}/concepts   [tab: CONCEPTS]                          │
+  │     │     ├─► concept/{id}/new                                           │
+  │     │     └─► concept/{id}/{conceptId}          (concept page)           │
+  │     │           └─► concept/{id}/{conceptId}/edit                        │
   │     ├─► project_settings/{id}                                            │
   │     ├─► chat/{projectId}             (new chat)                          │
   │     │     └─► chat/{projectId}/{chatId}  (existing chat)                 │
@@ -33,7 +34,7 @@ home  ────────────────────────�
   └─► chat/{projectId}/{chatId}  (created from home input bar)              ─┘
 ```
 
-> Tab state in `ProjectScreen` is encoded as three separate routes so Back navigation always returns to the correct tab.
+> Tab order: Chats, Concepts, Insights, Notes. Tab state in `ProjectScreen` is encoded as three routes (`project/{id}` for Chats and Insights, `project/{id}/concepts`, `project/{id}/notes`) so Back navigation returns to the correct tab. Opening something from another tab first swaps the route to that tab's route.
 
 ---
 
@@ -44,15 +45,15 @@ home  ────────────────────────�
 | **HomeScreen** | `home` | Root. Wizard character, active-project insight bubble, project switcher, quick-ask input bar |
 | **ProjectsScreen** | `projects` | Full list of all projects. Drag-to-reorder. |
 | **NewProjectScreen** | `new_project` | Form to create a project (name + picture) |
-| **ProjectScreen** | `project/{id}` | Per-project hub with 4 tabs: Chats, Notes, Insights, Glossary |
+| **ProjectScreen** | `project/{id}` | Per-project hub with 4 tabs: Chats, Concepts, Insights, Notes |
 | **ProjectSettingsScreen** | `project_settings/{id}` | Edit project name, picture, AI instructions, background, learning progress |
 | **ChatScreen** | `chat/{projectId}` | New-chat entry point — user sends first message, chat is created |
 | **ExistingChatScreen** | `chat/{projectId}/{chatId}` | Full conversation UI with markdown rendering |
 | **ChatSettingsScreen** | `chat_settings/{projectId}/{chatId}` | Chat title, context-window size, delete |
 | **InsightChatScreen** | `chat/{projectId}/insight/{insightId}` | Conversation pre-seeded with a stored insight |
 | **NoteScreen** | `note/{projectId}/{noteId}` | WYSIWYG rich-text note editor |
-| **NewGlossaryWordScreen** | `glossary/{projectId}/new` | Add a glossary term (+ AI-generated definition) |
-| **EditGlossaryWordScreen** | `glossary/{projectId}/{wordId}` | Edit / delete a glossary term |
+| **ConceptPageScreen** | `concept/{projectId}/{conceptId}` | Read-only concept info page: name, aliases, summary, article, connected chats/insights/notes, related concepts. Ghosts get Save concept / Generate with AI / Edit manually |
+| **ConceptEditScreen** | `concept/{projectId}/new`, `concept/{projectId}/{conceptId}/edit` | Create / edit a concept (name, summary, details, aliases) with Generate/Regenerate with AI |
 | **SettingsScreen** | `settings` | Hub for the four settings areas |
 | **AccountSettingsScreen** | `account_settings` | Placeholder (no active functionality) |
 | **AppSettingsScreen** | `app_settings` | Dark mode toggle |
@@ -90,7 +91,6 @@ Project             (many)
   │   ├─ lastInsightText
   │   ├─ lastInsightTimestamp  (30-min regeneration timer)
   │   ├─ pinnedInsight         (pauses auto-generation)
-  │   ├─ queuedInsight         (pre-generated next insight)
   │   ├─ insightHistory        List<InsightHistoryEntry> (last 20, IDs + text)
   │   ├─ progressInsightCount  (default 20)
   │   └─ progressChatCount     (default 10)
@@ -108,6 +108,7 @@ Project             (many)
   │     ├─ contextWindowSize  (default 50)
   │     ├─ createdAt
   │     └─► ChatMessage  (many)
+  │           ├─ id
   │           ├─ sender         USER | AI
   │           ├─ text
   │           ├─ thinkingContent?
@@ -117,14 +118,25 @@ Project             (many)
   │     ├─ id
   │     ├─ body          (HTML from rich-text editor)
   │     ├─ createdAtMs   (epoch ms for sorting)
-  │     └─ createdAt / updatedAt (display strings)
+  │     ├─ createdAt / updatedAt (display strings)
+  │     └─ conceptIds    (concepts this note is tagged with)
   │
-  └─► GlossaryWord   (many per project)
-        ├─ id
-        ├─ word
-        ├─ explanation
-        ├─ aliases      (comma-separated, used for search)
-        └─ createdAt
+  └─► Concept        (many per project)
+        ├─ id            (stable; migrated glossary words keep their old ID)
+        ├─ name
+        ├─ intro         (1–2 sentence summary, shown on cards)
+        ├─ body          (markdown article, shown on the concept page)
+        ├─ aliases       (comma-separated, used for search + duplicate check)
+        ├─ status        FULL | GHOST (ghosts shown in the muted color)
+        ├─ createdAt / updatedAt
+        ├─ firstMetAt / lastTouchedAt
+        ├─ sources       List<ConceptSource>: type (INSIGHT | CHAT_MESSAGE | NOTE),
+        │                chatId / messageId / insightId / noteId, snippet, createdAt
+        ├─ relatedConceptIds  (empty for now)
+        └─ copiedFromId  (set when copied from another project)
+
+  GlossaryWord (legacy, still stored under "glossary_words" until the migration is verified;
+  migrated into concepts once at app start and when importing an older backup)
 ```
 
 **Storage:** Everything is in a single Jetpack DataStore Preferences file, serialized as JSON via Gson. No SQL database. Project pictures live in `filesDir/project_pictures/`.
@@ -149,18 +161,10 @@ All AI calls route through `AiRepository.askAi()` / `askAiWithThinking()`.
 | Feature | Prompt builder | When triggered |
 |---------|---------------|----------------|
 | Microlearning insight | `InsightRepository.buildInsightPrompt()` | 30-min session timer or manual regenerate |
-| Queued insight | Same | Background, immediately after showing an insight |
 | Chat response | `ChatPromptBuilder.buildChatSystemPrompt()` | User sends a message |
 | Learning progress summary | `LearningProgressRepository` | Manual "GENERATE" in Project Settings |
-| Glossary definition | `GlossaryDefinitionGenerator` | Optional in New/Edit Glossary Word |
+| Concept page | `ConceptGenerator.generateConcept()` | Generate / Regenerate on the concept page or edit screen; automatically after "Add to concepts" |
 | Chat title | `ChatTitleGenerator` | After first AI response in a new chat |
-
-### Insight Queuing System
-
-To eliminate loading delays on the home screen, Wizaird always keeps a "next insight" pre-generated:
-
-1. When an insight is shown → generate a queued insight in the background
-2. On the next session → show the queued insight instantly, generate the next one in the background
 
 ---
 
@@ -173,7 +177,7 @@ To eliminate loading delays on the home screen, Wizaird always keeps a "next ins
 | **Chat** | `project/{id}` → Chats tab | Markdown conversations, insight-seeded chats |
 | **Notes** | `project/{id}` → Notes tab | WYSIWYG rich-text notes (HTML) |
 | **Insights** | `project/{id}` → Insights tab | Stored AI insights, link to chat |
-| **Glossary** | `project/{id}` → Glossary tab | Terms + explanations + aliases, AI-generated defs |
+| **Concepts** | `project/{id}` → Concepts tab | Concept list (search, sort, ghost filter chips), concept pages, AI-written articles, note tags |
 | **Project config** | `project_settings/{id}` | AI instructions, background, learning progress |
 | **Settings** | `settings` | Account (stub), appearance, AI API config, backup |
 
@@ -181,7 +185,8 @@ To eliminate loading delays on the home screen, Wizaird always keeps a "next ins
 
 ## Notable Architecture Observations
 
-- **Navigation tab encoding:** `ProjectScreen` uses three separate routes (`project/{id}`, `project/{id}/notes`, `project/{id}/glossary`) purely to control which tab is active on Back navigation. Effective but adds route overhead.
+- **Navigation tab encoding:** `ProjectScreen` uses three separate routes (`project/{id}`, `project/{id}/concepts`, `project/{id}/notes`) purely to control which tab is active on Back navigation. The Insights tab has no route of its own.
+- **"Add to concepts":** the text-selection menu in chats, insight chats, the insight preview and the home bubble opens the New concept screen with the selected text as the name. If the name/alias already exists, a dialog offers to open the existing concept (and records where it was met). Otherwise the page is written with AI.
 - **Single DataStore for everything:** No SQL — all entities are JSON-serialized into one Preferences store. Simple, but the entire collection is deserialized on every read, which may become a performance concern as data grows.
 - **AccountSettingsScreen is a stub:** It exists in the nav graph but has no active functionality.
 - **Thinking content support:** Both `StoredInsight` and `ChatMessage` have a `thinkingContent` field to store reasoning chains from thinking models (Gemini 2.5 Pro, OpenAI o-series). This is surfaced as an expandable section in the UI.

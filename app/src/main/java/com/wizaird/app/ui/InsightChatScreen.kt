@@ -24,7 +24,7 @@ fun InsightChatScreen(
     insightId: String,
     onBack: () -> Unit,
     onChatCreated: (String) -> Unit = {},
-    onNewGlossaryWordClick: () -> Unit = {}
+    onNewConceptClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -137,15 +137,16 @@ fun InsightChatScreen(
                     ChatBubble(
                         message = aiMessage,
                         projectId = projectId,
+                        insightId = insightId,
                         onRegenerate = null,
                         onEdit = {},
                         onDelete = {},
                         onShowToast = { msg ->
                             toastMessage = msg
                             showToast = true
-                            isToastLoading = msg == "ADDING TO GLOSSARY"
+                            isToastLoading = msg == "ADDING TO CONCEPTS"
                         },
-                        onNewGlossaryWordClick = onNewGlossaryWordClick
+                        onNewConceptClick = onNewConceptClick
                     )
                 }
             }

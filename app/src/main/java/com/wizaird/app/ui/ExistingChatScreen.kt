@@ -70,7 +70,7 @@ fun ExistingChatScreen(
     chatId: String,
     onBack: () -> Unit,
     onSettingsClick: () -> Unit = {},
-    onNewGlossaryWordClick: () -> Unit = {}
+    onNewConceptClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -512,6 +512,7 @@ fun ExistingChatScreen(
                 ChatBubble(
                     message = message,
                     projectId = projectId,
+                    chatId = chatId,
                     onRegenerate = if (isLastAiMessage) {
                         {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
@@ -534,9 +535,9 @@ fun ExistingChatScreen(
                     onShowToast = { msg ->
                         toastMessage = msg
                         showToast = true
-                        isToastLoading = msg == "ADDING TO GLOSSARY"
+                        isToastLoading = msg == "ADDING TO CONCEPTS"
                     },
-                    onNewGlossaryWordClick = onNewGlossaryWordClick
+                    onNewConceptClick = onNewConceptClick
                 )
             }
             
@@ -757,16 +758,37 @@ fun ExistingChatScreen(
 
 // ── Bubble ────────────────────────────────────────────────────────────────────
 
+/** Where an "Add to concepts" from this bubble came from: a chat message, an insight, or nothing stored. */
+private fun conceptSourceFor(message: ChatMessage, chatId: String?, insightId: String?, selectedText: String): com.wizaird.app.data.ConceptSource? {
+    val snippet = com.wizaird.app.data.buildSnippet(message.text, selectedText)
+    return when {
+        chatId != null -> com.wizaird.app.data.ConceptSource(
+            type = com.wizaird.app.data.ConceptSourceType.CHAT_MESSAGE,
+            chatId = chatId,
+            messageId = message.id,
+            snippet = snippet
+        )
+        insightId != null -> com.wizaird.app.data.ConceptSource(
+            type = com.wizaird.app.data.ConceptSourceType.INSIGHT,
+            insightId = insightId,
+            snippet = snippet
+        )
+        else -> null
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChatBubble(
     message: ChatMessage,
     projectId: String,
+    chatId: String? = null,     // set for stored chats, so concepts can link back to the message
+    insightId: String? = null,  // set when the bubble shows a stored insight
     onRegenerate: (() -> Unit)? = null,
     onEdit: () -> Unit = {},
     onDelete: () -> Unit = {},
     onShowToast: (String) -> Unit = {},
-    onNewGlossaryWordClick: () -> Unit = {}
+    onNewConceptClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -817,23 +839,13 @@ fun ChatBubble(
                             SelectableMarkdownText(
                                 markdown = message.text,
                                 style = minecraftStyle(14, userBubbleText),
-                                onAddToGlossary = { selectedText ->
-                                    onShowToast("ADDING TO GLOSSARY")
-                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                        val definition = com.wizaird.app.data.generateGlossaryDefinition(
-                                            context = context,
-                                            highlightedTerm = selectedText,
-                                            contextText = message.text
-                                        )
-                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                            GlossaryNavigationData.setPendingData(
-                                                term = definition.term,
-                                                explanation = definition.definition,
-                                                aliases = definition.aliases
-                                            )
-                                            onNewGlossaryWordClick()
-                                        }
-                                    }
+                                onAddToConcepts = { selectedText ->
+                                    ConceptNavigationData.setPendingData(
+                                        name = selectedText,
+                                        contextText = message.text,
+                                        source = conceptSourceFor(message, chatId, insightId, selectedText)
+                                    )
+                                    onNewConceptClick()
                                 }
                             )
                         }
@@ -1003,23 +1015,13 @@ fun ChatBubble(
                             SelectableMarkdownText(
                                 markdown = message.text,
                                 style = minecraftStyle(14, aiBubbleText),
-                                onAddToGlossary = { selectedText ->
-                                    onShowToast("ADDING TO GLOSSARY")
-                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                        val definition = com.wizaird.app.data.generateGlossaryDefinition(
-                                            context = context,
-                                            highlightedTerm = selectedText,
-                                            contextText = message.text
-                                        )
-                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                            GlossaryNavigationData.setPendingData(
-                                                term = definition.term,
-                                                explanation = definition.definition,
-                                                aliases = definition.aliases
-                                            )
-                                            onNewGlossaryWordClick()
-                                        }
-                                    }
+                                onAddToConcepts = { selectedText ->
+                                    ConceptNavigationData.setPendingData(
+                                        name = selectedText,
+                                        contextText = message.text,
+                                        source = conceptSourceFor(message, chatId, insightId, selectedText)
+                                    )
+                                    onNewConceptClick()
                                 }
                             )
                         }

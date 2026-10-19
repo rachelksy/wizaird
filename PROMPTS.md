@@ -151,39 +151,56 @@ RULES:
 
 ---
 
-## 4. Glossary Definition Generator
+## 4. Concept Page Generator
 
-**Source:** `GlossaryDefinitionGenerator.kt` → `generateGlossaryDefinition()`  
-**Triggered by:** "Auto-generate" option in `NewGlossaryWordScreen` / `EditGlossaryWordScreen`  
+**Source:** `ConceptGenerator.kt` → `generateConcept()` (prompt built by `buildConceptSystemPrompt()` / `buildConceptUserPrompt()`)  
+**Triggered by:** "Generate with AI" on an empty concept page; "Write full page with AI" on a concept with only a summary; "Regenerate" in the concept page ⋮ menu; "Generate / Regenerate with AI" on the New/Edit concept screen; automatically when "Add to concepts" opens the New concept screen  
 **Thinking content:** No — uses `askAi()`  
+Replaced the old Glossary Definition Generator (2–3 sentence definition + aliases).
 
 ### System prompt
 
 ```
-You are a helpful assistant that creates glossary definitions.
-Given a term and its context, provide:
-1. A clear, concise definition (2-3 sentences max)
-2. Any common aliases or acronyms (comma-separated, or leave empty if none)
+You write concept pages for a learner's personal knowledge base inside a microlearning app.
+The learner is studying: {project.name}.
+Their goal: {project.instructions}                      ← only if set
+What they already know: {project.background}           ← or "Assume no prior knowledge."
+What they have covered so far:
+{project.learningProgress}                              ← only if set
+
+---
+
+Your task: write a reference page about one concept, so the learner can come back to it later and fully understand it.
+
+RULES:
+1. Explain the concept in the sense it is used in the learner's topic. If the term means different things elsewhere, focus on this topic's meaning.
+2. Cover what it is, how it works, where and why it is used, a concrete example, and how it relates to or differs from neighbouring concepts. Add common misconceptions only if they genuinely help.
+3. Use short markdown sections with ## headings, short paragraphs and lists where they help. Typically 300–600 words.
+4. Pitch it at the learner's level. Tone: clear, direct, substantive. No filler, no preamble.
+5. The "where the learner met it" excerpts are context only. Do not quote or summarise them; write about the concept itself.
 
 Respond in this exact format:
-DEFINITION: [your definition here]
-ALIASES: [comma-separated aliases, or leave empty]
+SUMMARY: [one or two plain sentences defining the concept]
+ARTICLE:
+[the markdown article]
 ```
 
 ### User prompt
 
 ```
-Term: "{highlightedTerm}"
+Concept: "{name}"
 
-Context:
-{contextText}
+Where the learner met it:          ← only if the concept has sources (max 5 snippets)
+---
+{snippet}
 
-Please provide a definition and any aliases for this term.
+Write the concept page.
 ```
 
 ### Notes
-- The response is parsed with two regexes: `DEFINITION:\s*(.+?)(?=ALIASES:|$)` and `ALIASES:\s*(.+?)$`.
-- If parsing or the AI call fails, a fallback is returned: `"Definition could not be generated. Please add manually."`
+- Parsed with `SUMMARY:\s*(.+?)(?=ARTICLE:|$)` and `ARTICLE:\s*(.+)$`. If neither label is found, the whole reply becomes the article.
+- SUMMARY is stored as the concept's `intro` (shown on list cards); ARTICLE as `body` (shown on the concept page as markdown). Aliases are never changed by generation.
+- `askAi()` returns errors as text ("API Error …", "No response."); these are treated as a failure and nothing is saved.
 
 ---
 
@@ -242,7 +259,7 @@ You are a playful pixel-art wizard tutor inside an Android learning app called W
 | Microlearning Insight | Dynamic (project context + rules) | `"Generate an insight."` | Yes |
 | Chat Response | Dynamic (project context) | User's typed message | No |
 | Learning Progress | Dynamic (project + insight + chat history) | `"Generate the updated learning progress summary."` | No |
-| Glossary Definition | Fixed (format instructions) | Dynamic (term + context) | No |
+| Concept Page | Dynamic (project context + format rules) | Dynamic (name + where-met snippets) | No |
 | Chat Title | Fixed (1 sentence) | Dynamic (first exchange) | No |
 | Legacy / Fallback | Fixed (wizard persona, 160 char limit) | User's typed question | No |
 

@@ -345,7 +345,7 @@ fun ConceptPill(
     ) {
         Text(
             label,
-            style = pixelStyle(8, if (ghost) colors.secondaryIconSoft else colors.secondaryIcon),
+            style = pixelStyle(8, if (ghost) colors.textXLow else colors.textLow),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
@@ -359,7 +359,9 @@ fun ConceptPill(
 data class SectionRow(
     val title: String,
     val subtitle: String? = null,
-    val subtitleIsDate: Boolean = false,  // dates use the small pixel font, text uses the body font
+    val titleIsDate: Boolean = false,     // dates use the small pixel font (as on note cards)
+    val subtitleIsDate: Boolean = false,
+    val iconAsset: String? = null,        // small icon before the title
     val muted: Boolean = false,           // ghosts / deleted items
     val onClick: (() -> Unit)? = null
 )
@@ -370,7 +372,9 @@ data class SectionRow(
  */
 @Composable
 fun ConceptSectionCard(label: String, emptyText: String, rows: List<SectionRow>, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val colors = LocalWizairdColors.current
+    val svgLoader = rememberSvgLoader()
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, style = pixelStyle(12, colors.textXLow), modifier = Modifier.offset(x = 4.dp, y = (-2).dp))
         PixelBox(
@@ -389,17 +393,7 @@ fun ConceptSectionCard(label: String, emptyText: String, rows: List<SectionRow>,
                             .offset(y = (-2).dp)
                     )
                 }
-                rows.forEachIndexed { index, row ->
-                    if (index > 0) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(colors.textXLow.copy(alpha = 0.35f))
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                    }
+                rows.forEach { row ->
                     val interaction = remember { MutableInteractionSource() }
                     Row(
                         modifier = Modifier
@@ -410,13 +404,30 @@ fun ConceptSectionCard(label: String, emptyText: String, rows: List<SectionRow>,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                row.title,
-                                style = pixelStyle(12, if (row.muted) colors.secondaryIconSoft else colors.secondaryIcon),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.offset(y = (-2).dp)
-                            )
+                            val titleColor = if (row.muted) colors.textXLow else colors.textLow
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                if (row.iconAsset != null) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data("file:///android_asset/pixelarticons/${row.iconAsset}")
+                                            .build(),
+                                        imageLoader = svgLoader,
+                                        contentDescription = null,
+                                        colorFilter = ColorFilter.tint(titleColor),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                                Text(
+                                    row.title,
+                                    style = if (row.titleIsDate) pixelStyle(8, colors.secondaryIconSoft) else pixelStyle(12, titleColor),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.offset(y = (-2).dp)
+                                )
+                            }
                             if (!row.subtitle.isNullOrBlank()) {
                                 Text(
                                     row.subtitle,
@@ -741,10 +752,13 @@ fun ConceptPageScreen(
                     rows = connectedChats.map { chat ->
                         SectionRow(
                             title = chat.title.ifBlank { "Untitled chat" },
+                            iconAsset = "message.svg",
+                            subtitle = chat.formattedCreatedAt(),
+                            subtitleIsDate = true,
                             onClick = { onChatClick(chat.projectId, chat.id) }
                         )
                     } + deletedChatSources.map { src ->
-                        SectionRow(title = "Deleted chat", subtitle = src.snippet, muted = true)
+                        SectionRow(title = "Deleted chat", iconAsset = "message.svg", subtitle = src.snippet, muted = true)
                     },
                     modifier = Modifier.onGloballyPositioned { sectionOffsets["chats"] = it.positionInParent().y.toInt() }
                 )
@@ -756,6 +770,7 @@ fun ConceptPageScreen(
                         val insight = insights.firstOrNull { it.id == src.insightId }
                         SectionRow(
                             title = insight?.formattedCreatedAt() ?: "Deleted insight",
+                            titleIsDate = insight != null,
                             subtitle = src.snippet,
                             muted = insight == null,
                             onClick = insight?.let { { onInsightClick(it.projectId, it.id) } }
@@ -770,6 +785,7 @@ fun ConceptPageScreen(
                     rows = taggedNotes.map { note ->
                         SectionRow(
                             title = note.createdAt,
+                            titleIsDate = true,
                             subtitle = htmlToPlainText(note.body),
                             onClick = { onNoteClick(note.id) }
                         )

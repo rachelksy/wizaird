@@ -2160,17 +2160,17 @@ fun ConceptListItem(
     var showCopyDialog by remember { mutableStateOf(false) }
 
     // Ghost concepts use the muted text color
-    val nameColor = if (concept.isGhost) colors.secondaryIconSoft else colors.secondaryIcon
-    val textColor = if (concept.isGhost) colors.secondaryIconSoft else colors.secondaryIcon
+    val nameColor = if (concept.isGhost) colors.textXLow else colors.secondaryIcon
+    val textColor = if (concept.isGhost) colors.textXLow else colors.secondaryIcon
     
     Box {
         PixelBox(
             modifier = Modifier
                 .fillMaxWidth()
                 .pixelRoundedClickable(interactionSource = interaction, onClick = onClick),
-            // Ghosts are outlined placeholders (no fill); full concepts are filled cards
+            // Ghosts are low-key placeholders: no fill, faint outline; full concepts are filled cards
             fillColor = if (concept.isGhost) colors.background else colors.secondarySurface,
-            borderColor = if (concept.isGhost) colors.textXLow else androidx.compose.ui.graphics.Color.Transparent,
+            borderColor = if (concept.isGhost) colors.textXLow.copy(alpha = 0.35f) else androidx.compose.ui.graphics.Color.Transparent,
             cornerStyle = PixelCornerStyle.Rounded
         ) {
             Box(
@@ -2184,11 +2184,12 @@ fun ConceptListItem(
                         .padding(end = 32.dp), // Leave space for the options button
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Name — minecraft font, bold, 2sp bigger than the summary
+                    // Name — minecraft font, bold (regular for ghosts), 2sp bigger than the summary
                     Text(
                         text = concept.name,
                         style = minecraftStyle(14, nameColor).copy(
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            fontWeight = if (concept.isGhost) androidx.compose.ui.text.font.FontWeight.Normal
+                                         else androidx.compose.ui.text.font.FontWeight.Bold
                         ),
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -2198,7 +2199,7 @@ fun ConceptListItem(
                     val summary = concept.intro.ifBlank { concept.body }
                     Text(
                         text = summary.ifBlank { if (concept.isGhost) "Ghost — not explored yet" else "Nothing written yet" },
-                        style = minecraftStyle(12, if (summary.isBlank()) colors.textXLow else textColor),
+                        style = minecraftStyle(12, if (summary.isBlank() || concept.isGhost) colors.textXLow else textColor),
                         maxLines = 3,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier.offset(y = (-2).dp)

@@ -84,6 +84,6 @@ Built and tested on the emulator with `Backups/backup.json` (20 glossary words �
 - Chats on a concept page: only chats with a stored link (met there via "Add to concepts"). Linking/unlinking from the concept page was removed for now; chats are linked from the chat page.
 - Insights link both ways: the concept page lists the insights it was added from, and insight cards + the insight preview show pills for concepts added from that insight. Insights tab now has its own route (`project/{id}/insights`) so Back returns to it.
 - Empty concept: muted "No description or article yet." text + inline GENERATE / EDIT MANUALLY buttons (no card).
-- Ghost UI: list card is outlined with no fill and muted text ("Ghost — not explored yet"); the page shows name, "GHOST CONCEPT", empty text + GENERATE / EDIT MANUALLY, and no anchors or empty sections (only Insights, if it came from one).
-- Section rows on the concept page are text only (no icons/chevrons); chats show just the chat name.
+- Ghost UI: list card has no fill, a faint outline (textXLow 35%) and textXLow text, name not bold ("Ghost — not explored yet"); the page shows name, "GHOST CONCEPT", empty text + GENERATE / EDIT MANUALLY, and no anchors or empty sections (only Insights, if it came from one).
+- Section rows: no dividers; chats = small chat icon + name (textLow) with the date in small text below; insights/notes = small date + 2-line preview. Pill text is textLow (ghosts textXLow).
 - TEMPORARY: debug builds add, once, "Sample ghost" and "Sample concept with links" (linked to the project's 5 latest chats + 2 latest insights) to each project that has concepts (`addSampleConceptsOnce`, flag `concepts_samples_v2_added`). Remove once ghosts are created for real.

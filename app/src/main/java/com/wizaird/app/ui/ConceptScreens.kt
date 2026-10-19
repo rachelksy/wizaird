@@ -376,7 +376,7 @@ fun ConceptSectionCard(label: String, emptyText: String, rows: List<SectionRow>,
     val colors = LocalWizairdColors.current
     val svgLoader = rememberSvgLoader()
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = pixelStyle(12, colors.textXLow), modifier = Modifier.offset(x = 4.dp, y = (-2).dp))
+        Text(label, style = pixelStyle(12, colors.textXLow), modifier = Modifier.offset(y = (-2).dp))
         PixelBox(
             modifier = Modifier.fillMaxWidth(),
             fillColor = colors.tertiarySurface,
@@ -757,12 +757,12 @@ fun ConceptPageScreen(
                     modifier = Modifier.onGloballyPositioned { sectionOffsets["related"] = it.positionInParent().y.toInt() },
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text("RELATED CONCEPTS", style = pixelStyle(12, colors.textXLow), modifier = Modifier.offset(x = 4.dp, y = (-2).dp))
+                    Text("RELATED CONCEPTS", style = pixelStyle(12, colors.textXLow), modifier = Modifier.offset(y = (-2).dp))
                     if (related.isEmpty()) {
                         Text(
                             "No related concepts",
                             style = minecraftStyle(12, colors.secondaryIconSoft),
-                            modifier = Modifier.offset(x = 4.dp, y = (-2).dp)
+                            modifier = Modifier.offset(y = (-2).dp)
                         )
                     } else {
                         FlowRow(

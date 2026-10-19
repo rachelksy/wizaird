@@ -210,24 +210,30 @@ suspend fun addSourceToConcept(context: Context, conceptId: String, source: Conc
 }
 
 /**
- * Sets which concepts a chat is linked to (chat settings → Linked concepts).
- * Newly linked concepts get a CHAT source; unlinked ones lose every source in that chat.
- * Linking a ghost turns it into a full concept.
+ * Sets which concepts in [projectId] are linked to one place (a chat or an insight).
+ * [isFromHere] recognises that place's sources; newly linked concepts get [newSource];
+ * unlinked ones lose every source from that place. Linking a ghost makes it a full concept.
  */
-suspend fun setChatConcepts(context: Context, chat: ChatData, conceptIds: Set<String>) {
+private suspend fun setLinkedConcepts(
+    context: Context,
+    projectId: String,
+    conceptIds: Set<String>,
+    isFromHere: (ConceptSource) -> Boolean,
+    newSource: () -> ConceptSource
+) {
     val now = System.currentTimeMillis()
     context.dataStore.edit { prefs ->
         val updated = readConcepts(prefs).map { c ->
-            if (c.projectId != chat.projectId && c.sources.none { it.chatId == chat.id }) return@map c
-            val linked = c.sources.any { it.chatId == chat.id }
+            val linked = c.sources.any(isFromHere)
+            if (c.projectId != projectId && !linked) return@map c
             when {
                 c.id in conceptIds && !linked -> c.copy(
-                    sources = c.sources + ConceptSource(type = ConceptSourceType.CHAT, chatId = chat.id, snippet = chat.title, createdAt = now),
+                    sources = c.sources + newSource(),
                     firstMetAt = c.firstMetAt ?: now,
                     lastTouchedAt = now
                 ).withGhostRule()
                 c.id !in conceptIds && linked -> c.copy(
-                    sources = c.sources.filter { it.chatId != chat.id },
+                    sources = c.sources.filterNot(isFromHere),
                     lastTouchedAt = now
                 )
                 else -> c
@@ -236,6 +242,18 @@ suspend fun setChatConcepts(context: Context, chat: ChatData, conceptIds: Set<St
         prefs[KEY_CONCEPTS] = conceptGson.toJson(updated)
     }
 }
+
+/** Chat settings → Linked concepts. */
+suspend fun setChatConcepts(context: Context, chat: ChatData, conceptIds: Set<String>) =
+    setLinkedConcepts(context, chat.projectId, conceptIds,
+        isFromHere = { it.chatId == chat.id },
+        newSource = { ConceptSource(type = ConceptSourceType.CHAT, chatId = chat.id, snippet = chat.title) })
+
+/** Insight card ⋮ → Manage concept links. */
+suspend fun setInsightConcepts(context: Context, insight: StoredInsight, conceptIds: Set<String>) =
+    setLinkedConcepts(context, insight.projectId, conceptIds,
+        isFromHere = { it.insightId == insight.id },
+        newSource = { ConceptSource(type = ConceptSourceType.INSIGHT, insightId = insight.id, snippet = buildSnippet(insight.text, "")) })
 
 /** Cuts a ~200 character snippet around [term] from [text], so the source still makes sense later. */
 fun buildSnippet(text: String, term: String, radius: Int = 100): String {
@@ -293,82 +311,25 @@ suspend fun migrateGlossaryWordsToConcepts(context: Context, words: List<Glossar
     return added
 }
 
-// ── TEMPORARY: sample concepts for UI review ──────────────────────────────────
-// Nothing creates ghosts yet (the extraction step comes later), so debug builds add, once,
-// to every project that already has concepts:
-//   • "Sample ghost" — a name-only ghost
-//   • "Sample concept with links" — a full concept linked to the project's recent chats and
-//     insights, to review the section lists
-// Delete them in the app when done; remove this block once ghosts are created for real.
+// ── Cleanup of the temporary review samples ───────────────────────────────────
+// Earlier debug builds injected sample concepts (and linked one of them to real chats and
+// insights). They were never part of the user's data, so remove them once.
 
-private val KEY_SAMPLES_V2_ADDED = booleanPreferencesKey("concepts_samples_v2_added")
+private val KEY_SAMPLES_REMOVED = booleanPreferencesKey("concepts_samples_removed")
+private val SAMPLE_NAMES = setOf(
+    "Sample ghost", "Sample ghost (empty)", "Sample ghost (written)", "Sample concept with links"
+) + (1..5).map { "Sample linked concept $it" }
 
-suspend fun addSampleConceptsOnce(context: Context) {
+suspend fun removeSampleConceptsOnce(context: Context) {
+    var removedIds: Set<String> = emptySet()
     context.dataStore.edit { prefs ->
-        if (prefs[KEY_SAMPLES_V2_ADDED] == true) return@edit
-        val chatType = object : TypeToken<List<ChatData>>() {}.type
-        val insightType = object : TypeToken<List<StoredInsight>>() {}.type
-        val chats: List<ChatData> = prefs[stringPreferencesKey("chats")]?.let { conceptGson.fromJson(it, chatType) } ?: emptyList()
-        val insights: List<StoredInsight> = prefs[stringPreferencesKey("stored_insights")]?.let { conceptGson.fromJson(it, insightType) } ?: emptyList()
-
-        // Drop the first round of samples (a "written ghost" isn't a real state)
+        if (prefs[KEY_SAMPLES_REMOVED] == true) return@edit
         val concepts = readConcepts(prefs)
-            .filterNot { it.name == "Sample ghost (empty)" || it.name == "Sample ghost (written)" }
-            .toMutableList()
-        val now = System.currentTimeMillis()
-        concepts.map { it.projectId }.distinct().forEach { projectId ->
-            concepts.add(
-                Concept(projectId = projectId, name = "Sample ghost", status = ConceptStatus.GHOST, createdAt = now, updatedAt = now)
-            )
-            val sources = chats.filter { it.projectId == projectId }.sortedByDescending { it.createdAt }.take(5).map {
-                ConceptSource(type = ConceptSourceType.CHAT_MESSAGE, chatId = it.id, snippet = it.title)
-            } + insights.filter { it.projectId == projectId }.sortedByDescending { it.createdAt }.take(2).map {
-                ConceptSource(type = ConceptSourceType.INSIGHT, insightId = it.id, snippet = buildSnippet(it.text, ""))
-            }
-            concepts.add(
-                Concept(
-                    projectId = projectId,
-                    name = "Sample concept with links",
-                    intro = "Placeholder concept linked to this project's recent chats and insights, so the lists can be reviewed.",
-                    status = ConceptStatus.FULL,
-                    sources = sources,
-                    createdAt = now - 1,
-                    updatedAt = now - 1
-                )
-            )
+        removedIds = concepts.filter { it.name in SAMPLE_NAMES }.map { it.id }.toSet()
+        if (removedIds.isNotEmpty()) {
+            prefs[KEY_CONCEPTS] = conceptGson.toJson(concepts.filter { it.id !in removedIds })
         }
-        prefs[KEY_CONCEPTS] = conceptGson.toJson(concepts)
-        prefs[KEY_SAMPLES_V2_ADDED] = true
+        prefs[KEY_SAMPLES_REMOVED] = true
     }
-}
-
-// TEMPORARY (UI review): five sample concepts linked to each project's newest chat, so the
-// "Linked to N concepts" chip and sheet can be checked. Delete them in the app when done.
-private val KEY_SAMPLES_V3_ADDED = booleanPreferencesKey("concepts_samples_v3_added")
-
-suspend fun addSampleLinkedConceptsOnce(context: Context) {
-    context.dataStore.edit { prefs ->
-        if (prefs[KEY_SAMPLES_V3_ADDED] == true) return@edit
-        val chatType = object : TypeToken<List<ChatData>>() {}.type
-        val chats: List<ChatData> = prefs[stringPreferencesKey("chats")]?.let { conceptGson.fromJson(it, chatType) } ?: emptyList()
-        val concepts = readConcepts(prefs).toMutableList()
-        val now = System.currentTimeMillis()
-        concepts.map { it.projectId }.distinct().forEach { projectId ->
-            val chat = chats.filter { it.projectId == projectId }.maxByOrNull { it.createdAt } ?: return@forEach
-            (1..5).forEach { n ->
-                concepts.add(
-                    Concept(
-                        projectId = projectId,
-                        name = "Sample linked concept $n",
-                        intro = "Placeholder linked to \"${chat.title}\" to test the linked-concepts chip.",
-                        sources = listOf(ConceptSource(type = ConceptSourceType.CHAT_MESSAGE, chatId = chat.id, snippet = chat.title)),
-                        createdAt = now - 10 - n,
-                        updatedAt = now - 10 - n
-                    )
-                )
-            }
-        }
-        prefs[KEY_CONCEPTS] = conceptGson.toJson(concepts)
-        prefs[KEY_SAMPLES_V3_ADDED] = true
-    }
+    removedIds.forEach { removeConceptFromNotes(context, it) }
 }

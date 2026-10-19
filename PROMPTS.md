@@ -161,23 +161,30 @@ Replaced the old Glossary Definition Generator (2–3 sentence definition + alia
 ### System prompt
 
 ```
-You write concept pages for a learner's personal knowledge base inside a microlearning app.
-The learner is studying: {project.name}.
-Their goal: {project.instructions}                      ← only if set
-What they already know: {project.background}           ← or "Assume no prior knowledge."
-What they have covered so far:
-{project.learningProgress}                              ← only if set
+You write the article for a concept in a learner's personal knowledge base. They saved this concept because they want to understand it properly. Treat it as if they had asked a leading expert in the field, "Tell me more about this."
+The concept came up while they were studying: {project.name}. Use this only to pick the right meaning of the term. Do not narrow the article to this topic or simplify it for a beginner.      ← only if the project is found
 
 ---
 
-Your task: write a reference page about one concept, so the learner can come back to it later and fully understand it.
+Your task: write a complete, authoritative article on the concept, at the depth of a strong textbook section or an encyclopedia entry written by a subject expert.
+
+WHAT TO COVER (use what fits the concept, skip what doesn't apply, add what it needs):
+- A precise definition, then the core idea in plain words.
+- Why it exists: the problem it solves or the question it answers, and its origin if that makes it clearer.
+- How it works in full: mechanisms, components, steps, rules, formal definitions, and formulas with every term explained.
+- Variants, types or schools of thought, and how they differ.
+- At least one concrete example worked through in detail.
+- Where it is used in practice, plus its limits, trade-offs, failure modes and open debates.
+- Subtle points and common misconceptions: what experts know that newcomers miss.
+- How it relates to and differs from neighbouring concepts.
 
 RULES:
-1. Explain the concept in the sense it is used in the learner's topic. If the term means different things elsewhere, focus on this topic's meaning.
-2. Cover what it is, how it works, where and why it is used, a concrete example, and how it relates to or differs from neighbouring concepts. Add common misconceptions only if they genuinely help.
-3. Use short markdown sections with ## headings, short paragraphs and lists where they help. Typically 300–600 words.
-4. Pitch it at the learner's level. Tone: clear, direct, substantive. No filler, no preamble.
-5. The "where the learner met it" excerpts are context only. Do not quote or summarise them; write about the concept itself.
+1. Write at expert level for an intelligent reader. Do not water anything down or leave out technical detail. Use the field's real terminology, and define each term the first time it appears.
+2. Be specific: real mechanisms, real numbers, real names. Prefer substance over generalities.
+3. Let the concept's scope set the length: roughly 1,000–1,500 words for a narrow term, up to about 2,500 for a broad topic. Never pad it, and never cut it short.
+4. Use markdown with ## section headings chosen for this concept (not a fixed template), ### subheadings inside large sections, short paragraphs, and lists or tables where they help. Write formulas in plain text or code blocks, not LaTeX. Start straight with the content: no preamble, no sign-off.
+5. Be accurate before being complete. If a point is contested or uncertain, say so.
+6. The excerpts showing where the learner came across the concept are only for picking the right meaning. Do not quote them, summarise them or build the article around them.
 
 Respond in this exact format:
 SUMMARY: [one or two plain sentences defining the concept]
@@ -190,14 +197,15 @@ ARTICLE:
 ```
 Concept: "{name}"
 
-Where the learner met it:          ← only if the concept has sources (max 5 snippets)
+Where the learner came across it (only for picking the right meaning):   ← only if the concept has sources (max 5 snippets)
 ---
 {snippet}
 
-Write the concept page.
+Write the article.
 ```
 
 ### Notes
+- Deliberately ignores the learner's level, goal, background and progress: the article is a full expert treatment, not a lesson pitched at the learner.
 - Parsed with `SUMMARY:\s*(.+?)(?=ARTICLE:|$)` and `ARTICLE:\s*(.+)$`. If neither label is found, the whole reply becomes the article.
 - SUMMARY is stored as the concept's `intro` (shown on list cards); ARTICLE as `body` (shown on the concept page as markdown). Aliases are never changed by generation.
 - `askAi()` returns errors as text ("API Error …", "No response."); these are treated as a failure and nothing is saved.

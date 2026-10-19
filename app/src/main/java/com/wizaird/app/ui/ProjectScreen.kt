@@ -119,6 +119,9 @@ fun ProjectScreen(
     var conceptSortOrder by remember { mutableStateOf(ConceptSortOrder.DATE_DESC) }
     var conceptFilter by remember { mutableStateOf(ConceptFilter.ALL) }
     var showFilterMenu by remember { mutableStateOf(false) }
+    // "Manage concept links" target (insight or note card)
+    var linkTargetInsight by remember { mutableStateOf<StoredInsight?>(null) }
+    var linkTargetNote by remember { mutableStateOf<NoteData?>(null) }
     var showSortBottomSheet by remember { mutableStateOf(false) }
     
     // Concepts — live from DataStore with search, sort and filter
@@ -396,8 +399,8 @@ fun ProjectScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(tabScrollState)
-                    // 2dp start so the first tab's icon lines up with the search bar below (tabs have 6dp inner padding)
-                    .padding(start = 2.dp, end = 16.dp),
+                    // 12dp start: the first tab button (incl. its press highlight) lines up with the search bar
+                    .padding(start = 12.dp, end = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(0.dp)
             ) {
                 val svgLoader = remember {
@@ -632,7 +635,8 @@ fun ProjectScreen(
                                     note = note,
                                     onClick = { onNoteClick(note.id) },
                                     conceptsById = conceptsById,
-                                    onConceptClick = onNoteConceptClick
+                                    onConceptClick = onNoteConceptClick,
+                                    onManageConceptLinks = { linkTargetNote = note }
                                 )
                             }
                         }
@@ -676,7 +680,8 @@ fun ProjectScreen(
                                     onChatClick = { onInsightChatClick(insight.id) },
                                     onNewConceptClick = onInsightNewConceptClick,
                                     concepts = conceptsByInsight[insight.id] ?: emptyList(),
-                                    onConceptClick = onInsightConceptClick
+                                    onConceptClick = onInsightConceptClick,
+                                    onManageConceptLinks = { linkTargetInsight = insight }
                                 )
                             }
                         }
@@ -950,6 +955,31 @@ fun ProjectScreen(
             )
         }
 
+        // Manage concept links — same sheet as chat settings
+        linkTargetInsight?.let { insight ->
+            LinkConceptsBottomSheet(
+                concepts = allConcepts.sortedBy { it.name.lowercase() },
+                initiallyLinked = (conceptsByInsight[insight.id] ?: emptyList()).map { it.id }.toSet(),
+                onSave = { ids ->
+                    linkTargetInsight = null
+                    scope.launch { com.wizaird.app.data.setInsightConcepts(context, insight, ids) }
+                },
+                onDismiss = { linkTargetInsight = null }
+            )
+        }
+        linkTargetNote?.let { note ->
+            val sorted = allConcepts.sortedBy { it.name.lowercase() }
+            LinkConceptsBottomSheet(
+                concepts = sorted,
+                initiallyLinked = note.conceptIds.toSet(),
+                onSave = { ids ->
+                    linkTargetNote = null
+                    scope.launch { setNoteConcepts(context, note.id, sorted.map { it.id }.filter { it in ids }) }
+                },
+                onDismiss = { linkTargetNote = null }
+            )
+        }
+
         // Ghost filter bottom sheet for concepts
         if (showFilterMenu) {
             val filterOptions = listOf(
@@ -1039,7 +1069,8 @@ fun NoteListItem(
     onClick: () -> Unit = {},
     onDelete: () -> Unit = {},
     conceptsById: Map<String, Concept> = emptyMap(),
-    onConceptClick: (String) -> Unit = {}
+    onConceptClick: (String) -> Unit = {},
+    onManageConceptLinks: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -1049,7 +1080,6 @@ fun NoteListItem(
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMoveDialog by remember { mutableStateOf(false) }
-    var showTagDialog by remember { mutableStateOf(false) }
 
     // Tagged concepts that still exist
     val taggedConcepts = note.conceptIds.mapNotNull { conceptsById[it] }
@@ -1094,21 +1124,13 @@ fun NoteListItem(
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier.offset(y = (-2).dp)
                     )
-                    // Concept tags — tap a pill to open the concept
+                    // Concepts linked to this note — one line, or "Linked to N concepts" + Show less
                     if (taggedConcepts.isNotEmpty()) {
-                        FlowRow(
-                            modifier = Modifier.padding(top = 2.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            taggedConcepts.forEach { concept ->
-                                ConceptPill(
-                                    label = concept.name,
-                                    ghost = concept.isGhost,
-                                    onClick = { onConceptClick(concept.id) }
-                                )
-                            }
-                        }
+                        ConceptPillsOrCount(
+                            concepts = taggedConcepts,
+                            onConceptClick = onConceptClick,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
                     }
                 }
                 
@@ -1198,10 +1220,10 @@ fun NoteListItem(
                             .padding(4.dp),
                         verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
-                        // Tag concepts option
-                        PixelOptionsMenuItem("Tag concepts", iconAsset = "bookmark.svg", onClick = {
+                        // Manage concept links option
+                        PixelOptionsMenuItem("Manage concept links", iconAsset = "link.svg", onClick = {
                             showMenu = false
-                            showTagDialog = true
+                            onManageConceptLinks()
                         })
 
                         // Move to option
@@ -1298,19 +1320,6 @@ fun NoteListItem(
             )
         }
         
-        // Tag concepts dialog
-        if (showTagDialog) {
-            TagConceptsDialog(
-                projectId = note.projectId,
-                initialSelection = note.conceptIds,
-                onSave = { ids ->
-                    showTagDialog = false
-                    scope.launch { setNoteConcepts(context, note.id, ids) }
-                },
-                onDismiss = { showTagDialog = false }
-            )
-        }
-
         // Move to project dialog
         if (showMoveDialog) {
             MoveNoteDialog(
@@ -1336,7 +1345,8 @@ fun InsightListItem(
     onChatClick: () -> Unit = {},
     onNewConceptClick: () -> Unit = {},
     concepts: List<Concept> = emptyList(),  // concepts added from this insight
-    onConceptClick: (String) -> Unit = {}
+    onConceptClick: (String) -> Unit = {},
+    onManageConceptLinks: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -1390,21 +1400,13 @@ fun InsightListItem(
                         modifier = Modifier.offset(y = (-2).dp),
                         maxLines = 5
                     )
-                    // Concepts added from this insight
+                    // Concepts linked to this insight — one line, or "Linked to N concepts" + Show less
                     if (concepts.isNotEmpty()) {
-                        FlowRow(
-                            modifier = Modifier.padding(top = 2.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            concepts.forEach { concept ->
-                                ConceptPill(
-                                    label = concept.name,
-                                    ghost = concept.isGhost,
-                                    onClick = { onConceptClick(concept.id) }
-                                )
-                            }
-                        }
+                        ConceptPillsOrCount(
+                            concepts = concepts,
+                            onConceptClick = onConceptClick,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
                     }
                 }
                 
@@ -1494,6 +1496,12 @@ fun InsightListItem(
                                         .padding(4.dp),
                                     verticalArrangement = Arrangement.spacedBy(0.dp)
                                 ) {
+                                    // Manage concept links option
+                                    PixelOptionsMenuItem("Manage concept links", iconAsset = "link.svg", onClick = {
+                                        showMenu = false
+                                        onManageConceptLinks()
+                                    })
+
                                     // Move to option
                                     val moveInteraction = remember { MutableInteractionSource() }
                                     Box(
@@ -2181,9 +2189,9 @@ fun ConceptListItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .pixelRoundedClickable(interactionSource = interaction, onClick = onClick),
-            // Full concepts: filled card with a soft stroke. Ghosts: the fill at 35%, no stroke.
+            // Full concepts: filled card with a soft stroke. Ghosts: the same fill and stroke at 35%.
             fillColor = if (concept.isGhost) colors.secondarySurface.copy(alpha = 0.35f) else colors.secondarySurface,
-            borderColor = if (concept.isGhost) androidx.compose.ui.graphics.Color.Transparent else colors.textLow,
+            borderColor = if (concept.isGhost) colors.textLow.copy(alpha = 0.35f) else colors.textLow,
             cornerStyle = PixelCornerStyle.Rounded
         ) {
             Box(

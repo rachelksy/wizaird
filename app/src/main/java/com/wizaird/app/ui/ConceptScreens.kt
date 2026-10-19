@@ -387,7 +387,17 @@ fun ConceptPillsOrCount(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 concepts.forEach { c -> ConceptPill(label = c.name, ghost = c.isGhost, onClick = { onConceptClick(c.id) }) }
-                LinkedCountChip(label = "SHOW LESS", expanded = true, onClick = { expanded = false })
+                // Plain body-text button to collapse
+                val lessInteraction = remember { MutableInteractionSource() }
+                Text(
+                    "Show less",
+                    style = minecraftStyle(12, colors.secondaryIconSoft),
+                    modifier = Modifier
+                        .align(Alignment.CenterVertically)
+                        .pixelRounded8Clickable(interactionSource = lessInteraction) { expanded = false }
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                        .offset(y = (-2).dp)
+                )
             }
         }
     }

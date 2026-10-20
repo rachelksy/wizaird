@@ -51,6 +51,7 @@ import com.wizaird.app.data.setNoteConcepts
 import com.wizaird.app.data.notesFlow
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.data.storedInsightsFlow
+import com.wizaird.app.data.setInsightPinned
 import com.wizaird.app.data.conceptsFlow
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.launch
@@ -112,7 +113,9 @@ fun ProjectScreen(
     val notes by notesFlow(context, projectId).collectAsState(initial = emptyList())
 
     // Insights — live from DataStore, filtered to this project
-    val insights by storedInsightsFlow(context, projectId).collectAsState(initial = emptyList())
+    val storedInsights by storedInsightsFlow(context, projectId).collectAsState(initial = emptyList())
+    // Pinned insights first; each group stays newest first
+    val insights = remember(storedInsights) { storedInsights.sortedByDescending { it.pinned } }
 
     // Concepts — search, sort and ghost filter state
     var conceptSearchQuery by remember { mutableStateOf("") }
@@ -1101,11 +1104,12 @@ fun NoteListItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 14.dp, top = 10.dp, end = 8.dp, bottom = 10.dp)
+                    .heightIn(min = 50.dp) // Keeps the options and heart buttons from overlapping on short cards
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(end = 32.dp), // Leave space for the options button
+                        .padding(end = 32.dp), // Leave space for the options and heart buttons
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Date — pixel font, small, on top
@@ -1380,11 +1384,12 @@ fun InsightListItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 14.dp, top = 10.dp, end = 8.dp, bottom = 10.dp)
+                    .heightIn(min = 50.dp) // Keeps the options and heart buttons from overlapping on short cards
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(end = 32.dp), // Leave space for the options button
+                        .padding(end = 32.dp), // Leave space for the options and heart buttons
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Date — pixel font, small, on top
@@ -1413,7 +1418,31 @@ fun InsightListItem(
                         )
                     }
                 }
-                
+
+                // Heart pin button - offset so icon sits at bottom-right edge
+                val heartInteraction = remember { MutableInteractionSource() }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 7.dp, y = 7.dp)
+                        .size(32.dp)
+                        .pixelRounded8Clickable(
+                            interactionSource = heartInteraction,
+                            onClick = { scope.launch { setInsightPinned(context, insight.id, !insight.pinned) } }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(if (insight.pinned) "file:///android_asset/pixelarticons/heart-filled.svg" else "file:///android_asset/pixelarticons/heart.svg")
+                            .build(),
+                        imageLoader = svgLoader,
+                        contentDescription = if (insight.pinned) "Unpin insight" else "Pin insight",
+                        colorFilter = ColorFilter.tint(if (insight.pinned) colors.coral else colors.secondaryIconSoft),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
                 // More options button - offset so icon sits at top-right edge
                 val moreInteraction = remember { MutableInteractionSource() }
                 Box(
@@ -2207,11 +2236,12 @@ fun ConceptListItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 14.dp, top = 10.dp, end = 8.dp, bottom = 10.dp)
+                    .heightIn(min = 50.dp) // Keeps the options and heart buttons from overlapping on short cards
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(end = 32.dp), // Leave space for the options button
+                        .padding(end = 32.dp), // Leave space for the options and heart buttons
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Name — caps pixel font (chat cards use the body font)

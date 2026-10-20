@@ -52,6 +52,7 @@ import com.wizaird.app.data.upsertProject
 import com.wizaird.app.data.upsertChat
 import com.wizaird.app.data.storedInsightsFlow
 import com.wizaird.app.data.storedInsightFlow
+import com.wizaird.app.data.setInsightPinned
 import com.wizaird.app.data.conceptsFlow
 import kotlinx.coroutines.flow.map
 import com.wizaird.app.ui.theme.*
@@ -235,16 +236,6 @@ fun HomeScreen(
             projectId = activeProject?.id,
             insightId = stored?.id ?: liveInsightId,
             positionLabel = if (pageCount > 1 && !pageLoading) "${page + 1}/$pageCount" else null,
-            isPinned = activeProject?.pinnedInsight ?: false,
-            onTogglePin = {
-                activeProject?.let { project ->
-                    scope.launch {
-                        val updatedProject = project.copy(pinnedInsight = !project.pinnedInsight)
-                        upsertProject(context, updatedProject)
-                        println("Insight ${if (updatedProject.pinnedInsight) "pinned" else "unpinned"} for project: ${project.name}")
-                    }
-                }
-            },
             onRegenerate = {
                 activeProject?.let { project ->
                     println("User triggered manual regeneration")
@@ -796,8 +787,6 @@ fun ChatBubble(
     projectId: String? = null,
     insightId: String? = null,
     positionLabel: String? = null,  // e.g. "3/12" when browsing insight history
-    isPinned: Boolean = false,
-    onTogglePin: () -> Unit = {},
     onRegenerate: () -> Unit = {},
     onProjectClick: () -> Unit = {},
     onShowToast: (String) -> Unit = {},
@@ -924,8 +913,10 @@ fun ChatBubble(
                         )
                     }
                     
-                    // Heart pin button
-                    if (!loading) {
+                    // Heart pin button — pins this insight to the top of the project's insight list
+                    val shownInsight = insight
+                    if (!loading && shownInsight != null) {
+                        val isPinned = shownInsight.pinned
                         val svgLoader = remember {
                             ImageLoader.Builder(context)
                                 .components { add(SvgDecoder.Factory()) }
@@ -943,7 +934,7 @@ fun ChatBubble(
                                 .size(20.dp)
                                 .pixelRounded8ClickableOversize(
                                     interactionSource = heartInteraction
-                                ) { onTogglePin() }
+                                ) { scope.launch { setInsightPinned(context, shownInsight.id, !isPinned) } }
                         )
                     }
                 }

@@ -16,20 +16,11 @@ import kotlinx.coroutines.withContext
  * Repository for generating learning insights for projects.
  */
 
-private const val SESSION_DURATION_MS = 30 * 60 * 1000L // 30 minutes
-
 /**
- * Check if a new insight should be generated based on the 30-minute session timer.
- * Returns false if the insight is pinned (user wants to keep it).
+ * Only a project that has never had an insight gets one automatically;
+ * after that the user asks for new insights themselves.
  */
-fun shouldGenerateNewInsight(project: Project): Boolean {
-    // If insight is pinned, don't auto-generate
-    if (project.pinnedInsight) return false
-    
-    if (project.lastInsightTimestamp == 0L) return true
-    val now = System.currentTimeMillis()
-    return (now - project.lastInsightTimestamp) >= SESSION_DURATION_MS
-}
+fun shouldGenerateNewInsight(project: Project): Boolean = project.lastInsightTimestamp == 0L
 
 /**
  * Build the system prompt for insight generation.

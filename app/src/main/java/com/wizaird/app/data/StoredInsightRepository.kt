@@ -19,7 +19,8 @@ data class StoredInsight(
     val text: String = "",
     val thinkingContent: String? = null,  // AI reasoning chain, only present on thinking-model responses
     val createdAt: Long = System.currentTimeMillis(),
-    val conceptExtraction: ConceptExtraction? = null  // set once concepts have been extracted from this insight
+    val conceptExtraction: ConceptExtraction? = null,  // set once concepts have been extracted from this insight
+    val pinned: Boolean = false  // pinned insights sit at the top of the project's insight list
 ) {
     fun formattedCreatedAt(): String {
         val date = Date(createdAt)
@@ -194,6 +195,19 @@ suspend fun setInsightConceptExtraction(context: Context, insightId: String, ext
         val idx = current.indexOfFirst { it.id == insightId }
         if (idx < 0) return@edit
         current[idx] = current[idx].copy(conceptExtraction = extraction)
+        prefs[KEY_STORED_INSIGHTS] = insightGson.toJson(current)
+    }
+}
+
+/** Pins or unpins an insight. */
+suspend fun setInsightPinned(context: Context, insightId: String, pinned: Boolean) {
+    context.dataStore.edit { prefs ->
+        val json = prefs[KEY_STORED_INSIGHTS] ?: return@edit
+        val type = object : TypeToken<List<StoredInsight>>() {}.type
+        val current: MutableList<StoredInsight> = insightGson.fromJson(json, type) ?: return@edit
+        val idx = current.indexOfFirst { it.id == insightId }
+        if (idx < 0) return@edit
+        current[idx] = current[idx].copy(pinned = pinned)
         prefs[KEY_STORED_INSIGHTS] = insightGson.toJson(current)
     }
 }

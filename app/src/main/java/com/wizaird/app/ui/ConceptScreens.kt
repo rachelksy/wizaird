@@ -520,6 +520,133 @@ private fun htmlToPlainText(html: String): String =
 
 // ── Concept page (read-only info page) ────────────────────────────────────────
 
+private val ConceptPageTopPadding = 28.dp
+private val StickyIndexTop = 8.dp
+private val IndexHeaderHeight = 40.dp
+private val IndexChevronBox = 36.dp  // chevron column on every index row (header too), so chevrons line up
+
+/** Light divider — same as App Settings (1dp, 35% textXLow). */
+@Composable
+private fun ConceptDivider(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(LocalWizairdColors.current.textXLow.copy(alpha = 0.35f))
+    )
+}
+
+/**
+ * Expandable INDEX card (note card style). Lists the main headings; a chevron on a row opens its subheadings.
+ * The sticky copy at the top of the page also gets the jump buttons ([anchors]) and scrolls inside itself.
+ */
+@Composable
+private fun ConceptIndexCard(
+    sections: List<Pair<MarkdownHeading, List<MarkdownHeading>>>,
+    topLevel: Int,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    expandedSubs: androidx.compose.runtime.snapshots.SnapshotStateList<Int>,
+    onHeading: (MarkdownHeading) -> Unit,
+    modifier: Modifier = Modifier,
+    anchors: (@Composable () -> Unit)? = null,
+    scrollable: Boolean = false
+) {
+    val colors = LocalWizairdColors.current
+    @Composable
+    fun Chevron(up: Boolean, tint: Color, contentDescription: String) {
+        androidx.compose.foundation.Image(
+            painter = painterResource(id = com.wizaird.app.R.drawable.ic_chevron_down),
+            contentDescription = contentDescription,
+            colorFilter = ColorFilter.tint(tint),
+            modifier = Modifier
+                .size(16.dp)
+                .graphicsLayer { rotationZ = if (up) 180f else 0f }
+        )
+    }
+    PixelBox(
+        modifier = modifier.fillMaxWidth(),
+        fillColor = colors.userBubble,
+        borderColor = Color.Transparent,
+        cornerStyle = PixelCornerStyle.Rounded
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            val headerInteraction = remember { MutableInteractionSource() }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IndexHeaderHeight)
+                    .pixelRoundedClickable(interactionSource = headerInteraction, onClick = onToggle)
+                    .padding(start = 14.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("INDEX", style = pixelStyle(12, colors.textHigh), modifier = Modifier.weight(1f).offset(y = (-2).dp))
+                Box(modifier = Modifier.width(IndexChevronBox), contentAlignment = Alignment.Center) {
+                    Chevron(up = expanded, tint = colors.textHigh, contentDescription = if (expanded) "Collapse index" else "Expand index")
+                }
+            }
+            if (expanded) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(if (scrollable) Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()) else Modifier)
+                        .padding(start = 4.dp, end = 4.dp, bottom = 8.dp)
+                ) {
+                    sections.forEach { (heading, subs) ->
+                        val open = heading.line in expandedSubs
+                        val rowInteraction = remember { MutableInteractionSource() }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 34.dp)
+                                .pixelRounded8Clickable(interactionSource = rowInteraction) { onHeading(heading) }
+                                .padding(start = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                heading.title,
+                                style = minecraftStyle(13, colors.textLow).copy(lineHeight = (13 * 1.4f).sp),
+                                modifier = Modifier.weight(1f).padding(vertical = 6.dp).offset(y = (-2).dp)
+                            )
+                            if (subs.isNotEmpty()) {
+                                val chevronInteraction = remember { MutableInteractionSource() }
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = IndexChevronBox, height = 34.dp)
+                                        .pixelRounded8Clickable(interactionSource = chevronInteraction) {
+                                            if (open) expandedSubs.remove(heading.line) else expandedSubs.add(heading.line)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Chevron(up = open, tint = colors.textXLow, contentDescription = if (open) "Hide subheadings" else "Show subheadings")
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.width(IndexChevronBox))
+                            }
+                        }
+                        if (open) subs.forEach { sub ->
+                            val subInteraction = remember { MutableInteractionSource() }
+                            Text(
+                                sub.title,
+                                style = minecraftStyle(12, colors.textXLow).copy(lineHeight = (12 * 1.4f).sp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 30.dp)
+                                    .pixelRounded8Clickable(interactionSource = subInteraction) { onHeading(sub) }
+                                    .padding(start = (10 + 14 * (sub.level - topLevel)).dp, end = IndexChevronBox, top = 6.dp, bottom = 6.dp)
+                                    .offset(y = (-2).dp)
+                            )
+                        }
+                    }
+                    if (anchors != null) {
+                        Box(modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 4.dp)) { anchors() }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ConceptPageScreen(
@@ -593,8 +720,66 @@ fun ConceptPageScreen(
         // Section positions inside the scrolling column, for the jump buttons
         val scrollState = rememberScrollState()
         val sectionOffsets = remember { mutableStateMapOf<String, Int>() }
+        // Index: built from the article's headings on the fly (no AI, nothing stored), so older concepts get it too.
+        // Main headings (the biggest level used) are listed; deeper headings sit under them behind a chevron.
+        val articleHeadings = remember(concept.body) { markdownHeadings(concept.body) }
+        val indexTopLevel = articleHeadings.minOfOrNull { it.level } ?: 1
+        val indexSections = remember(articleHeadings) {
+            val out = mutableListOf<Pair<MarkdownHeading, MutableList<MarkdownHeading>>>()
+            articleHeadings.forEach { h ->
+                if (h.level == indexTopLevel || out.isEmpty()) out.add(h to mutableListOf()) else out.last().second.add(h)
+            }
+            out
+        }
+        val hasIndex = articleHeadings.size >= 2
+        // The article split at its main headings, so each section can end with a divider
+        val articleSections = remember(concept.body, indexSections) {
+            val lines = concept.body.lines()
+            val starts = (listOf(0) + indexSections.map { it.first.line }).distinct().sorted()
+            starts.mapIndexed { i, start ->
+                val end = starts.getOrNull(i + 1) ?: lines.size
+                start to lines.subList(start, end).joinToString("\n").trim('\n', ' ')
+            }.filter { it.second.isNotBlank() }
+        }
+        var scrollContentCoords by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+        val sectionTops = remember { mutableStateMapOf<Int, Float>() }      // article section start line → top y in the scroll content
+        val headingTops = remember { mutableStateMapOf<Int, Pair<Int, Float>>() }  // heading line → (section start line, y inside that section)
+        var indexBottom by remember { mutableStateOf(Float.MAX_VALUE) }   // bottom of the in-page index card in the scroll content
+        var indexExpanded by remember { mutableStateOf(true) }
+        var stickyExpanded by remember { mutableStateOf(false) }
+        // Main headings (by line) showing their subheadings — all open by default
+        val expandedSubs = remember(concept.body) {
+            mutableStateListOf<Int>().apply { addAll(indexSections.filter { it.second.isNotEmpty() }.map { it.first.line }) }
+        }
+        val stickyVisible by remember { derivedStateOf { hasIndex && scrollState.value > indexBottom } }
+        LaunchedEffect(stickyVisible) { if (!stickyVisible) stickyExpanded = false }
+        val density = LocalDensity.current
+        // Space a jump target leaves at the top: room for the collapsed sticky index (when there is one) plus a small gap
+        val jumpInset = with(density) { (if (hasIndex) StickyIndexTop + IndexHeaderHeight + 12.dp else 12.dp).toPx() }
+        val contentPadTop = with(density) { ConceptPageTopPadding.toPx() }
+        fun scrollToContentY(y: Float) {
+            scope.launch { scrollState.animateScrollTo((y - jumpInset).toInt().coerceAtLeast(0)) }
+        }
         fun jumpTo(section: String) {
-            sectionOffsets[section]?.let { y -> scope.launch { scrollState.animateScrollTo(y) } }
+            sectionOffsets[section]?.let { y -> scrollToContentY(y + contentPadTop) }
+        }
+        fun jumpToHeading(heading: MarkdownHeading) {
+            stickyExpanded = false
+            val (sectionStart, y) = headingTops[heading.line] ?: return
+            val top = sectionTops[sectionStart] ?: return
+            scrollToContentY(top + y)
+        }
+        val anchorChips: @Composable () -> Unit = {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                val anchorFill = colors.secondaryButton
+                ConceptPill(label = "RELATED ${related.size}", fillColor = anchorFill, onClick = { stickyExpanded = false; jumpTo("related") })
+                ConceptPill(label = "CHATS ${connectedChats.size + deletedChatSources.size}", fillColor = anchorFill, onClick = { stickyExpanded = false; jumpTo("chats") })
+                ConceptPill(label = "INSIGHTS ${insightSources.size}", fillColor = anchorFill, onClick = { stickyExpanded = false; jumpTo("insights") })
+                ConceptPill(label = "NOTES ${taggedNotes.size}", fillColor = anchorFill, onClick = { stickyExpanded = false; jumpTo("notes") })
+            }
         }
 
         Column(modifier = Modifier.fillMaxSize()) {
@@ -684,16 +869,22 @@ fun ConceptPageScreen(
                 }
             }
 
+            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
+                    .fillMaxSize()
                     .verticalScroll(scrollState)
-                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 48.dp),
+                    .onGloballyPositioned { scrollContentCoords = it }
+                    .padding(start = 16.dp, end = 16.dp, top = ConceptPageTopPadding, bottom = 48.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 // Title, date, ghost actions, jump buttons
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "CONCEPT",
+                        style = pixelStyle(8, colors.secondaryIconSoft),
+                        modifier = Modifier.offset(y = (-2).dp)
+                    )
                     Text(
                         concept.name,
                         style = minecraftStyle(20, if (concept.isGhost) colors.secondaryIconSoft else colors.textHigh).copy(
@@ -711,16 +902,8 @@ fun ConceptPageScreen(
                         )
                     }
                     // Jump buttons: skip past a long article to what this concept connects to (not on ghosts)
-                    if (!concept.isGhost) FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        val anchorFill = colors.secondaryButton
-                        ConceptPill(label = "RELATED ${related.size}", fillColor = anchorFill, onClick = { jumpTo("related") })
-                        ConceptPill(label = "CHATS ${connectedChats.size + deletedChatSources.size}", fillColor = anchorFill, onClick = { jumpTo("chats") })
-                        ConceptPill(label = "INSIGHTS ${insightSources.size}", fillColor = anchorFill, onClick = { jumpTo("insights") })
-                        ConceptPill(label = "NOTES ${taggedNotes.size}", fillColor = anchorFill, onClick = { jumpTo("notes") })
-                    }
+                    // Extra room above the jump buttons so they sit as far below the title as the summary sits below them
+                    if (!concept.isGhost) Box(modifier = Modifier.padding(top = 8.dp)) { anchorChips() }
                 }
 
                 // Description
@@ -779,7 +962,7 @@ fun ConceptPageScreen(
                         }
                     }
                 } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
                         if (concept.intro.isNotBlank()) {
                             Text(
                                 concept.intro,
@@ -787,11 +970,39 @@ fun ConceptPageScreen(
                                 modifier = Modifier.offset(y = (-2).dp)
                             )
                         }
-                        if (concept.body.isNotBlank()) {
-                            MarkdownText(
-                                markdown = concept.body,
-                                style = minecraftStyle(13, colors.secondaryIcon).copy(lineHeight = (13 * 1.6f).sp)
+                        if (hasIndex) {
+                            ConceptIndexCard(
+                                sections = indexSections,
+                                topLevel = indexTopLevel,
+                                expanded = indexExpanded,
+                                onToggle = { indexExpanded = !indexExpanded },
+                                expandedSubs = expandedSubs,
+                                onHeading = ::jumpToHeading,
+                                modifier = Modifier.onGloballyPositioned { coords ->
+                                    scrollContentCoords?.takeIf { it.isAttached }?.let {
+                                        indexBottom = it.localPositionOf(coords, Offset.Zero).y + coords.size.height
+                                    }
+                                }
                             )
+                        }
+                        // Article, one block per main section, each followed by a light divider
+                        articleSections.forEachIndexed { sectionIndex, (startLine, text) ->
+                            val nextStart = articleSections.getOrNull(sectionIndex + 1)?.first ?: Int.MAX_VALUE
+                            val inSection = articleHeadings.filter { it.line in startLine until nextStart }
+                            MarkdownText(
+                                markdown = text,
+                                style = minecraftStyle(13, colors.secondaryIcon).copy(lineHeight = (13 * 1.6f).sp),
+                                modifier = Modifier.onGloballyPositioned { coords ->
+                                    scrollContentCoords?.takeIf { it.isAttached }?.let {
+                                        sectionTops[startLine] = it.localPositionOf(coords, Offset.Zero).y
+                                    }
+                                },
+                                onHeadingsLaidOut = { tops ->
+                                    // Headings come back in the same order as in the full article
+                                    tops.forEachIndexed { i, (_, y) -> inSection.getOrNull(i)?.let { headingTops[it.line] = startLine to y } }
+                                }
+                            )
+                            ConceptDivider()
                         }
                     }
                 }
@@ -884,6 +1095,29 @@ fun ConceptPageScreen(
                     },
                     modifier = Modifier.onGloballyPositioned { sectionOffsets["notes"] = it.positionInParent().y.toInt() }
                 )
+            }
+
+            // Sticky index: once the index card scrolls out of view it stays collapsed at the top;
+            // expanded, it also has the jump buttons at the bottom
+            if (stickyVisible) Box(
+                // Page-colored strip above the card so the article doesn't show there; below it, the text slides under the card
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .background(colors.background)
+                    .padding(start = 16.dp, end = 16.dp, top = StickyIndexTop)
+            ) {
+                ConceptIndexCard(
+                    sections = indexSections,
+                    topLevel = indexTopLevel,
+                    expanded = stickyExpanded,
+                    onToggle = { stickyExpanded = !stickyExpanded },
+                    expandedSubs = expandedSubs,
+                    onHeading = ::jumpToHeading,
+                    anchors = if (concept.isGhost) null else anchorChips,
+                    scrollable = true
+                )
+            }
             }
         }
 

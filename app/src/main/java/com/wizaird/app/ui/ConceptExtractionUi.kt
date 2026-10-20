@@ -14,12 +14,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.wizaird.app.data.ChatData
 import com.wizaird.app.data.Concept
+import com.wizaird.app.data.ConceptExtraction
 import com.wizaird.app.data.ConceptExtractor
 import com.wizaird.app.data.ExtractedConcept
 import com.wizaird.app.data.ExtractionStatus
@@ -38,18 +41,26 @@ class ConceptExtractionUi {
     var noneFoundFlash by mutableStateOf(false)  // brief "no new concepts" pill where there's no toast
 
     /** Starts extraction, asking first if this insight has been extracted before. */
-    fun request(context: android.content.Context, insight: StoredInsight) {
-        if (insight.conceptExtraction != null) confirmRerun = true else run(context, insight.id)
+    fun request(context: android.content.Context, insight: StoredInsight) =
+        request(context, insight.id, insight.conceptExtraction)
+
+    /** Starts extraction, asking first if this chat has been extracted before. */
+    fun request(context: android.content.Context, chat: ChatData) =
+        request(context, chat.id, chat.conceptExtraction)
+
+    private fun request(context: android.content.Context, subjectId: String, extraction: ConceptExtraction?) {
+        if (extraction != null) confirmRerun = true else run(context, subjectId)
     }
 
-    fun run(context: android.content.Context, insightId: String) {
+    /** [subjectId] is an insight or chat ID. */
+    fun run(context: android.content.Context, subjectId: String) {
         awaitingResult = true
-        ConceptExtractor.start(context, insightId)
+        ConceptExtractor.start(context, subjectId)
     }
 }
 
 @Composable
-fun rememberConceptExtractionUi(insightId: String?): ConceptExtractionUi = remember(insightId) { ConceptExtractionUi() }
+fun rememberConceptExtractionUi(subjectId: String?): ConceptExtractionUi = remember(subjectId) { ConceptExtractionUi() }
 
 /** Concept icon for an insight's action row. Dimmed while extracting. */
 @Composable
@@ -83,10 +94,26 @@ fun ExtractConceptsIcon(insight: StoredInsight?, ui: ConceptExtractionUi) {
  * [onToast] null = no toast on this screen; a short pill is shown instead.
  */
 @Composable
-fun ConceptExtractionHost(insight: StoredInsight, ui: ConceptExtractionUi, onToast: ((String) -> Unit)? = null) {
+fun ConceptExtractionHost(insight: StoredInsight, ui: ConceptExtractionUi, onToast: ((String) -> Unit)? = null) =
+    ConceptExtractionHost(insight.id, insight.conceptExtraction, "insight", ui, onToast)
+
+/** Same as the insight version, for a whole chat. */
+@Composable
+fun ConceptExtractionHost(chat: ChatData, ui: ConceptExtractionUi, onToast: ((String) -> Unit)? = null) =
+    ConceptExtractionHost(chat.id, chat.conceptExtraction, "chat", ui, onToast)
+
+/** [noun] names the subject in the dialogs ("insight", "chat"). */
+@Composable
+private fun ConceptExtractionHost(
+    subjectId: String,
+    extraction: ConceptExtraction?,
+    noun: String,
+    ui: ConceptExtractionUi,
+    onToast: ((String) -> Unit)?
+) {
     val context = LocalContext.current
     val statuses by ConceptExtractor.status.collectAsState()
-    val status = statuses[insight.id]
+    val status = statuses[subjectId]
 
     LaunchedEffect(status, ui.awaitingResult) {
         if (!ui.awaitingResult) return@LaunchedEffect
@@ -116,27 +143,28 @@ fun ConceptExtractionHost(insight: StoredInsight, ui: ConceptExtractionUi, onToa
     if (ui.confirmRerun) {
         PixelConfirmationDialog(
             title = "EXTRACT AGAIN?",
-            message = "Concepts have already been extracted from this insight. Run the extraction again?",
+            message = "Concepts have already been extracted from this $noun. Run the extraction again?",
             confirmLabel = "EXTRACT",
             onConfirm = {
                 ui.confirmRerun = false
-                ui.run(context, insight.id)
+                ui.run(context, subjectId)
             },
             onDismiss = { ui.confirmRerun = false }
         )
     }
 
-    val pending = insight.conceptExtraction?.pending.orEmpty()
+    val pending = extraction?.pending.orEmpty()
     if (ui.showSheet && pending.isNotEmpty()) {
         NewConceptsSheet(
             items = pending,
+            noun = noun,
             onGenerate = { chosen ->
                 ui.showSheet = false
-                ConceptExtractor.generate(context, insight.id, chosen)
+                ConceptExtractor.generate(context, subjectId, chosen)
             },
             onDiscard = {
                 ui.showSheet = false
-                ConceptExtractor.discard(context, insight.id)
+                ConceptExtractor.discard(context, subjectId)
             },
             onDismiss = { ui.showSheet = false }  // closing keeps the found concepts
         )
@@ -145,16 +173,25 @@ fun ConceptExtractionHost(insight: StoredInsight, ui: ConceptExtractionUi, onToa
 
 /** The extra pill after an insight's concept pills: extracting / failed / N new concepts. */
 @Composable
-fun extractionPill(insight: StoredInsight, ui: ConceptExtractionUi): ExtraPill? {
+fun extractionPill(insight: StoredInsight, ui: ConceptExtractionUi): ExtraPill? =
+    extractionPill(insight.id, insight.conceptExtraction, ui)
+
+/** The extra pill after a chat's linked concepts (chat settings). */
+@Composable
+fun extractionPill(chat: ChatData, ui: ConceptExtractionUi): ExtraPill? =
+    extractionPill(chat.id, chat.conceptExtraction, ui)
+
+@Composable
+private fun extractionPill(subjectId: String, extraction: ConceptExtraction?, ui: ConceptExtractionUi): ExtraPill? {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
     val statuses by ConceptExtractor.status.collectAsState()
-    val pendingCount = insight.conceptExtraction?.pending?.size ?: 0
+    val pendingCount = extraction?.pending?.size ?: 0
     return when {
-        statuses[insight.id] == ExtractionStatus.Running ->
+        statuses[subjectId] == ExtractionStatus.Running ->
             ExtraPill("EXTRACTING CONCEPTS...", textColor = colors.textXLow)
-        statuses[insight.id] == ExtractionStatus.Failed ->
-            ExtraPill("EXTRACTION FAILED · RETRY", textColor = colors.warn, onClick = { ui.run(context, insight.id) })
+        statuses[subjectId] == ExtractionStatus.Failed ->
+            ExtraPill("EXTRACTION FAILED · RETRY", textColor = colors.warn, onClick = { ui.run(context, subjectId) })
         pendingCount > 0 ->
             ExtraPill(
                 "$pendingCount NEW CONCEPT${if (pendingCount == 1) "" else "S"}",
@@ -191,12 +228,13 @@ fun InsightConceptTags(
 
 
 /**
- * Popup listing the new concepts found in an insight. Checked ones are generated, the rest ignored.
- * Closing keeps them for later; DISCARD (after a confirmation) drops them.
+ * Popup listing the new concepts found in an insight or chat ([noun]). Checked ones are generated,
+ * the rest ignored. Closing keeps them for later; DISCARD (after a confirmation) drops them.
  */
 @Composable
 fun NewConceptsSheet(
     items: List<ExtractedConcept>,
+    noun: String = "insight",
     onGenerate: (List<ExtractedConcept>) -> Unit,
     onDiscard: () -> Unit,
     onDismiss: () -> Unit
@@ -205,16 +243,24 @@ fun NewConceptsSheet(
     var selected by remember(items) { mutableStateOf(emptySet<String>()) }
     var confirmDiscard by remember { mutableStateOf(false) }
     val allSelected = items.isNotEmpty() && selected.size == items.size
-    // Inside a dialog window the nav-bar inset reads as 0, so take it from the activity's window
-    val navBarBottom = rememberActivityNavBarBottom()
 
     // Own window so it covers the whole screen wherever the insight card is
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
-        // The sheet draws its own scrim; drop the dialog's
-        (LocalView.current.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
+        // Full-screen window: by default the dialog window starts below the status bar but keeps the
+        // full screen height, so its bottom (and the button) ends up off screen. The sheet draws its
+        // own scrim, so the dialog's dim is dropped.
+        val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
+        SideEffect {
+            dialogWindow?.apply {
+                setDimAmount(0f)
+                setLayout(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+                addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN)
+                if (android.os.Build.VERSION.SDK_INT >= 30) attributes = attributes.apply { fitInsetsTypes = 0 }
+            }
+        }
         PixelBottomSheet(onDismiss = onDismiss, fillColor = colors.background) {
             Row(
                 modifier = Modifier
@@ -238,10 +284,13 @@ fun NewConceptsSheet(
                     .padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
                     .offset(y = (-2).dp)
             )
+            // The list scrolls and only takes the space left, so the header and the button always
+            // stay on screen (long lists, small screens, 3-button nav, large text)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 420.dp)
+                    .heightIn(max = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.55f).dp)
+                    .weight(1f, fill = false)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
@@ -260,7 +309,7 @@ fun NewConceptsSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 8.dp + navBarBottom),
+                    .padding(start = 4.dp, end = 4.dp, bottom = 8.dp),  // the sheet adds the nav-bar inset
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 PixelButtonLarge(
@@ -275,7 +324,7 @@ fun NewConceptsSheet(
         if (confirmDiscard) {
             PixelConfirmationDialog(
                 title = "DISCARD CONCEPTS?",
-                message = "The ${items.size} new concept${if (items.size == 1) "" else "s"} found in this insight will be removed. You can extract again later.",
+                message = "The ${items.size} new concept${if (items.size == 1) "" else "s"} found in this $noun will be removed. You can extract again later.",
                 confirmLabel = "DISCARD",
                 isDestructive = true,
                 onConfirm = {
@@ -352,38 +401,17 @@ private fun ExtractedConceptRow(item: ExtractedConcept, checked: Boolean, onTogg
             )
             Column {
                 Text(
-                    text = item.name,
-                    style = pixelStyle(10, contentColor),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    text = item.name,  // wraps: the whole name is shown
+                    style = pixelStyle(10, contentColor).copy(lineHeight = 14.sp),  // room between wrapped lines
                     modifier = Modifier.offset(y = (-2).dp)
                 )
                 if (item.summary.isNotBlank()) {
                     Text(
-                        text = item.summary,
-                        style = minecraftStyle(12, colors.textXLow),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        text = item.summary,  // shown in full
+                        style = minecraftStyle(12, colors.textXLow)
                     )
                 }
             }
         }
-    }
-}
-
-/** Bottom nav-bar inset of the activity window (dialogs report 0 for it). */
-@Composable
-private fun rememberActivityNavBarBottom(): androidx.compose.ui.unit.Dp {
-    val context = LocalContext.current
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    return remember(context) {
-        var c = context
-        while (c is android.content.ContextWrapper && c !is android.app.Activity) c = c.baseContext
-        val decor = (c as? android.app.Activity)?.window?.decorView
-        val px = decor?.let {
-            androidx.core.view.ViewCompat.getRootWindowInsets(it)
-                ?.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())?.bottom
-        } ?: 0
-        with(density) { px.toDp() }
     }
 }

@@ -89,7 +89,7 @@ Answer the question clearly and directly.
 - Focus on what the user is asking
 - Use the learning progress to understand what has already been covered — not to limit what you say, but to build logically from where things left off. Topics that appear in the progress may still be worth going further on if a different angle or deeper layer is relevant to the question
 
-Keep responses focused and digestible (typically 100-300 words).
+Length: explain everything the question needs. Cover the reasoning, the examples and the nuance fully instead of summarizing, and don't settle for a surface-level or generic answer. Give a short reply only when the question is genuinely simple (a yes/no, a quick definition, a check). Don't pad with repetition or filler.
 ```
 
 ### Notes

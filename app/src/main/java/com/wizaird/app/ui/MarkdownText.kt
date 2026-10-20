@@ -32,10 +32,13 @@ fun MarkdownText(
     markdown: String,
     style: androidx.compose.ui.text.TextStyle,
     modifier: Modifier = Modifier,
-    maxLines: Int = Int.MAX_VALUE
+    maxLines: Int = Int.MAX_VALUE,
+    // Called after layout with each heading (# ## ###) and its top y inside this text, in px
+    onHeadingsLaidOut: ((List<Pair<MarkdownHeading, Float>>) -> Unit)? = null
 ) {
     // Parse the entire markdown into a single AnnotatedString
-    val annotatedText = parseMarkdown(markdown, style)
+    val headings = mutableListOf<MarkdownHeading>()
+    val annotatedText = parseMarkdown(markdown, style, headings)
     
     // Use Text which properly handles maxLines with text wrapping
     Text(
@@ -43,11 +46,25 @@ fun MarkdownText(
         style = style,
         modifier = modifier,
         maxLines = maxLines,
-        overflow = TextOverflow.Ellipsis
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = { layout ->
+            onHeadingsLaidOut?.invoke(headings.map { it to layout.getLineTop(layout.getLineForOffset(it.offset)) })
+        }
     )
 }
 
-private fun parseMarkdown(markdown: String, baseStyle: androidx.compose.ui.text.TextStyle): AnnotatedString {
+/** A heading in a markdown text: level 1–3, plain title, its source line, and where it starts in the rendered text. */
+data class MarkdownHeading(val level: Int, val title: String, val line: Int, val offset: Int)
+
+/** Headings (# ## ###) of a markdown text, in order. Skips lines inside code blocks. */
+fun markdownHeadings(markdown: String): List<MarkdownHeading> =
+    mutableListOf<MarkdownHeading>().also { parseMarkdown(markdown, androidx.compose.ui.text.TextStyle.Default, it) }
+
+private fun parseMarkdown(
+    markdown: String,
+    baseStyle: androidx.compose.ui.text.TextStyle,
+    headings: MutableList<MarkdownHeading>? = null
+): AnnotatedString {
     return buildAnnotatedString {
         val lines = markdown.lines()
         var inCodeBlock = false
@@ -78,6 +95,7 @@ private fun parseMarkdown(markdown: String, baseStyle: androidx.compose.ui.text.
                 // Header 1: # text
                 trimmedLine.startsWith("# ") && !trimmedLine.startsWith("## ") -> {
                     val content = trimmedLine.substring(2)
+                    headings?.add(MarkdownHeading(1, parseInlineMarkdown(content).text.trim(), index, length))
                     withStyle(SpanStyle(
                         fontWeight = FontWeight.Bold,
                         fontSize = (baseStyle.fontSize.value * 1.5f).sp
@@ -89,6 +107,7 @@ private fun parseMarkdown(markdown: String, baseStyle: androidx.compose.ui.text.
                 // Header 2: ## text
                 trimmedLine.startsWith("## ") && !trimmedLine.startsWith("### ") -> {
                     val content = trimmedLine.substring(3)
+                    headings?.add(MarkdownHeading(2, parseInlineMarkdown(content).text.trim(), index, length))
                     withStyle(SpanStyle(
                         fontWeight = FontWeight.Bold,
                         fontSize = (baseStyle.fontSize.value * 1.3f).sp
@@ -100,6 +119,7 @@ private fun parseMarkdown(markdown: String, baseStyle: androidx.compose.ui.text.
                 // Header 3: ### text
                 trimmedLine.startsWith("### ") -> {
                     val content = trimmedLine.substring(4)
+                    headings?.add(MarkdownHeading(3, parseInlineMarkdown(content).text.trim(), index, length))
                     withStyle(SpanStyle(
                         fontWeight = FontWeight.Bold,
                         fontSize = (baseStyle.fontSize.value * 1.15f).sp

@@ -41,6 +41,13 @@ fun ChatSettingsScreen(
     val linkedConcepts = projectConcepts.filter { c -> c.sources.any { it.chatId == chatId } }
     var showConceptsSheet by remember { mutableStateOf(false) }
 
+    // Concept extraction from the whole chat
+    val extraction = rememberConceptExtractionUi(chatId)
+    val extractionPill = chat?.let { extractionPill(it, extraction) }
+    val extractStatuses by com.wizaird.app.data.ConceptExtractor.status.collectAsState()
+    val extracting = extractStatuses[chatId] == com.wizaird.app.data.ExtractionStatus.Running
+    val canExtract = chat?.messages?.isNotEmpty() == true && !extracting
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -130,9 +137,9 @@ fun ChatSettingsScreen(
                     )
                 }
 
-                // Linked concepts — pills (tap to open the concept) + an Edit text button for the picker sheet
+                // Linked concepts — pills (tap to open the concept) + Edit (picker sheet) and Extract (AI) text buttons
                 SettingsField(label = "LINKED CONCEPTS") {
-                    if (linkedConcepts.isEmpty()) {
+                    if (linkedConcepts.isEmpty() && extractionPill == null) {
                         // No pills: Edit sits on the same baseline as the sentence
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -148,6 +155,11 @@ fun ChatSettingsScreen(
                                 onClick = { showConceptsSheet = true },
                                 modifier = Modifier.alignByBaseline()
                             )
+                            if (canExtract) PixelTextButton(
+                                label = "Extract",
+                                onClick = { chat?.let { extraction.request(context, it) } },
+                                modifier = Modifier.alignByBaseline()
+                            )
                         }
                     } else androidx.compose.foundation.layout.FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -157,9 +169,15 @@ fun ChatSettingsScreen(
                         linkedConcepts.forEach { concept ->
                             ConceptPill(label = concept.name, ghost = concept.isGhost, onClick = { onConceptClick(concept.id) })
                         }
+                        extractionPill?.let { ExtraPillView(it) }
                         PixelTextButton(
                             label = "Edit",
                             onClick = { showConceptsSheet = true },
+                            modifier = Modifier.align(Alignment.CenterVertically)
+                        )
+                        if (canExtract) PixelTextButton(
+                            label = "Extract",
+                            onClick = { chat?.let { extraction.request(context, it) } },
                             modifier = Modifier.align(Alignment.CenterVertically)
                         )
                     }
@@ -188,6 +206,9 @@ fun ChatSettingsScreen(
             }
         }
     
+        // No toast on this screen: the pill shows progress and "no new concepts"
+        chat?.let { ConceptExtractionHost(chat = it, ui = extraction) }
+
         if (showConceptsSheet) {
             chat?.let { currentChat ->
                 LinkConceptsBottomSheet(

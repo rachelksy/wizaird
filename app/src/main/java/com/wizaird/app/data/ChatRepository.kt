@@ -32,7 +32,8 @@ data class ChatData(
     val messages: List<ChatMessage> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val insightId: String? = null,  // Link to the insight that started this chat
-    val contextWindowSize: Int = 50  // Number of last messages to send to AI for context
+    val contextWindowSize: Int = 50,  // Number of last messages to send to AI for context
+    val conceptExtraction: ConceptExtraction? = null  // set once concepts have been extracted from this chat
 ) {
     /** Date only, e.g. "Oct 15, 2025" (chat cards). */
     fun formattedCreatedDate(): String =
@@ -107,6 +108,19 @@ suspend fun deleteChat(context: Context, chatId: String) {
     val current: MutableList<ChatData> = chatGson.fromJson(json, type) ?: mutableListOf()
     current.removeAll { it.id == chatId }
     saveChats(context, current)
+}
+
+/** Saves the result of extracting concepts from a chat (null clears it). */
+suspend fun setChatConceptExtraction(context: Context, chatId: String, extraction: ConceptExtraction?) {
+    context.dataStore.edit { prefs ->
+        val json = prefs[KEY_CHATS] ?: return@edit
+        val type = object : TypeToken<List<ChatData>>() {}.type
+        val current: MutableList<ChatData> = chatGson.fromJson(json, type) ?: return@edit
+        val idx = current.indexOfFirst { it.id == chatId }
+        if (idx < 0) return@edit
+        current[idx] = current[idx].copy(conceptExtraction = extraction)
+        prefs[KEY_CHATS] = chatGson.toJson(current)
+    }
 }
 
 /** Remove the last AI message from a chat (used for regeneration). */

@@ -143,6 +143,23 @@ fun ExistingChatScreen(
         }
     }
     
+    // Concept extraction from the whole chat (⋮ → Extract concepts)
+    val extraction = rememberConceptExtractionUi(chatId)
+    val extractStatuses by com.wizaird.app.data.ConceptExtractor.status.collectAsState()
+    val extracting = extractStatuses[chatId] == com.wizaird.app.data.ExtractionStatus.Running
+    val pendingConcepts = chat?.conceptExtraction?.pending?.size ?: 0
+    // Loading toast while extracting; the host replaces it with the result (or opens the popup)
+    LaunchedEffect(extracting, extraction.awaitingResult) {
+        if (extracting && extraction.awaitingResult) {
+            toastMessage = "EXTRACTING CONCEPTS"
+            isToastLoading = true
+            showToast = true
+        } else if (!extracting && toastMessage == "EXTRACTING CONCEPTS") {
+            isToastLoading = false
+            showToast = false
+        }
+    }
+
     // Get the current message from the messages list when editing
     val editingMessage = editingMessageId?.let { id ->
         messages.firstOrNull { it.id == id }
@@ -414,6 +431,52 @@ fun ExistingChatScreen(
                                         Text(
                                             "Settings",
                                             style = pixelStyle(10, colors.secondaryIcon),
+                                            modifier = Modifier.offset(y = (-2).dp)
+                                        )
+                                    }
+                                }
+
+                                // Extract concepts option — opens the found concepts instead while some are waiting
+                                val extractInteraction = remember { MutableInteractionSource() }
+                                val canExtract = !extracting && (pendingConcepts > 0 || messages.isNotEmpty())
+                                val extractColor = if (canExtract) colors.secondaryIcon else colors.secondaryIcon.copy(alpha = 0.35f)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .then(
+                                            if (canExtract) Modifier.pixelRounded8Clickable(
+                                                interactionSource = extractInteraction,
+                                                onClick = {
+                                                    showMenu = false
+                                                    chat?.let {
+                                                        if (pendingConcepts > 0) extraction.showSheet = true
+                                                        else extraction.request(context, it)
+                                                    }
+                                                }
+                                            ) else Modifier
+                                        )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(context)
+                                                .data("file:///android_asset/pixelarticons/book-open.svg")
+                                                .build(),
+                                            imageLoader = svgLoader,
+                                            contentDescription = "Extract concepts",
+                                            colorFilter = ColorFilter.tint(extractColor),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            when {
+                                                extracting -> "Extracting..."
+                                                pendingConcepts > 0 -> "New concepts ($pendingConcepts)"
+                                                else -> "Extract concepts"
+                                            },
+                                            style = pixelStyle(10, extractColor),
                                             modifier = Modifier.offset(y = (-2).dp)
                                         )
                                     }
@@ -746,6 +809,14 @@ fun ExistingChatScreen(
             }
         }
         
+        chat?.let {
+            ConceptExtractionHost(chat = it, ui = extraction, onToast = { msg ->
+                toastMessage = msg
+                isToastLoading = false
+                showToast = true
+            })
+        }
+
         // Toast overlay
         PixelToast(
             message = toastMessage,

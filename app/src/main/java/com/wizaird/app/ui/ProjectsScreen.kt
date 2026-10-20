@@ -405,7 +405,7 @@ fun ProjectCard(
                     }
                 ),
             fillColor = colors.secondarySurface,
-            borderColor = if (isDragged) Coral else colors.border,
+            borderColor = if (isDragged) colors.coral else colors.border,
             cornerStyle = PixelCornerStyle.Rounded
         ) {
             Row(
@@ -637,12 +637,12 @@ fun ProjectCard(
                                         .build(),
                                     imageLoader = svgLoader,
                                     contentDescription = "Delete",
-                                    colorFilter = ColorFilter.tint(colors.coral),
+                                    colorFilter = ColorFilter.tint(colors.warn),
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Text(
                                     "Delete",
-                                    style = pixelStyle(10, colors.coral),
+                                    style = pixelStyle(10, colors.warn),
                                     modifier = Modifier.offset(y = (-2).dp)
                                 )
                             }

@@ -41,6 +41,7 @@ import coil.request.ImageRequest
 import com.wizaird.app.data.Concept
 import com.wizaird.app.data.ConceptSource
 import com.wizaird.app.data.ConceptSourceType
+import com.wizaird.app.data.ConceptGeneration
 import com.wizaird.app.data.ConceptStatus
 import com.wizaird.app.data.addSourceToConcept
 import com.wizaird.app.data.allChatsFlow
@@ -86,51 +87,6 @@ object ConceptNavigationData {
         pendingSource = null
         return data
     }
-}
-
-/**
- * Generates concept pages outside any screen's lifetime, so leaving the page
- * doesn't cancel a generation that's already running.
- */
-object ConceptGeneration {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    val generating = MutableStateFlow<Set<String>>(emptySet())
-    val failed = MutableStateFlow<Set<String>>(emptySet())
-
-    fun start(context: Context, conceptId: String) {
-        if (conceptId in generating.value) return
-        val appContext = context.applicationContext
-        generating.update { it + conceptId }
-        failed.update { it - conceptId }
-        scope.launch {
-            try {
-                val concept = getConceptById(appContext, conceptId) ?: return@launch
-                val result = generateConcept(
-                    appContext, concept.projectId, concept.name, concept.sources.map { it.snippet }
-                )
-                if (result == null) {
-                    failed.update { it + conceptId }
-                } else {
-                    // Re-read so edits made while generating aren't lost
-                    val latest = getConceptById(appContext, conceptId) ?: return@launch
-                    val now = System.currentTimeMillis()
-                    upsertConcept(
-                        appContext,
-                        latest.copy(
-                            intro = result.intro.ifBlank { latest.intro },
-                            body = result.body,
-                            updatedAt = now,
-                            lastTouchedAt = now
-                        )
-                    )
-                }
-            } finally {
-                generating.update { it - conceptId }
-            }
-        }
-    }
-
-    fun clearFailure(conceptId: String) = failed.update { it - conceptId }
 }
 
 // ── Shared pieces (same visuals as the existing card menus and headers) ───────
@@ -333,6 +289,7 @@ fun ConceptPill(
     label: String,
     ghost: Boolean = false,
     fillColor: Color = LocalWizairdColors.current.tertiarySurface,  // same as the search bar; pass another fill for other pills
+    textColor: Color? = null,  // null = text-low (text-x-low for ghosts)
     onClick: (() -> Unit)? = null
 ) {
     val colors = LocalWizairdColors.current
@@ -345,7 +302,7 @@ fun ConceptPill(
     ) {
         Text(
             label,
-            style = pixelStyle(8, if (ghost) colors.textXLow else colors.textLow),
+            style = pixelStyle(8, textColor ?: if (ghost) colors.textXLow else colors.textLow),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
@@ -355,16 +312,36 @@ fun ConceptPill(
     }
 }
 
+/** A pill after the concept pills that isn't a concept (e.g. "Extracting concepts..."). */
+data class ExtraPill(
+    val label: String,
+    val fillColor: Color? = null,   // null = same fill as concept pills
+    val textColor: Color? = null,
+    val onClick: (() -> Unit)? = null
+)
+
+@Composable
+fun ExtraPillView(pill: ExtraPill) {
+    ConceptPill(
+        label = pill.label,
+        fillColor = pill.fillColor ?: LocalWizairdColors.current.tertiarySurface,
+        textColor = pill.textColor,
+        onClick = pill.onClick
+    )
+}
+
 /**
  * Concept pills on a single line; if they don't all fit, a "Linked to N concepts ⌄" chip instead.
  * Tapping the chip expands to all pills (wrapping onto more lines) plus a chip to collapse again.
+ * [extra] is always shown last, after the pills or the chip.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ConceptPillsOrCount(
     concepts: List<Concept>,
     onConceptClick: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    extra: ExtraPill? = null
 ) {
     val colors = LocalWizairdColors.current
     val density = LocalDensity.current
@@ -373,20 +350,31 @@ fun ConceptPillsOrCount(
     var expanded by remember { mutableStateOf(false) }
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         // Pill width = text + 8dp padding each side; 6dp between pills
+        val labels = concepts.map { it.name } + listOfNotNull(extra?.label)
         val totalWidthPx = with(density) {
-            concepts.sumOf { measurer.measure(it.name, pillTextStyle).size.width + 16.dp.roundToPx() } +
-                (concepts.size - 1) * 6.dp.roundToPx()
+            labels.sumOf { measurer.measure(it, pillTextStyle).size.width + 16.dp.roundToPx() } +
+                (labels.size - 1).coerceAtLeast(0) * 6.dp.roundToPx()
         }
         when {
-            totalWidthPx <= constraints.maxWidth -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            concepts.isEmpty() || totalWidthPx <= constraints.maxWidth -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 concepts.forEach { c -> ConceptPill(label = c.name, ghost = c.isGhost, onClick = { onConceptClick(c.id) }) }
+                extra?.let { ExtraPillView(it) }
             }
-            !expanded -> LinkedCountChip(label = "LINKED TO ${concepts.size} CONCEPTS", expanded = false, onClick = { expanded = true })
+            !expanded -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Shorter label when sharing the line with the extra pill
+                LinkedCountChip(
+                    label = if (extra != null) "${concepts.size} LINKED" else "LINKED TO ${concepts.size} CONCEPTS",
+                    expanded = false,
+                    onClick = { expanded = true }
+                )
+                extra?.let { ExtraPillView(it) }
+            }
             else -> FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 concepts.forEach { c -> ConceptPill(label = c.name, ghost = c.isGhost, onClick = { onConceptClick(c.id) }) }
+                extra?.let { ExtraPillView(it) }
                 // Text button to collapse, centered on the pill row
                 PixelTextButton(
                     label = "Show less",
@@ -687,7 +675,7 @@ fun ConceptPageScreen(
                                 showMenu = false
                                 showCopyDialog = true
                             })
-                            PixelOptionsMenuItem("Delete", iconAsset = "delete.svg", tint = colors.coral, onClick = {
+                            PixelOptionsMenuItem("Delete", iconAsset = "delete.svg", tint = colors.warn, onClick = {
                                 showMenu = false
                                 showDeleteDialog = true
                             })
@@ -1042,6 +1030,7 @@ fun ConceptEditScreen(
             } else {
                 if (result.intro.isNotBlank()) intro = result.intro
                 body = result.body
+                aliases = com.wizaird.app.data.mergeAliases(aliases, result.aliases, name)
             }
         }
     }
@@ -1272,7 +1261,7 @@ fun CopyConceptDialog(
                                         onClick = { selectedProjectId = project.id }
                                     ),
                                 fillColor = if (isSelected) colors.userBubble else colors.background,
-                                borderColor = if (isSelected) Coral else Color.Transparent,
+                                borderColor = if (isSelected) colors.coral else Color.Transparent,
                                 cornerStyle = PixelCornerStyle.Rounded
                             ) {
                                 Row(

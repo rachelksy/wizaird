@@ -98,7 +98,8 @@ class MainActivity : ComponentActivity() {
                                     popUpTo("home") { inclusive = false }
                                 }
                                 nav.navigate("concept/${projectId}/new")
-                            }
+                            },
+                            onConceptClick = { projectId, conceptId -> nav.navigate("concept/${projectId}/${conceptId}") }
                         )
                     }
                     composable("settings") {

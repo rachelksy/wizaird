@@ -314,7 +314,7 @@ private fun callGemini(settings: AiSettings, systemPrompt: String, userPrompt: S
 // Claude (Anthropic)
 private fun callClaude(settings: AiSettings, systemPrompt: String, userPrompt: String): String {
     val model = settings.model.ifBlank { "claude-haiku-4-5" }
-    val body = """{"model":"$model","max_tokens":4096,"system":"$systemPrompt","messages":[{"role":"user","content":"$userPrompt"}]}"""
+    val body = """{"model":"$model","max_tokens":16000,"system":"$systemPrompt","messages":[{"role":"user","content":"$userPrompt"}]}"""
     val req = Request.Builder()
         .url("https://api.anthropic.com/v1/messages")
         .addHeader("x-api-key", settings.apiKey)

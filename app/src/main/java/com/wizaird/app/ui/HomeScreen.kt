@@ -44,11 +44,14 @@ import com.wizaird.app.data.askAi
 import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.data.shouldGenerateNewInsight
-import com.wizaird.app.data.generateInsight
+import com.wizaird.app.data.InsightGeneration
 import com.wizaird.app.data.InsightResult
 import com.wizaird.app.data.upsertProject
 import com.wizaird.app.data.upsertChat
 import com.wizaird.app.data.storedInsightsFlow
+import com.wizaird.app.data.storedInsightFlow
+import com.wizaird.app.data.conceptsFlow
+import kotlinx.coroutines.flow.map
 import com.wizaird.app.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -62,7 +65,8 @@ fun HomeScreen(
     onNewProjectClick: () -> Unit = {},
     onProjectClick: (String) -> Unit = {},
     onChatCreated: (projectId: String, chatId: String) -> Unit = { _, _ -> },
-    onNewConceptClick: (String) -> Unit = {}
+    onNewConceptClick: (String) -> Unit = {},
+    onConceptClick: (projectId: String, conceptId: String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -75,42 +79,40 @@ fun HomeScreen(
 
     var bubbleText by remember { mutableStateOf("") }
     var bubbleThinking by remember { mutableStateOf<String?>(null) }
-    var isLoading by remember { mutableStateOf(false) }
     var inputText by remember { mutableStateOf("") }
     
-    // Track current generation job to allow cancellation
-    var currentGenerationJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    // Insights generate in the background (InsightGeneration), so switching projects doesn't cancel them.
+    // The bubble only shows the active project's state.
+    val generatingIds by InsightGeneration.generating.collectAsState()
+    val isLoading = activeProject?.id?.let { it in generatingIds } ?: false
+    val currentProjectId by rememberUpdatedState(activeProject?.id)
 
-    // Function to generate insight for a project
+    // Type-out of a freshly finished insight; cancelled when the user switches projects
+    var typingJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
     fun generateInsightForProject(project: Project) {
-        // Cancel any existing generation
-        currentGenerationJob?.cancel()
-        
-        currentGenerationJob = scope.launch {
-            isLoading = true
-            bubbleText = ""
-            
-            println("HomeScreen: Starting insight generation for project: ${project.name}")
-            
-            val result = generateInsight(context, project, settings)
-            
+        typingJob?.cancel()
+        bubbleText = ""
+        InsightGeneration.start(context, project)
+    }
+
+    // Show the result when the active project's insight finishes
+    LaunchedEffect(Unit) {
+        InsightGeneration.finished.collect { (projectId, result) ->
+            if (projectId != currentProjectId) return@collect
+            typingJob?.cancel()
             when (result) {
                 is InsightResult.Success -> {
-                    println("HomeScreen: Insight generation successful")
-                    isLoading = false
                     bubbleThinking = result.thinkingContent
-                    // Type-out effect
-                    val insight = result.insight
-                    for (i in insight.indices) {
-                        bubbleText = insight.substring(0, i + 1)
-                        delay(4)
+                    typingJob = scope.launch {
+                        val insight = result.insight
+                        for (i in insight.indices) {
+                            bubbleText = insight.substring(0, i + 1)
+                            delay(4)
+                        }
                     }
                 }
-                is InsightResult.Error -> {
-                    println("HomeScreen: Insight generation failed - ${result.message}")
-                    isLoading = false
-                    bubbleText = "My scroll is torn! ${result.message}"
-                }
+                is InsightResult.Error -> bubbleText = "My scroll is torn! ${result.message}"
             }
         }
     }
@@ -119,21 +121,22 @@ fun HomeScreen(
     LaunchedEffect(activeProject?.id, projects.size) {
         // Reset state immediately so stale content from the previous project
         // never bleeds through while the new one loads.
-        currentGenerationJob?.cancel()
+        typingJob?.cancel()
         bubbleText = ""
         bubbleThinking = null
 
         if (projects.isEmpty()) {
             // No projects yet
             bubbleText = "Create a project to start your learning journey!"
-            isLoading = false
         } else {
             activeProject?.let { project ->
-                if (shouldGenerateNewInsight(project)) {
+                val running = project.id in InsightGeneration.generating.value
+                if (running) {
+                    // Still generating in the background; the bubble shows the loader
+                } else if (shouldGenerateNewInsight(project)) {
                     generateInsightForProject(project)
                 } else {
                     // Show existing insight
-                    isLoading = false
                     bubbleText = project.lastInsightText.ifBlank {
                         "Welcome back! Let me think of something new to teach you..."
                     }
@@ -161,25 +164,6 @@ fun HomeScreen(
         if (showToast && !isToastLoading) {
             delay(2000)
             showToast = false
-        }
-    }
-
-    fun askQuestion(prompt: String) {
-        scope.launch {
-            isLoading = true
-            bubbleText = ""
-            try {
-                val result = askAi(settings, prompt.ifBlank { "Tell me one surprising bite-sized fact." })
-                // type-out effect
-                isLoading = false
-                for (i in result.indices) {
-                    bubbleText = result.substring(0, i + 1)
-                    delay(4)
-                }
-            } catch (e: Exception) {
-                isLoading = false
-                bubbleText = "My scroll is torn! Check settings and try again."
-            }
         }
     }
 
@@ -251,6 +235,9 @@ fun HomeScreen(
                         },
                         onNewConceptClick = { projectIdFromBubble ->
                             onNewConceptClick(projectIdFromBubble)
+                        },
+                        onConceptClick = { conceptId ->
+                            activeProject?.let { project -> onConceptClick(project.id, conceptId) }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -399,6 +386,9 @@ fun HomeScreen(
                         },
                         onNewConceptClick = { projectIdFromBubble ->
                             onNewConceptClick(projectIdFromBubble)
+                        },
+                        onConceptClick = { conceptId ->
+                            activeProject?.let { project -> onConceptClick(project.id, conceptId) }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -712,7 +702,7 @@ fun AgentScrollBar(
                         modifier = Modifier
                             .width(16.dp)
                             .height(4.dp)
-                            .background(Coral)
+                            .background(colors.coral)
                     )
                 } else {
                     Spacer(modifier = Modifier.height(6.dp))
@@ -725,14 +715,15 @@ fun AgentScrollBar(
 // ── HP/XP stat strip ─────────────────────────────────────────────
 @Composable
 fun StatStrip() {
+    val colors = LocalWizairdColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        StatBar(label = "HP", value = 8, max = 10, color = Coral)
-        StatBar(label = "XP", value = 6, max = 10, color = Gold)
+        StatBar(label = "HP", value = 8, max = 10, color = colors.coral)
+        StatBar(label = "XP", value = 6, max = 10, color = colors.gold)
     }
 }
 
@@ -769,6 +760,7 @@ fun ChatBubble(
     onProjectClick: () -> Unit = {},
     onShowToast: (String) -> Unit = {},
     onNewConceptClick: (String) -> Unit = {}, // Changed to accept projectId
+    onConceptClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -784,6 +776,18 @@ fun ChatBubble(
     var noteSaved by remember { mutableStateOf(false) }
     var showThinking by remember { mutableStateOf(false) }
     var dotCount by remember { mutableIntStateOf(1) }
+
+    // The insight shown (null while loading or when the bubble isn't showing a saved insight)
+    // and the concepts linked to it, for the concept icon and tags
+    val insight by remember(insightId) {
+        insightId?.let { storedInsightFlow(context, it) } ?: kotlinx.coroutines.flow.flowOf(null)
+    }.collectAsState(initial = null)
+    val linkedConcepts by remember(projectId, insightId) {
+        conceptsFlow(context, projectId ?: "").map { all ->
+            all.filter { c -> c.sources.any { it.insightId != null && it.insightId == insightId } }
+        }
+    }.collectAsState(initial = emptyList())
+    val extraction = rememberConceptExtractionUi(insightId)
     LaunchedEffect(loading) {
         if (loading) {
             while (true) {
@@ -890,7 +894,7 @@ fun ChatBubble(
                                 .build(),
                             imageLoader = svgLoader,
                             contentDescription = if (isPinned) "Unpin insight" else "Pin insight",
-                            colorFilter = ColorFilter.tint(if (isPinned) Coral else colors.textXLow),
+                            colorFilter = ColorFilter.tint(if (isPinned) colors.coral else colors.textXLow),
                             modifier = Modifier
                                 .size(20.dp)
                                 .pixelRounded8ClickableOversize(
@@ -942,7 +946,7 @@ fun ChatBubble(
                     }
                 }
             } else {
-                Box(modifier = Modifier
+                Column(modifier = Modifier
                     .weight(1f)
                     .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)
                     .verticalScroll(rememberScrollState())
@@ -960,6 +964,17 @@ fun ChatBubble(
                             currentProjectId?.let { onNewConceptClick(it) }
                         }
                     )
+                    // Concepts linked to this insight, then the extraction pill
+                    insight?.let {
+                        InsightConceptTags(
+                            insight = it,
+                            concepts = linkedConcepts,
+                            ui = extraction,
+                            onConceptClick = onConceptClick,
+                            // 20dp above (text) and below (the area's 12dp + 8dp, before the icon row), so taps don't collide
+                            modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
+                        )
+                    }
                 }
             }
 
@@ -1032,6 +1047,9 @@ fun ChatBubble(
                             }
                     )
                     
+                    // Concept extraction icon — disabled until the bubble shows a saved insight
+                    ExtractConceptsIcon(insight = insight, ui = extraction)
+
                     val zapInteraction = remember { MutableInteractionSource() }
                     AsyncImage(
                         model = ImageRequest.Builder(context)
@@ -1084,6 +1102,8 @@ fun ChatBubble(
             onDismiss = { showThinking = false }
         )
     }
+
+    insight?.let { ConceptExtractionHost(insight = it, ui = extraction, onToast = onShowToast) }
 }
 
 // ── Wizard character (GIF via Coil) ──────────────────────────────
@@ -1158,9 +1178,9 @@ fun PixelInputBar(
                     .padding(all = 3.dp)
                     .size(32.dp)
                     .drawPixelArrowButton(
-                        fillColor  = Coral,
+                        fillColor  = colors.coral,
                         cutColor   = bubbleColor,
-                        arrowColor = colors.secondaryIcon,
+                        arrowColor = colors.onAccent,
                         direction  = 1f
                     )
                     .pixelRounded8Clickable(interactionSource = sendInteraction, onClick = onSubmit)

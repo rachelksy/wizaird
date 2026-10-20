@@ -18,7 +18,8 @@ data class StoredInsight(
     val projectId: String = "",
     val text: String = "",
     val thinkingContent: String? = null,  // AI reasoning chain, only present on thinking-model responses
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val conceptExtraction: ConceptExtraction? = null  // set once concepts have been extracted from this insight
 ) {
     fun formattedCreatedAt(): String {
         val date = Date(createdAt)
@@ -182,4 +183,17 @@ suspend fun moveInsightToProject(context: Context, insightId: String, newProject
     
     // Save updated projects
     saveProjects(context, projects)
+}
+
+/** Saves (or clears, with null) the concept extraction result on an insight. */
+suspend fun setInsightConceptExtraction(context: Context, insightId: String, extraction: ConceptExtraction?) {
+    context.dataStore.edit { prefs ->
+        val json = prefs[KEY_STORED_INSIGHTS] ?: return@edit
+        val type = object : TypeToken<List<StoredInsight>>() {}.type
+        val current: MutableList<StoredInsight> = insightGson.fromJson(json, type) ?: return@edit
+        val idx = current.indexOfFirst { it.id == insightId }
+        if (idx < 0) return@edit
+        current[idx] = current[idx].copy(conceptExtraction = extraction)
+        prefs[KEY_STORED_INSIGHTS] = insightGson.toJson(current)
+    }
 }

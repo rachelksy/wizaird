@@ -9,18 +9,6 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import com.wizaird.app.R
 
-// ── Raw palette ──────────────────────────────────────────────────
-val Paper            = Color(0xFFF2E6C7)
-val PaperDk          = Color(0xFFD9C59A)
-val SecondaryIcon    = Color(0xFF2A1F14)
-val SecondaryIconSoft= Color(0xFF5B4326)
-val Forest           = Color(0xFF2F5D3A)
-val ForestDk         = Color(0xFF1A3A23)
-val Coral            = Color(0xFFE0563A)
-val CoralDk          = Color(0xFFA6361E)
-val Gold             = Color(0xFFE5B14A)
-val Bubble           = Color(0xFFFFFAED)
-
 val PixelFont      = FontFamily(Font(R.font.vt323))
 val MinecraftFont  = FontFamily(Font(R.font.macs_minecraft))
 val MinecraftBoldFont = FontFamily(Font(R.font.macs_minecraft_bold))
@@ -43,6 +31,7 @@ data class WizairdColors(
     val forest: Color,
     val forestDk: Color,
     val coral: Color,
+    val onAccent: Color,          // text and icons drawn on a coral fill (dark in both themes: light text fails contrast)
     val gold: Color,
     val border: Color,
     val warn: Color,              // warning/destructive action color
@@ -64,9 +53,10 @@ val LightColors = WizairdColors(
     forest            = Color(0xFF2F5D3A),
     forestDk          = Color(0xFF1A3A23),
     coral             = Color(0xFFE0563A),
+    onAccent          = Color(0xFF1C140C),  // 4.8:1 on coral (the regular text brown is only 4.3:1)
     gold              = Color(0xFFE5B14A),
     border            = Color(0xFF2A1F14),
-    warn              = Color(0xFFE0563A),
+    warn              = Color(0xFF991B1B),  // error red (Tailwind red-800): 6.7:1 on the paper background, clearly apart from coral
     isDark            = false
 )
 
@@ -85,9 +75,10 @@ val DarkColors = WizairdColors(
     forest            = Color(0xFF3A7A4A),
     forestDk          = Color(0xFF1A3A23),
     coral             = Color(0xFFE0563A),
+    onAccent          = Color(0xFF111111),  // 5.0:1 on coral (the light text color is only 2.8:1)
     gold              = Color(0xFFE5B14A),
     border            = Color(0xFF666666),
-    warn              = Color(0xFFE0563A),
+    warn              = Color(0xFFF87171),  // error red for dark backgrounds (Tailwind red-400)
     isDark            = true
 )
 

@@ -579,13 +579,13 @@ fun PixelDropdownItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (selected) Coral.copy(alpha = 0.2f) else Color.Transparent)
+            .background(if (selected) colors.coral.copy(alpha = 0.2f) else Color.Transparent)
             .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Text(
             text = label,
-            style = pixelStyle(12, if (selected) Coral else colors.secondaryIcon),
+            style = pixelStyle(12, colors.secondaryIcon),  // the tinted background marks the selection
             modifier = Modifier.offset(y = (-2).dp)
         )
     }

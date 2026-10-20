@@ -375,12 +375,12 @@ fun ProjectScreen(
                                                     .build(),
                                                 imageLoader = svgLoader,
                                                 contentDescription = "Delete",
-                                                colorFilter = ColorFilter.tint(colors.coral),
+                                                colorFilter = ColorFilter.tint(colors.warn),
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             Text(
                                                 "Delete",
-                                                style = pixelStyle(10, colors.coral),
+                                                style = pixelStyle(10, colors.warn),
                                                 modifier = Modifier.offset(y = (-2).dp)
                                             )
                                         }
@@ -503,7 +503,7 @@ fun ProjectScreen(
                                 modifier = Modifier
                                     .fillMaxWidth(0.8f)
                                     .height(4.dp)
-                                    .background(Coral)
+                                    .background(colors.coral)
                             )
                         } else {
                             Spacer(modifier = Modifier.height(4.dp))
@@ -886,7 +886,7 @@ fun ProjectScreen(
                             else -> {}
                         }
                     },
-                fillColor = if (activeTab == ProjectTab.CHATS) Coral else colors.secondaryButton,
+                fillColor = if (activeTab == ProjectTab.CHATS) colors.coral else colors.secondaryButton,
                 borderColor = androidx.compose.ui.graphics.Color.Transparent,
                 cornerStyle = PixelCornerStyle.XLargeCircle
             ) {
@@ -902,7 +902,7 @@ fun ProjectScreen(
                                     .build(),
                                 imageLoader = svgLoader,
                                 contentDescription = "New Chat",
-                                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.secondaryIcon),
+                                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.onAccent),  // on the coral fill
                                 modifier = Modifier.size(28.dp)
                             )
                         }
@@ -1282,12 +1282,12 @@ fun NoteListItem(
                                         .build(),
                                     imageLoader = svgLoader,
                                     contentDescription = "Delete",
-                                    colorFilter = ColorFilter.tint(colors.coral),
+                                    colorFilter = ColorFilter.tint(colors.warn),
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Text(
                                     "Delete",
-                                    style = pixelStyle(10, colors.coral),
+                                    style = pixelStyle(10, colors.warn),
                                     modifier = Modifier.offset(y = (-2).dp)
                                 )
                             }
@@ -1357,6 +1357,8 @@ fun InsightListItem(
     var showMoveDialog by remember { mutableStateOf(false) }
     var showPreview by remember { mutableStateOf(false) }
     val cardInteraction = remember { MutableInteractionSource() }
+    val extraction = rememberConceptExtractionUi(insight.id)
+    val extractionPill = extractionPill(insight, extraction)
     
     val svgLoader = remember {
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
@@ -1400,12 +1402,14 @@ fun InsightListItem(
                         modifier = Modifier.offset(y = (-2).dp),
                         maxLines = 5
                     )
-                    // Concepts linked to this insight — one line, or "Linked to N concepts" + Show less
-                    if (concepts.isNotEmpty()) {
+                    // Concepts linked to this insight — one line, or "Linked to N concepts" + Show less,
+                    // then the extraction pill (extracting / N new concepts)
+                    if (concepts.isNotEmpty() || extractionPill != null) {
                         ConceptPillsOrCount(
                             concepts = concepts,
                             onConceptClick = onConceptClick,
-                            modifier = Modifier.padding(top = 2.dp)
+                            modifier = Modifier.padding(top = 2.dp),
+                            extra = extractionPill
                         )
                     }
                 }
@@ -1558,12 +1562,12 @@ fun InsightListItem(
                                                     .build(),
                                                 imageLoader = svgLoader,
                                                 contentDescription = "Delete",
-                                                colorFilter = ColorFilter.tint(colors.coral),
+                                                colorFilter = ColorFilter.tint(colors.warn),
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             Text(
                                                 "Delete",
-                                                style = pixelStyle(10, colors.coral),
+                                                style = pixelStyle(10, colors.warn),
                                                 modifier = Modifier.offset(y = (-2).dp)
                                             )
                                         }
@@ -1612,6 +1616,9 @@ fun InsightListItem(
             )
         }
         
+        // Opens the new-concepts popup from the card's pill (extraction itself starts from the full view)
+        ConceptExtractionHost(insight = insight, ui = extraction)
+
         // Preview overlay
         if (showPreview) {
             InsightPreviewOverlay(
@@ -1651,6 +1658,8 @@ fun InsightPreviewOverlay(
     var showToast by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf("") }
     var isToastLoading by remember { mutableStateOf(false) }
+    // Own extraction state, so only this view opens the popup for extractions started here
+    val extraction = rememberConceptExtractionUi("preview-${insight.id}")
     
     // Auto-hide toast after 2 seconds (only when not loading)
     LaunchedEffect(showToast, isToastLoading) {
@@ -1772,25 +1781,17 @@ fun InsightPreviewOverlay(
                                 }
                             )
                         }
-                        // Concepts added from this insight — tap to open the concept
-                        if (concepts.isNotEmpty()) {
-                            FlowRow(
-                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                concepts.forEach { concept ->
-                                    ConceptPill(
-                                        label = concept.name,
-                                        ghost = concept.isGhost,
-                                        onClick = {
-                                            onDismiss()
-                                            onConceptClick(concept.id)
-                                        }
-                                    )
-                                }
-                            }
-                        }
+                        // Concepts linked to this insight, then the extraction pill — tap a concept to open it
+                        InsightConceptTags(
+                            insight = insight,
+                            concepts = concepts,
+                            ui = extraction,
+                            onConceptClick = { id ->
+                                onDismiss()
+                                onConceptClick(id)
+                            },
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                        )
                     }
                     
                     // Action icons row
@@ -1857,6 +1858,9 @@ fun InsightPreviewOverlay(
                                 }
                         )
                         
+                        // Concept extraction icon
+                        ExtractConceptsIcon(insight = insight, ui = extraction)
+
                         // Chat icon
                         val chatInteraction = remember { MutableInteractionSource() }
                         AsyncImage(
@@ -1920,6 +1924,11 @@ fun InsightPreviewOverlay(
             onDismiss = { showThinking = false }
         )
     }
+
+    ConceptExtractionHost(insight = insight, ui = extraction, onToast = { msg ->
+        toastMessage = msg
+        showToast = true
+    })
 }
 
 @Composable
@@ -1988,7 +1997,7 @@ fun MoveNoteDialog(
                                         onClick = { selectedProjectId = project.id }
                                     ),
                                 fillColor = if (isSelected) colors.userBubble else colors.background,
-                                borderColor = if (isSelected) Coral else androidx.compose.ui.graphics.Color.Transparent,
+                                borderColor = if (isSelected) colors.coral else androidx.compose.ui.graphics.Color.Transparent,
                                 cornerStyle = PixelCornerStyle.Rounded
                             ) {
                                 Row(
@@ -2109,7 +2118,7 @@ fun MoveInsightDialog(
                                         onClick = { selectedProjectId = project.id }
                                     ),
                                 fillColor = if (isSelected) colors.userBubble else colors.background,
-                                borderColor = if (isSelected) Coral else androidx.compose.ui.graphics.Color.Transparent,
+                                borderColor = if (isSelected) colors.coral else androidx.compose.ui.graphics.Color.Transparent,
                                 cornerStyle = PixelCornerStyle.Rounded
                             ) {
                                 Row(
@@ -2245,7 +2254,7 @@ fun ConceptListItem(
                                 showMenu = false
                                 showCopyDialog = true
                             })
-                            PixelOptionsMenuItem("Delete", iconAsset = "delete.svg", tint = colors.coral, onClick = {
+                            PixelOptionsMenuItem("Delete", iconAsset = "delete.svg", tint = colors.warn, onClick = {
                                 showMenu = false
                                 showDeleteDialog = true
                             })
@@ -2414,7 +2423,7 @@ fun PixelOptionsBottomSheet(
                                 .build(),
                             imageLoader = svgLoader,
                             contentDescription = "Selected",
-                            colorFilter = ColorFilter.tint(Coral),
+                            colorFilter = ColorFilter.tint(colors.coral),
                             modifier = Modifier.size(20.dp)
                         )
                     }

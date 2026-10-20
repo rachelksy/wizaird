@@ -214,7 +214,7 @@ fun NoteScreen(
                         .offset(y = (-2).dp)
                 )
 
-                // Save (check) button — turns Coral when there are unsaved changes
+                // Save (check) button — turns colors.coral when there are unsaved changes
                 val saveInteraction = remember { MutableInteractionSource() }
                 PixelBox(
                     modifier = Modifier
@@ -224,7 +224,7 @@ fun NoteScreen(
                             interactionSource = saveInteraction,
                             onClick = { saveAndBack() }
                         ),
-                    fillColor = if (hasUnsavedChanges) Coral else colors.secondaryButton,
+                    fillColor = if (hasUnsavedChanges) colors.coral else colors.secondaryButton,
                     borderColor = Color.Transparent,
                     cutColor = colors.background,
                     cornerStyle = PixelCornerStyle.Rounded
@@ -239,7 +239,7 @@ fun NoteScreen(
                                 .build(),
                             imageLoader = svgLoader,
                             contentDescription = "Save note",
-                            colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                            colorFilter = ColorFilter.tint(if (hasUnsavedChanges) colors.onAccent else colors.secondaryIcon),
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -271,7 +271,7 @@ fun NoteScreen(
                         containerColor = Color.Transparent,
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent,
-                        cursorColor = Coral,
+                        cursorColor = colors.coral,
                         textColor = colors.textHigh
                     ),
                     placeholder = {

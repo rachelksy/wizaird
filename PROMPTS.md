@@ -1,6 +1,6 @@
 # Wizaird — All AI Prompts
 
-Six distinct AI calls exist in the app. Each entry shows the source file, when it fires, what it receives as input, and the exact prompt text.
+Seven distinct AI calls exist in the app. Each entry shows the source file, when it fires, what it receives as input, and the exact prompt text.
 
 ---
 
@@ -161,32 +161,33 @@ Replaced the old Glossary Definition Generator (2–3 sentence definition + alia
 ### System prompt
 
 ```
-You write the article for a concept in a learner's personal knowledge base. They saved this concept because they want to understand it properly. Treat it as if they had asked a leading expert in the field, "Tell me more about this."
+You write the article for a concept in a learner's personal knowledge base. They saved this concept because they want to understand it properly. Treat it as if they had asked a knowledgeable professor in the field, "Tell me more about this."
 The concept came up while they were studying: {project.name}. Use this only to pick the right meaning of the term. Do not narrow the article to this topic or simplify it for a beginner.      ← only if the project is found
 
 ---
 
-Your task: write a complete, authoritative article on the concept, at the depth of a strong textbook section or an encyclopedia entry written by a subject expert.
+Your task: write a complete, authoritative article on the concept, at the depth of a good textbook section on that one concept.
 
 WHAT TO COVER (use what fits the concept, skip what doesn't apply, add what it needs):
 - A precise definition, then the core idea in plain words.
 - Why it exists: the problem it solves or the question it answers, and its origin if that makes it clearer.
-- How it works in full: mechanisms, components, steps, rules, formal definitions, and formulas with every term explained.
+- How it works: mechanisms, components, steps or rules, with formulas only where the field relies on them (every term explained).
 - Variants, types or schools of thought, and how they differ.
 - At least one concrete example worked through in detail.
-- Where it is used in practice, plus its limits, trade-offs, failure modes and open debates.
-- Subtle points and common misconceptions: what experts know that newcomers miss.
+- Where it is used in practice, plus its limits and trade-offs.
+- Subtle points and common misconceptions.
 - How it relates to and differs from neighbouring concepts.
 
 RULES:
-1. Write at expert level for an intelligent reader. Do not water anything down or leave out technical detail. Use the field's real terminology, and define each term the first time it appears.
-2. Be specific: real mechanisms, real numbers, real names. Prefer substance over generalities.
-3. Let the concept's scope set the length: roughly 1,000–1,500 words for a narrow term, up to about 2,500 for a broad topic. Never pad it, and never cut it short.
-4. Use markdown with ## section headings chosen for this concept (not a fixed template), ### subheadings inside large sections, short paragraphs, and lists or tables where they help. Write formulas in plain text or code blocks, not LaTeX. Start straight with the content: no preamble, no sign-off.
-5. Be accurate before being complete. If a point is contested or uncertain, say so.
-6. The excerpts showing where the learner came across the concept are only for picking the right meaning. Do not quote them, summarise them or build the article around them.
+1. Write at an advanced level for an intelligent reader. Don't water it down, but go only as technical as understanding the concept needs. Use the field's terminology and define each term the first time it appears.
+2. This is one concept, not a whole topic. The article (not counting the summary) should be about 500–1,500 words; let the concept's scope decide where in that range it falls.
+3. Use markdown with ## section headings chosen for this concept (not a fixed template), ### subheadings inside large sections, short paragraphs, and lists or tables where they help. Write formulas in plain text or code blocks, not LaTeX. Start straight with the content: no preamble, no sign-off.
+4. Only include what you are confident is accurate. If you are not sure about a point, leave it out. Include specific figures, dates, names or studies only when you are confident they are correct; otherwise describe the idea in general terms. Where experts in the field genuinely disagree, say so and briefly set out the main positions.
+5. The excerpts showing where the learner came across the concept only tell you which meaning is meant. Don't refer to them in the article.
+6. Aliases are other names for exactly this concept: synonyms, abbreviations, acronyms and alternative spellings in common use. Never list related, broader or narrower concepts. If there are none, write "none".
 
 Respond in this exact format:
+ALIASES: [comma-separated aliases, or none]
 SUMMARY: [one or two plain sentences defining the concept]
 ARTICLE:
 [the markdown article]
@@ -205,14 +206,72 @@ Write the article.
 ```
 
 ### Notes
-- Deliberately ignores the learner's level, goal, background and progress: the article is a full expert treatment, not a lesson pitched at the learner.
-- Parsed with `SUMMARY:\s*(.+?)(?=ARTICLE:|$)` and `ARTICLE:\s*(.+)$`. If neither label is found, the whole reply becomes the article.
-- SUMMARY is stored as the concept's `intro` (shown on list cards); ARTICLE as `body` (shown on the concept page as markdown). Aliases are never changed by generation.
+- Deliberately ignores the learner's level, goal, background and progress: the article is a full, advanced-level treatment of one concept, not a lesson pitched at the learner.
+- ALIASES is parsed from its own line (`ALIASES:[ \t]*(.*)`), split on commas, with "none" dropped. SUMMARY and ARTICLE are parsed with `SUMMARY:\s*(.+?)(?=ARTICLE:|$)` and `ARTICLE:\s*(.+)$`. If neither label is found, the whole reply becomes the article.
+- SUMMARY is stored as the concept's `intro` (shown on list cards); ARTICLE as `body` (shown on the concept page as markdown). ALIASES are merged into the concept's existing aliases (`mergeAliases()`): the user's own are kept, and the concept's name and repeats are skipped. Aliases also drive search and duplicate checks, which is why rule 6 forbids related concepts.
 - `askAi()` returns errors as text ("API Error …", "No response."); these are treated as a failure and nothing is saved.
 
 ---
 
-## 5. Chat Title Generator
+## 5. Concept Extraction
+
+**Source:** `ConceptExtractor.kt` → `ConceptExtractor.start()` (prompt built by `buildExtractionSystemPrompt()` / `buildExtractionUserPrompt()`)  
+**Triggered by:** The concept (book) icon on the home bubble and the full insight view, or "Extract concepts" in an insight card's ⋮ menu. Manual only. If the insight was extracted before, a confirmation dialog asks first.  
+**Thinking content:** No — uses `askAi()`  
+
+### System prompt
+
+```
+You identify the concepts covered in a piece of learning content, for a learner's personal knowledge base.
+The content comes from their study of: {project.name}. Use this only to pick the right meaning of terms.      ← only if the project is found
+
+A concept is a distinct idea, term, method, principle, model, phenomenon or named thing that the content explains or relies on, and that is worth its own page in a knowledge base.
+
+[IF the project has concepts]
+EXISTING CONCEPTS in the knowledge base (name, then other names in brackets):
+- {concept.name} [{alias}, {alias}]
+[... every concept in the project, A–Z]
+
+---
+
+Your task: list every concept this content genuinely covers. Use your own judgement on how many.
+
+RULES:
+1. Include concepts the content explains or depends on. Leave out passing mentions, generic everyday words, and whole topics broader than what the content discusses.
+2. If a concept is already in the existing list (under its name or any other name, including singular/plural, abbreviation or spelling variants), output it as EXISTING and copy the list's name exactly.
+3. Only treat it as existing when it is exactly the same concept. A broader, narrower or related concept is not a match; output it as NEW if it deserves its own page.
+   [rules 2–3 say "The knowledge base is empty, so every concept is NEW." when the project has no concepts]
+4. Name NEW concepts the way the field usually names them: singular, no leading article, no extra description.
+5. Give each NEW concept a one-sentence plain definition of at most 25 words.
+6. List each concept once.
+
+Respond with one line per concept and nothing else:
+EXISTING: [exact name from the list]
+NEW: [name] | [one-sentence definition]
+If the content covers no concepts, respond with: NONE
+```
+
+### User prompt
+
+```
+Content:
+---
+{insight text}
+---
+
+List the concepts.
+```
+
+### Notes
+- Only the current project's concepts are listed.
+- Code makes the final call on matches. Every EXISTING or NEW name is checked with `Concept.matchesName()` (an exact, case-insensitive match on the name or any alias). Anything that matches is linked to the insight right away. An EXISTING name that isn't really in the list is treated as new.
+- When a matched concept is a ghost or has no content, linking promotes it to full, and its page is written with the Concept Page Generator.
+- New concepts are saved on the insight (`StoredInsight.conceptExtraction.pending`) and shown as an "N NEW CONCEPTS" pill after the insight's concept tags. If the extraction was started from a view that's still open, the popup opens on its own. In the popup the user can check concepts and GENERATE N, use GENERATE ALL, or DISCARD the list. Unchecked concepts are dropped when generating. Closing the popup keeps the list.
+- Generating creates each concept with the one-sentence definition as its intro, links it to the insight (with a snippet around the name), and writes its page with the Concept Page Generator.
+
+---
+
+## 6. Chat Title Generator
 
 **Source:** `ChatTitleGenerator.kt` → `generateChatTitle()`  
 **Triggered by:** After the first AI response in a new chat (runs in background, doesn't block the UI)  
@@ -242,7 +301,7 @@ Return ONLY the title, nothing else. No quotes, no punctuation at the end.
 
 ---
 
-## 6. Legacy / Fallback Prompt
+## 7. Legacy / Fallback Prompt
 
 **Source:** `AiRepository.kt` → `askAi(settings, userPrompt)` (single-argument overload)  
 **Triggered by:** The free-ask input bar on `HomeScreen` (when no project is active or used as a quick question outside the chat flow)  
@@ -268,6 +327,7 @@ You are a playful pixel-art wizard tutor inside an Android learning app called W
 | Chat Response | Dynamic (project context) | User's typed message | No |
 | Learning Progress | Dynamic (project + insight + chat history) | `"Generate the updated learning progress summary."` | No |
 | Concept Page | Dynamic (project context + format rules) | Dynamic (name + where-met snippets) | No |
+| Concept Extraction | Dynamic (project name + concept list + rules) | Dynamic (insight text) | No |
 | Chat Title | Fixed (1 sentence) | Dynamic (first exchange) | No |
 | Legacy / Fallback | Fixed (wizard persona, 160 char limit) | User's typed question | No |
 

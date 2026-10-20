@@ -48,20 +48,18 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.wizaird.app.ui.theme.Coral
 import com.wizaird.app.ui.theme.LocalWizairdColors
-import com.wizaird.app.ui.theme.Paper
 import com.wizaird.app.ui.theme.PixelFont
-import com.wizaird.app.ui.theme.SecondaryIcon
 import com.wizaird.app.ui.theme.PixeloidFont
 
-fun pixelStyle(size: Int, color: Color = SecondaryIcon) = TextStyle(
+fun pixelStyle(size: Int, color: Color) = TextStyle(
     fontFamily = PixelFont,
     fontSize = size.sp,
     lineHeight = (size * 1f).sp,
@@ -76,7 +74,7 @@ fun pixelStyle(size: Int, color: Color = SecondaryIcon) = TextStyle(
     )
 )
 
-fun minecraftStyle(size: Int, color: Color = SecondaryIcon) = TextStyle(
+fun minecraftStyle(size: Int, color: Color) = TextStyle(
     fontFamily = PixeloidFont,
     fontSize = size.sp,
     lineHeight = (size * 1.4f).sp,
@@ -97,7 +95,7 @@ fun DrawScope.drawPixelBorder(
     left: Boolean = false,
     right: Boolean = false,
     all: Boolean = false,
-    color: Color = SecondaryIcon
+    color: Color
 ) {
     val stroke = PixelSize.toPx()
     if (all || top)    drawLine(color, Offset(0f, 0f), Offset(size.width, 0f), stroke)
@@ -1339,7 +1337,7 @@ fun PixelBox(
 // so the press overlay is clipped to the pixel shape, not a rectangle.
 //
 // Variants:
-//   primary   — filled with Coral, white text
+//   primary   — filled with colors.coral, onAccent text
 //   secondary — filled with secondaryButton, secondaryIcon text
 //
 // Sizes:
@@ -1359,16 +1357,17 @@ fun PixelButtonSmall(
     val colors = LocalWizairdColors.current
     val fillColor  = when {
         warn -> Color.Transparent
-        primary -> Coral
+        primary -> colors.coral
         else -> colors.secondaryButton
     }
     val borderColor = when {
         warn -> Color.Transparent
-        primary -> Coral
+        primary -> colors.coral
         else -> colors.secondaryButton
     }
     val textColor  = when {
         warn -> colors.warn
+        primary -> colors.onAccent
         else -> colors.secondaryIcon
     }
     val interactionSource = remember { MutableInteractionSource() }
@@ -1401,16 +1400,17 @@ fun PixelButtonMedium(
     val colors = LocalWizairdColors.current
     val fillColor  = when {
         warn -> Color.Transparent
-        primary -> Coral
+        primary -> colors.coral
         else -> colors.secondaryButton
     }
     val borderColor = when {
         warn -> Color.Transparent
-        primary -> Coral
+        primary -> colors.coral
         else -> colors.secondaryButton
     }
     val textColor  = when {
         warn -> colors.warn
+        primary -> colors.onAccent
         else -> colors.secondaryIcon
     }
     val interactionSource = remember { MutableInteractionSource() }
@@ -1438,29 +1438,30 @@ fun PixelButtonLarge(
     modifier: Modifier = Modifier,
     primary: Boolean = true,
     warn: Boolean = false,
-    cutColor: Color? = null
+    cutColor: Color? = null,
+    enabled: Boolean = true  // disabled: faded fill and text, not tappable
 ) {
     val colors = LocalWizairdColors.current
     val fillColor  = when {
         warn -> Color.Transparent
-        primary -> Coral
+        primary -> colors.coral
         else -> colors.secondaryButton
     }
     val borderColor = when {
         warn -> Color.Transparent
-        primary -> Coral
+        primary -> colors.coral
         else -> colors.secondaryButton
     }
     val textColor  = when {
         warn -> colors.warn
+        primary -> colors.onAccent
         else -> colors.secondaryIcon
-    }
+    }.let { if (enabled) it else it.copy(alpha = 0.4f) }
     val interactionSource = remember { MutableInteractionSource() }
     PixelBox(
-        modifier = modifier
-            .pixelRounded8Clickable(interactionSource = interactionSource, onClick = onClick),
-        fillColor = fillColor,
-        borderColor = borderColor,
+        modifier = if (enabled) modifier.pixelRounded8Clickable(interactionSource = interactionSource, onClick = onClick) else modifier,
+        fillColor = if (enabled) fillColor else fillColor.copy(alpha = 0.4f),
+        borderColor = if (enabled) borderColor else borderColor.copy(alpha = 0.4f),
         cutColor = cutColor,
         cornerStyle = PixelCornerStyle.Rounded8
     ) {
@@ -1481,8 +1482,11 @@ fun PixelButtonLarge(
 
 // ── 40dp pixel-circle icon button ────────────────────────────────
 // ── Text button ──────────────────────────────────────────────────
-// For low-emphasis inline actions ("Show less" etc.): body font in Coral so it reads
-// as tappable, no fill. The press overlay is clipped to the pixel shape.
+// For low-emphasis inline actions ("Show less" etc.): body font in the high-emphasis text color,
+// underlined so it reads as tappable, no fill. Not orange: orange text fails contrast on the light
+// backgrounds. The press overlay is clipped to the pixel shape.
+// Alignment: next to plain text, align both with Modifier.alignByBaseline(); next to pills,
+// center it vertically on the pill row.
 
 @Composable
 fun PixelTextButton(
@@ -1490,10 +1494,11 @@ fun PixelTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors = LocalWizairdColors.current
     val interactionSource = remember { MutableInteractionSource() }
     Text(
         label,
-        style = minecraftStyle(12, Coral),
+        style = minecraftStyle(12, colors.textHigh).copy(textDecoration = TextDecoration.Underline),
         modifier = modifier
             .pixelRounded8Clickable(interactionSource = interactionSource, onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 2.dp)

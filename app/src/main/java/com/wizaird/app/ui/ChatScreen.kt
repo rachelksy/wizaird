@@ -302,12 +302,12 @@ fun ChatScreen(
                                                 .build(),
                                             imageLoader = svgLoader,
                                             contentDescription = "Delete",
-                                            colorFilter = ColorFilter.tint(colors.coral),
+                                            colorFilter = ColorFilter.tint(colors.warn),
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Text(
                                             "Delete",
-                                            style = pixelStyle(10, colors.coral),
+                                            style = pixelStyle(10, colors.warn),
                                             modifier = Modifier.offset(y = (-2).dp)
                                         )
                                     }

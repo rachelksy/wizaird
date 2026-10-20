@@ -475,12 +475,12 @@ fun ExistingChatScreen(
                                                 .build(),
                                             imageLoader = svgLoader,
                                             contentDescription = "Delete",
-                                            colorFilter = ColorFilter.tint(colors.coral),
+                                            colorFilter = ColorFilter.tint(colors.warn),
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Text(
                                             "Delete",
-                                            style = pixelStyle(10, colors.coral),
+                                            style = pixelStyle(10, colors.warn),
                                             modifier = Modifier.offset(y = (-2).dp)
                                         )
                                     }
@@ -580,7 +580,7 @@ fun ExistingChatScreen(
                             Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
                                 Text(
                                     text = responseError ?: "Unknown error",
-                                    style = minecraftStyle(14, colors.coral)
+                                    style = minecraftStyle(14, colors.warn)
                                 )
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Row(
@@ -992,12 +992,12 @@ fun ChatBubble(
                                                                 .build(),
                                                             imageLoader = svgLoader,
                                                             contentDescription = "Delete",
-                                                            colorFilter = ColorFilter.tint(colors.coral),
+                                                            colorFilter = ColorFilter.tint(colors.warn),
                                                             modifier = Modifier.size(18.dp)
                                                         )
                                                         Text(
                                                             "Delete",
-                                                            style = pixelStyle(10, colors.coral),
+                                                            style = pixelStyle(10, colors.warn),
                                                             modifier = Modifier.offset(y = (-2).dp)
                                                         )
                                                     }
@@ -1270,12 +1270,12 @@ fun ChatBubble(
                                                                 .build(),
                                                             imageLoader = svgLoader,
                                                             contentDescription = "Delete",
-                                                            colorFilter = ColorFilter.tint(colors.coral),
+                                                            colorFilter = ColorFilter.tint(colors.warn),
                                                             modifier = Modifier.size(18.dp)
                                                         )
                                                         Text(
                                                             "Delete",
-                                                            style = pixelStyle(10, colors.coral),
+                                                            style = pixelStyle(10, colors.warn),
                                                             modifier = Modifier.offset(y = (-2).dp)
                                                         )
                                                     }
@@ -1453,7 +1453,7 @@ fun EditMessageBottomSheet(
                     textStyle = minecraftStyle(14, colors.textHigh).copy(
                         lineHeight = (14 * 1.6f).sp
                     ),
-                    cursorBrush = SolidColor(Coral)
+                    cursorBrush = SolidColor(colors.coral)
                 )
 
                 Spacer(modifier = Modifier.navigationBarsPadding())

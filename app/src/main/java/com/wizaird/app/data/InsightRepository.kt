@@ -1,7 +1,15 @@
 package com.wizaird.app.data
 
 import android.content.Context
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -134,10 +142,12 @@ suspend fun generateInsight(
         
         // Update project with new insight and timestamp
         // Keep last 20 insights in history, oldest first
+        // Re-read the project: it may have been edited while the insight was generating
+        val latest = projectsFlow(context).first().firstOrNull { it.id == project.id } ?: project
         val newEntry = InsightHistoryEntry(id = insightId, text = insight)
-        val updatedHistory = (project.insightHistory + newEntry).takeLast(20)
-        
-        val updatedProject = project.copy(
+        val updatedHistory = (latest.insightHistory + newEntry).takeLast(20)
+
+        val updatedProject = latest.copy(
             lastInsightText = insight,
             lastInsightTimestamp = System.currentTimeMillis(),
             insightHistory = updatedHistory
@@ -171,5 +181,42 @@ suspend fun generateInsight(
         println("Stack trace:")
         e.printStackTrace()
         InsightResult.Error("API call failed: ${e.message ?: "Unknown error"}")
+    }
+}
+
+/**
+ * Runs insight generation outside any screen's lifetime, so switching projects
+ * or leaving the home screen doesn't cancel a generation that's already running.
+ */
+object InsightGeneration {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** IDs of projects with an insight being generated. */
+    val generating = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Error from the last failed attempt per project, cleared when a new attempt starts. */
+    val errors = MutableStateFlow<Map<String, String>>(emptyMap())
+
+    private val _finished = MutableSharedFlow<Pair<String, InsightResult>>(extraBufferCapacity = 8)
+    /** Emits (projectId, result) when a generation finishes. */
+    val finished: SharedFlow<Pair<String, InsightResult>> = _finished
+
+    /** Starts generating an insight for [project]. Does nothing if one is already running for it. */
+    fun start(context: Context, project: Project) {
+        if (project.id in generating.value) return
+        val appContext = context.applicationContext
+        generating.update { it + project.id }
+        errors.update { it - project.id }
+        scope.launch {
+            var result: InsightResult = InsightResult.Error("Generation stopped.")
+            try {
+                result = generateInsight(appContext, project, settingsFlow(appContext).first())
+            } finally {
+                (result as? InsightResult.Error)?.let { err -> errors.update { it + (project.id to err.message) } }
+                // Clear the loading state before announcing, so the bubble shows the result straight away
+                generating.update { it - project.id }
+                _finished.tryEmit(project.id to result)
+            }
+        }
     }
 }

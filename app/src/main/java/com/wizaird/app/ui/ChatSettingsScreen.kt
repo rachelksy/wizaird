@@ -132,19 +132,28 @@ fun ChatSettingsScreen(
 
                 // Linked concepts — pills (tap to open the concept) + an Edit text button for the picker sheet
                 SettingsField(label = "LINKED CONCEPTS") {
-                    androidx.compose.foundation.layout.FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        if (linkedConcepts.isEmpty()) {
+                    if (linkedConcepts.isEmpty()) {
+                        // No pills: Edit sits on the same baseline as the sentence
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        ) {
                             Text(
                                 "No concepts linked",
                                 style = minecraftStyle(12, colors.secondaryIconSoft),
-                                modifier = Modifier
-                                    .align(Alignment.CenterVertically)
-                                    .offset(y = (-2).dp)
+                                modifier = Modifier.alignByBaseline()
+                            )
+                            PixelTextButton(
+                                label = "Edit",
+                                onClick = { showConceptsSheet = true },
+                                modifier = Modifier.alignByBaseline()
                             )
                         }
+                    } else androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // With pills: Edit is centered on the pill row
                         linkedConcepts.forEach { concept ->
                             ConceptPill(label = concept.name, ghost = concept.isGhost, onClick = { onConceptClick(concept.id) })
                         }

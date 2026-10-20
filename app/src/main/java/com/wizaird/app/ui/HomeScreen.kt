@@ -20,6 +20,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -90,7 +92,60 @@ fun HomeScreen(
     // Type-out of a freshly finished insight; cancelled when the user switches projects
     var typingJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
+    // The bubble is a pager over every insight stored for the project (oldest first),
+    // with the live bubble (loader / type-out / latest insight) as the last page.
+    val history by remember(activeProject?.id) {
+        activeProject?.id?.let { id -> storedInsightsFlow(context, id).map { it.reversed() } }
+            ?: kotlinx.coroutines.flow.flowOf(emptyList())
+    }.collectAsState(initial = emptyList())
+    // While the latest stored insight is shown (or typing out) it's the live page, so it isn't listed twice
+    val liveIsLatest = bubbleText.isNotEmpty() && history.lastOrNull()?.text?.startsWith(bubbleText) == true
+    val olderInsights = if (liveIsLatest) history.dropLast(1) else history
+    val pageCount = olderInsights.size + 1
+    // Looping: the pager has a copy of the last card before the first and of the first after the last.
+    // Landing on a copy snaps to the real card, so swiping past either end wraps around.
+    val looping = pageCount > 1
+    val virtualCount = if (looping) pageCount + 2 else 1
+    fun realOf(virtual: Int) = if (looping) (virtual - 1 + pageCount) % pageCount else 0
+    fun virtualOf(real: Int) = if (looping) real + 1 else 0
+    fun pageKey(virtual: Int): Any {
+        val id = olderInsights.getOrNull(realOf(virtual))?.id ?: "live"
+        return when {
+            looping && virtual == 0 -> "head-$id"
+            looping && virtual == virtualCount - 1 -> "tail-$id"
+            else -> id
+        }
+    }
+    val pagerState = key(activeProject?.id) {
+        rememberPagerState(initialPage = virtualOf(pageCount - 1)) { virtualCount }
+    }
+    // Only link to the latest insight when the live bubble is fully showing it
+    val liveInsightId = history.lastOrNull()?.takeIf { it.text == bubbleText }?.id
+
+    // Follow the live page as pages come and go (new insight, regenerate) unless the user swiped back
+    var stickToLatest by remember(activeProject?.id) { mutableStateOf(true) }
+    var jumpToLatest by remember { mutableIntStateOf(0) }
+    LaunchedEffect(pagerState, pagerState.settledPage) {
+        val settled = pagerState.settledPage
+        stickToLatest = realOf(settled) == pageCount - 1
+        // Settled on an end copy: jump to the real card it mirrors
+        if (looping && (settled == 0 || settled == virtualCount - 1)) {
+            pagerState.scrollToPage(virtualOf(realOf(settled)))
+        }
+    }
+    LaunchedEffect(pagerState, pageCount, jumpToLatest) {
+        if (stickToLatest) pagerState.scrollToPage(virtualOf(pageCount - 1))
+    }
+
+    // The page the user is on, for the input bar
+    val currentStored = olderInsights.getOrNull(realOf(pagerState.currentPage))
+    val displayedText = currentStored?.text ?: bubbleText
+    val displayedLoading = isLoading && currentStored == null
+    val displayedInsightId = currentStored?.id ?: liveInsightId
+
     fun generateInsightForProject(project: Project) {
+        stickToLatest = true
+        jumpToLatest++
         typingJob?.cancel()
         bubbleText = ""
         InsightGeneration.start(context, project)
@@ -167,6 +222,58 @@ fun HomeScreen(
         }
     }
 
+    // One bubble "card" per insight; swiping slides the next card in to replace it
+    val insightPage: @Composable (Int) -> Unit = { virtualPage ->
+        val page = realOf(virtualPage)
+        val stored = olderInsights.getOrNull(page)
+        val pageLoading = stored == null && isLoading
+        ChatBubble(
+            text = stored?.text ?: bubbleText,
+            loading = pageLoading,
+            thinkingContent = if (stored == null) bubbleThinking else stored.thinkingContent,
+            projectName = activeProject?.name,
+            projectId = activeProject?.id,
+            insightId = stored?.id ?: liveInsightId,
+            positionLabel = if (pageCount > 1 && !pageLoading) "${page + 1}/$pageCount" else null,
+            isPinned = activeProject?.pinnedInsight ?: false,
+            onTogglePin = {
+                activeProject?.let { project ->
+                    scope.launch {
+                        val updatedProject = project.copy(pinnedInsight = !project.pinnedInsight)
+                        upsertProject(context, updatedProject)
+                        println("Insight ${if (updatedProject.pinnedInsight) "pinned" else "unpinned"} for project: ${project.name}")
+                    }
+                }
+            },
+            onRegenerate = {
+                activeProject?.let { project ->
+                    println("User triggered manual regeneration")
+                    generateInsightForProject(project)
+                }
+            },
+            onProjectClick = {
+                activeProject?.let { project -> onProjectClick(project.id) }
+            },
+            onShowToast = { message ->
+                if (message.isEmpty()) {
+                    showToast = false
+                    isToastLoading = false
+                } else {
+                    toastMessage = message
+                    showToast = true
+                    isToastLoading = message == "ADDING TO CONCEPTS"
+                }
+            },
+            onNewConceptClick = { projectIdFromBubble ->
+                onNewConceptClick(projectIdFromBubble)
+            },
+            onConceptClick = { conceptId ->
+                activeProject?.let { project -> onConceptClick(project.id, conceptId) }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -196,67 +303,34 @@ fun HomeScreen(
 
                     // Bubble with extra 8dp height extending into wizard space
                     // On cover screen, make it scrollable and add bottom padding for input bar
-                    ChatBubble(
-                        text = bubbleText,
-                        loading = isLoading,
-                        thinkingContent = bubbleThinking,
-                        projectName = activeProject?.name,
-                        projectId = activeProject?.id,
-                        // Only link to the insight when the bubble is actually showing it
-                        insightId = activeProject?.insightHistory?.lastOrNull()?.takeIf { it.text == bubbleText }?.id,
-                        isPinned = activeProject?.pinnedInsight ?: false,
-                        onTogglePin = {
-                            activeProject?.let { project ->
-                                scope.launch {
-                                    val updatedProject = project.copy(pinnedInsight = !project.pinnedInsight)
-                                    upsertProject(context, updatedProject)
-                                    println("Insight ${if (updatedProject.pinnedInsight) "pinned" else "unpinned"} for project: ${project.name}")
-                                }
-                            }
-                        },
-                        onRegenerate = {
-                            activeProject?.let { project ->
-                                println("User triggered manual regeneration")
-                                generateInsightForProject(project)
-                            }
-                        },
-                        onProjectClick = {
-                            activeProject?.let { project -> onProjectClick(project.id) }
-                        },
-                        onShowToast = { message ->
-                            if (message.isEmpty()) {
-                                showToast = false
-                                isToastLoading = false
-                            } else {
-                                toastMessage = message
-                                showToast = true
-                                isToastLoading = message == "ADDING TO CONCEPTS"
-                            }
-                        },
-                        onNewConceptClick = { projectIdFromBubble ->
-                            onNewConceptClick(projectIdFromBubble)
-                        },
-                        onConceptClick = { conceptId ->
-                            activeProject?.let { project -> onConceptClick(project.id, conceptId) }
-                        },
+                    HorizontalPager(
+                        state = pagerState,
+                        key = { page -> pageKey(page) },
+                        // Cards span the screen edge to edge so the incoming one slides in from off-screen
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        pageSpacing = 12.dp,
+                        verticalAlignment = Alignment.Top,
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
                             // Add bottom padding to account for overlaying input bar
                             .padding(bottom = 84.dp)
                             .layout { measurable, constraints ->
-                                // Measure with 8dp extra height
+                                // Measure 24dp wider (undoing the column's side padding) and 8dp taller
+                                val extraW = 24.dp.roundToPx()
                                 val placeable = measurable.measure(
                                     constraints.copy(
+                                        minWidth = constraints.minWidth + extraW,
+                                        maxWidth = constraints.maxWidth + extraW,
                                         maxHeight = constraints.maxHeight + 8.dp.roundToPx()
                                     )
                                 )
-                                // Layout with original height so it extends downward
-                                layout(placeable.width, constraints.maxHeight) {
-                                    placeable.place(0, 0)
+                                // Layout with original size so it extends sideways and downward
+                                layout(constraints.maxWidth, constraints.maxHeight) {
+                                    placeable.place(-extraW / 2, 0)
                                 }
                             }
-                    )
+                    ) { page -> insightPage(page) }
                 }
             }
             
@@ -271,7 +345,7 @@ fun HomeScreen(
                 PixelInputBar(
                     value = inputText,
                     onValueChange = { inputText = it },
-                    placeholder = if (!isLoading && bubbleText.isNotEmpty()) 
+                    placeholder = if (!displayedLoading && displayedText.isNotEmpty()) 
                         "Ask the wizaird about the insight" 
                         else 
                         "Ask the wizaird...",
@@ -282,8 +356,8 @@ fun HomeScreen(
                             
                             scope.launch {
                                 // Check if there's an insight to include
-                                val hasInsight = !isLoading && bubbleText.isNotEmpty()
-                                val currentInsightId = activeProject.insightHistory.lastOrNull()?.id
+                                val hasInsight = !displayedLoading && displayedText.isNotEmpty()
+                                val currentInsightId = displayedInsightId
                                 
                                 // Build messages list
                                 val messages = mutableListOf<ChatMessage>()
@@ -292,7 +366,7 @@ fun HomeScreen(
                                 if (hasInsight) {
                                     messages.add(ChatMessage(
                                         sender = MessageSender.AI,
-                                        text = bubbleText
+                                        text = displayedText
                                     ))
                                 }
                                 
@@ -347,65 +421,32 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     // Bubble with extra 8dp height extending into wizard space
-                    ChatBubble(
-                        text = bubbleText,
-                        loading = isLoading,
-                        thinkingContent = bubbleThinking,
-                        projectName = activeProject?.name,
-                        projectId = activeProject?.id,
-                        // Only link to the insight when the bubble is actually showing it
-                        insightId = activeProject?.insightHistory?.lastOrNull()?.takeIf { it.text == bubbleText }?.id,
-                        isPinned = activeProject?.pinnedInsight ?: false,
-                        onTogglePin = {
-                            activeProject?.let { project ->
-                                scope.launch {
-                                    val updatedProject = project.copy(pinnedInsight = !project.pinnedInsight)
-                                    upsertProject(context, updatedProject)
-                                    println("Insight ${if (updatedProject.pinnedInsight) "pinned" else "unpinned"} for project: ${project.name}")
-                                }
-                            }
-                        },
-                        onRegenerate = {
-                            activeProject?.let { project ->
-                                println("User triggered manual regeneration")
-                                generateInsightForProject(project)
-                            }
-                        },
-                        onProjectClick = {
-                            activeProject?.let { project -> onProjectClick(project.id) }
-                        },
-                        onShowToast = { message ->
-                            if (message.isEmpty()) {
-                                showToast = false
-                                isToastLoading = false
-                            } else {
-                                toastMessage = message
-                                showToast = true
-                                isToastLoading = message == "ADDING TO CONCEPTS"
-                            }
-                        },
-                        onNewConceptClick = { projectIdFromBubble ->
-                            onNewConceptClick(projectIdFromBubble)
-                        },
-                        onConceptClick = { conceptId ->
-                            activeProject?.let { project -> onConceptClick(project.id, conceptId) }
-                        },
+                    HorizontalPager(
+                        state = pagerState,
+                        key = { page -> pageKey(page) },
+                        // Cards span the screen edge to edge so the incoming one slides in from off-screen
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        pageSpacing = 12.dp,
+                        verticalAlignment = Alignment.Top,
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
                             .layout { measurable, constraints ->
-                                // Measure with 8dp extra height
+                                // Measure 24dp wider (undoing the column's side padding) and 8dp taller
+                                val extraW = 24.dp.roundToPx()
                                 val placeable = measurable.measure(
                                     constraints.copy(
+                                        minWidth = constraints.minWidth + extraW,
+                                        maxWidth = constraints.maxWidth + extraW,
                                         maxHeight = constraints.maxHeight + 8.dp.roundToPx()
                                     )
                                 )
-                                // Layout with original height so it extends downward
-                                layout(placeable.width, constraints.maxHeight) {
-                                    placeable.place(0, 0)
+                                // Layout with original size so it extends sideways and downward
+                                layout(constraints.maxWidth, constraints.maxHeight) {
+                                    placeable.place(-extraW / 2, 0)
                                 }
                             }
-                    )
+                    ) { page -> insightPage(page) }
 
                     // Wizard overlaps the bubble from below
                     WizardCharacter(
@@ -416,7 +457,7 @@ fun HomeScreen(
                     PixelInputBar(
                         value = inputText,
                         onValueChange = { inputText = it },
-                        placeholder = if (!isLoading && bubbleText.isNotEmpty()) 
+                        placeholder = if (!displayedLoading && displayedText.isNotEmpty()) 
                             "Ask the wizaird about the insight" 
                             else 
                             "Ask the wizaird...",
@@ -427,8 +468,8 @@ fun HomeScreen(
                                 
                                 scope.launch {
                                     // Check if there's an insight to include
-                                    val hasInsight = !isLoading && bubbleText.isNotEmpty()
-                                    val currentInsightId = activeProject.insightHistory.lastOrNull()?.id
+                                    val hasInsight = !displayedLoading && displayedText.isNotEmpty()
+                                    val currentInsightId = displayedInsightId
                                     
                                     // Build messages list
                                     val messages = mutableListOf<ChatMessage>()
@@ -437,7 +478,7 @@ fun HomeScreen(
                                     if (hasInsight) {
                                         messages.add(ChatMessage(
                                             sender = MessageSender.AI,
-                                            text = bubbleText
+                                            text = displayedText
                                         ))
                                     }
                                     
@@ -754,6 +795,7 @@ fun ChatBubble(
     projectName: String? = null,
     projectId: String? = null,
     insightId: String? = null,
+    positionLabel: String? = null,  // e.g. "3/12" when browsing insight history
     isPinned: Boolean = false,
     onTogglePin: () -> Unit = {},
     onRegenerate: () -> Unit = {},
@@ -788,6 +830,8 @@ fun ChatBubble(
         }
     }.collectAsState(initial = emptyList())
     val extraction = rememberConceptExtractionUi(insightId)
+    // Older insights carry their reasoning in storage
+    val thinking = thinkingContent ?: insight?.thinkingContent
     LaunchedEffect(loading) {
         if (loading) {
             while (true) {
@@ -986,7 +1030,7 @@ fun ChatBubble(
                         .build()
                 }
                 Row(
-                    modifier = Modifier.padding(start = 16.dp, bottom = if (isCoverScreen) 8.dp else 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = if (isCoverScreen) 8.dp else 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1067,7 +1111,7 @@ fun ChatBubble(
 
                     // Thinking icon — only interactive when thinking content exists
                     if (!loading) {
-                        val hasThinking = thinkingContent != null
+                        val hasThinking = thinking != null
                         val thinkingInteraction = remember { MutableInteractionSource() }
                         AsyncImage(
                             model = ImageRequest.Builder(context)
@@ -1089,6 +1133,16 @@ fun ChatBubble(
                                 )
                         )
                     }
+
+                    // Position in the insight history (swipe to browse)
+                    if (positionLabel != null) {
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = positionLabel,
+                            style = pixelStyle(10, colors.textXLow),
+                            modifier = Modifier.offset(y = (-2).dp)
+                        )
+                    }
                 }
             }
         }
@@ -1098,7 +1152,7 @@ fun ChatBubble(
     // Thinking overlay
     if (showThinking) {
         ThinkingOverlay(
-            thinkingContent = thinkingContent ?: "No thought process was captured for this insight.",
+            thinkingContent = thinking ?: "No thought process was captured for this insight.",
             onDismiss = { showThinking = false }
         )
     }

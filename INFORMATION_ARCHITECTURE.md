@@ -106,13 +106,19 @@ Project             (many)
   │     ├─ title              (auto-generated after first AI response)
   │     ├─ insightId?         (FK → StoredInsight, if insight-seeded)
   │     ├─ contextWindowSize  (default 50)
+  │     ├─ origin?            ChatOrigin: type (INSIGHT | CONCEPT | CHAT_MESSAGE), insightId / conceptId /
+  │     │                     chatId+messageId, label, text (copy of the source). Older chats: resolveChatOrigin()
+  │     │                     falls back to insightId, or matches the first AI message to an insight's text
+  │     ├─ practice?          PracticeInfo(type) — set = practice chat
   │     ├─ createdAt
   │     └─► ChatMessage  (many)
   │           ├─ id
   │           ├─ sender         USER | AI
   │           ├─ text
   │           ├─ thinkingContent?
-  │           └─ timestamp
+  │           ├─ timestamp
+  │           ├─ verdict?       practice feedback: CORRECT | PARTIAL | INCORRECT
+  │           └─ practiceRole?  practice chats: QUESTION | FEEDBACK
   │
   ├─► NoteData       (many per project)
   │     ├─ id
@@ -188,6 +194,8 @@ All AI calls route through `AiRepository.askAi()` / `askAiWithThinking()`.
 - **Navigation tab encoding:** `ProjectScreen` uses three separate routes (`project/{id}`, `project/{id}/concepts`, `project/{id}/notes`) purely to control which tab is active on Back navigation. The Insights tab has no route of its own.
 - **"Add to concepts":** the text-selection menu in chats, insight chats, the insight preview and the home bubble opens the New concept screen with the selected text as the name. If the name/alias already exists, a dialog offers to open the existing concept (and records where it was met). Otherwise the page is written with AI.
 - **Single DataStore for everything:** No SQL — all entities are JSON-serialized into one Preferences store. Simple, but the entire collection is deserialized on every read, which may become a performance concern as data grows.
+- **Practice mode:** the target icon (insight preview, home bubble, AI chat replies) or "Practice" (insight card ⋮, concept page ⋮) calls `PracticeLauncher.request()`. `PracticeLauncherHost` (app root, MainActivity) shows the question-type popup (Surprise me + six type buttons), creates an empty practice chat and opens it; `ExistingChatScreen` asks the first question and uses the practice prompt for replies (PROMPTS.md §8–9). Practice chats show "PRACTICE ·" on their chat card.
+- **Origin tag:** any chat with an origin shows a full-width sticky tag under the header ("FROM INSIGHT · OCT 17", "PRACTICE · FROM CONCEPT · RAG"); practice chats also show the latest verdicts and the session score on the right; tapping it opens the insight preview, or a sheet with the saved copy of the concept / chat reply and OPEN CHAT / OPEN CONCEPT.
 - **AccountSettingsScreen is a stub:** It exists in the nav graph but has no active functionality.
 - **Thinking content support:** Both `StoredInsight` and `ChatMessage` have a `thinkingContent` field to store reasoning chains from thinking models (Gemini 2.5 Pro, OpenAI o-series). This is surfaced as an expandable section in the UI.
 - **Cover screen mode:** A `rememberIsCoverScreen()` utility detects foldable cover screens and adjusts layout/keyboard behavior accordingly.

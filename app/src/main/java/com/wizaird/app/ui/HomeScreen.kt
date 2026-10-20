@@ -804,7 +804,6 @@ fun ChatBubble(
     val currentProjectId by rememberUpdatedState(projectId)
     
     var copied by remember { mutableStateOf(false) }
-    var noteSaved by remember { mutableStateOf(false) }
     var showThinking by remember { mutableStateOf(false) }
     var dotCount by remember { mutableIntStateOf(1) }
 
@@ -1048,58 +1047,6 @@ fun ChatBubble(
                             }
                     )
 
-                    val noteInteraction = remember { MutableInteractionSource() }
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
-                            .build(),
-                        imageLoader = svgLoader,
-                        contentDescription = "Save to note",
-                        colorFilter = ColorFilter.tint(if (noteSaved) colors.textHigh else colors.textXLow),
-                        modifier = Modifier
-                            .size(20.dp)
-                            .pixelRounded8ClickableOversize(
-                                interactionSource = noteInteraction
-                            ) {
-                                if (projectId != null) {
-                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                        // Create a new note with the insight text
-                                        val note = com.wizaird.app.data.newNote(projectId).copy(
-                                            body = text
-                                        )
-                                        com.wizaird.app.data.upsertNote(context, note)
-                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                            noteSaved = true
-                                            onShowToast("NOTE CREATED")
-                                            // Reset the saved state after 2 seconds
-                                            scope.launch {
-                                                delay(2000)
-                                                noteSaved = false
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                    )
-                    
-                    // Concept extraction icon — disabled until the bubble shows a saved insight
-                    ExtractConceptsIcon(insight = insight, ui = extraction)
-
-                    val zapInteraction = remember { MutableInteractionSource() }
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data("file:///android_asset/pixelarticons/zap.svg")
-                            .build(),
-                        imageLoader = svgLoader,
-                        contentDescription = "Regenerate",
-                        colorFilter = ColorFilter.tint(colors.textXLow),
-                        modifier = Modifier
-                            .size(20.dp)
-                            .pixelRounded8ClickableOversize(
-                                interactionSource = zapInteraction
-                            ) { onRegenerate() }
-                    )
-
                     // Thinking icon — only interactive when thinking content exists
                     if (!loading) {
                         val hasThinking = thinking != null
@@ -1124,6 +1071,32 @@ fun ChatBubble(
                                 )
                         )
                     }
+
+                    // Practice icon — disabled until the bubble shows a saved insight
+                    PracticeIcon(
+                        enabled = insight != null && !loading,
+                        onClick = {
+                            insight?.let { PracticeLauncher.request(it.projectId, com.wizaird.app.data.originFromInsight(it)) }
+                        }
+                    )
+
+                    // Concept extraction icon — disabled until the bubble shows a saved insight
+                    ExtractConceptsIcon(insight = insight, ui = extraction)
+
+                    val zapInteraction = remember { MutableInteractionSource() }
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data("file:///android_asset/pixelarticons/zap.svg")
+                            .build(),
+                        imageLoader = svgLoader,
+                        contentDescription = "Regenerate",
+                        colorFilter = ColorFilter.tint(colors.textXLow),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .pixelRounded8ClickableOversize(
+                                interactionSource = zapInteraction
+                            ) { onRegenerate() }
+                    )
 
                     // Position in the insight history (swipe to browse)
                     if (positionLabel != null) {

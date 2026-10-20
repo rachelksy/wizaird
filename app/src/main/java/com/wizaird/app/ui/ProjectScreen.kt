@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -108,6 +109,32 @@ fun ProjectScreen(
 
     // Chats — live from DataStore, filtered to this project
     val chats by chatsFlow(context, projectId).collectAsState(initial = emptyList())
+
+    // Chats tab — search (title and messages), filter (all / chats / practice) and sort
+    var chatSearchQuery by remember { mutableStateOf("") }
+    var chatFilter by remember { mutableStateOf(ChatListFilter.ALL) }
+    var chatSort by remember { mutableStateOf(ChatListSort.NEWEST) }
+    var showChatFilterSheet by remember { mutableStateOf(false) }
+    var showChatSortSheet by remember { mutableStateOf(false) }
+    val visibleChats = remember(chats, chatSearchQuery, chatFilter, chatSort) {
+        val q = chatSearchQuery.trim().lowercase()
+        chats
+            .filter { c ->
+                when (chatFilter) {
+                    ChatListFilter.ALL -> true
+                    ChatListFilter.CHATS -> !c.isPractice
+                    ChatListFilter.PRACTICE -> c.isPractice
+                }
+            }
+            .filter { c -> q.isEmpty() || c.title.lowercase().contains(q) || c.messages.any { it.text.lowercase().contains(q) } }
+            .let { list ->
+                when (chatSort) {
+                    ChatListSort.NEWEST -> list.sortedByDescending { it.createdAt }
+                    ChatListSort.OLDEST -> list.sortedBy { it.createdAt }
+                    ChatListSort.ALPHABETICAL -> list.sortedBy { it.title.lowercase() }
+                }
+            }
+    }
 
     // Notes — live from DataStore, filtered to this project
     val notes by notesFlow(context, projectId).collectAsState(initial = emptyList())
@@ -561,19 +588,37 @@ fun ProjectScreen(
                             }
                         }
                     } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(top = 12.dp, bottom = 96.dp)
-                        ) {
-                            items(chats) { chat ->
-                                ChatListItem(
-                                    chat = chat,
-                                    onClick = { onChatClick(chat.id) },
-                                )
+                        Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            ListSearchRow(
+                                query = chatSearchQuery,
+                                onQueryChange = { chatSearchQuery = it },
+                                filterLabel = chatFilter.label,
+                                onFilterClick = { showChatFilterSheet = true },
+                                onSortClick = { showChatSortSheet = true }
+                            )
+                            if (visibleChats.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("NO MATCHING CHATS", style = pixelStyle(14, colors.secondaryIcon))
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    contentPadding = PaddingValues(bottom = 96.dp)
+                                ) {
+                                    items(visibleChats, key = { it.id }) { chat ->
+                                        ChatListItem(
+                                            chat = chat,
+                                            onClick = { onChatClick(chat.id) },
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -697,97 +742,13 @@ fun ProjectScreen(
                             .fillMaxWidth()
                     ) {
                         // Search, ghost filter and sort — one row, all the same height
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(IntrinsicSize.Min)
-                                .padding(start = 12.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // Search bar
-                            PixelBox(
-                                modifier = Modifier.weight(1f),
-                                fillColor = colors.tertiarySurface,
-                                borderColor = androidx.compose.ui.graphics.Color.Transparent,
-                                cornerStyle = PixelCornerStyle.Rounded8
-                            ) {
-                                androidx.compose.foundation.text.BasicTextField(
-                                    value = conceptSearchQuery,
-                                    onValueChange = { conceptSearchQuery = it },
-                                    textStyle = minecraftStyle(12, colors.textHigh),
-                                    singleLine = true,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                                    decorationBox = { innerTextField ->
-                                        if (conceptSearchQuery.isEmpty()) {
-                                            Text(
-                                                "Search",
-                                                style = minecraftStyle(12, colors.textXLow)
-                                            )
-                                        }
-                                        innerTextField()
-                                    }
-                                )
-                            }
-
-                            // Ghost filter — opens a bottom sheet like sort
-                            Box(modifier = Modifier.fillMaxHeight()) {
-                                val filterInteraction = remember { MutableInteractionSource() }
-                                PixelBox(
-                                    modifier = Modifier
-                                        .fillMaxHeight()
-                                        .pixelRounded8Clickable(interactionSource = filterInteraction) {
-                                            showFilterMenu = true
-                                        },
-                                    fillColor = colors.secondaryButton,
-                                    borderColor = androidx.compose.ui.graphics.Color.Transparent,
-                                    cornerStyle = PixelCornerStyle.Rounded8
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxHeight()
-                                            .padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Text(
-                                            if (conceptFilter == ConceptFilter.HIDE_GHOSTS) "Hide ghosts" else "All",
-                                            style = minecraftStyle(12, colors.secondaryIcon)
-                                        )
-                                        androidx.compose.foundation.Image(
-                                            painter = painterResource(id = com.wizaird.app.R.drawable.ic_chevron_down),
-                                            contentDescription = "Filter",
-                                            colorFilter = ColorFilter.tint(colors.secondaryIcon),
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Sort button
-                            val sortInteraction = remember { MutableInteractionSource() }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .width(36.dp)
-                                    .pixelRounded8ClickableOversize(interactionSource = sortInteraction) {
-                                        showSortBottomSheet = true
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data("file:///android_asset/pixelarticons/arrow-down-wide-narrow.svg")
-                                        .build(),
-                                    imageLoader = svgLoader,
-                                    contentDescription = "Sort",
-                                    colorFilter = ColorFilter.tint(colors.secondaryIconSoft),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
+                        ListSearchRow(
+                            query = conceptSearchQuery,
+                            onQueryChange = { conceptSearchQuery = it },
+                            filterLabel = if (conceptFilter == ConceptFilter.HIDE_GHOSTS) "Hide ghosts" else "All",
+                            onFilterClick = { showFilterMenu = true },
+                            onSortClick = { showSortBottomSheet = true }
+                        )
                         
                         // Concept list or empty state
                         if (concepts.isEmpty()) {
@@ -958,6 +919,26 @@ fun ProjectScreen(
             )
         }
 
+        // Chats tab: filter and sort sheets
+        if (showChatFilterSheet) {
+            val options = ChatListFilter.values().toList()
+            PixelOptionsBottomSheet(
+                options = options.map { it.label },
+                selectedIndex = options.indexOf(chatFilter),
+                onSelect = { index -> chatFilter = options[index]; showChatFilterSheet = false },
+                onDismiss = { showChatFilterSheet = false }
+            )
+        }
+        if (showChatSortSheet) {
+            val options = ChatListSort.values().toList()
+            PixelOptionsBottomSheet(
+                options = options.map { it.label },
+                selectedIndex = options.indexOf(chatSort),
+                onSelect = { index -> chatSort = options[index]; showChatSortSheet = false },
+                onDismiss = { showChatSortSheet = false }
+            )
+        }
+
         // Manage concept links — same sheet as chat settings
         linkTargetInsight?.let { insight ->
             LinkConceptsBottomSheet(
@@ -1037,29 +1018,161 @@ fun ChatListItem(
         modifier = Modifier
             .fillMaxWidth()
             .pixelRoundedClickable(interactionSource = interaction, onClick = onClick),
-        fillColor = colors.secondarySurface,
-        borderColor = Color.Transparent,
+        // Stroke like concept cards; practice chats get a very pale peach fill (coral at 8% over the card cream)
+        fillColor = if (chat.isPractice) colors.coral.copy(alpha = 0.08f).compositeOver(colors.secondarySurface) else colors.secondarySurface,
+        borderColor = colors.textLow,
         cornerStyle = PixelCornerStyle.Rounded
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 14.dp, end = 14.dp, top = 9.dp, bottom = 10.dp),  // 9 top: the font adds space above the title
+                .padding(start = 10.dp, end = 10.dp, top = 9.dp, bottom = 10.dp),  // 9 top: the font adds space above the title
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Title in the body font (concept cards use the caps pixel font).
-            // No -2dp nudge here: it made the bottom padding look larger than the top.
-            Text(
-                text = chat.title,
+            // Chat or practice icon + one-line title in the body font (concept cards use the caps pixel font)
+            IconText(
+                iconAsset = if (chat.isPractice) "target.svg" else "message.svg",
+                text = displayChatTitle(chat),
                 style = minecraftStyle(14, colors.secondaryIcon).copy(
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                 ),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                fontRes = com.wizaird.app.R.font.pixeloid_sans,
+                iconSize = 16.dp,
+                tint = colors.textLow,
+                gap = 8.dp,
+                contentDescription = if (chat.isPractice) "Practice chat" else "Chat"
             )
-            Text(
-                text = chat.formattedCreatedDate(),
-                style = pixelStyle(8, colors.textXLow)
+            // Date (with PRACTICE for practice chats), and this session's score on the right
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (chat.isPractice) "PRACTICE · ${chat.formattedCreatedDate()}" else chat.formattedCreatedDate(),
+                    style = pixelStyle(8, colors.textXLow),
+                    modifier = Modifier.weight(1f)
+                )
+                val score = if (chat.isPractice) com.wizaird.app.data.practiceScore(chat.messages.mapNotNull { it.verdict }) else null
+                if (score != null) {
+                    IconText(
+                        iconAsset = "chart.svg",
+                        text = "$score%",
+                        style = pixelStyle(8, colors.textLow),
+                        fontRes = com.wizaird.app.R.font.vt323,
+                        iconSize = 12.dp,
+                        tint = colors.textLow,
+                        gap = 4.dp,
+                        contentDescription = "Session score"
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Practice chats made before titles kept the full sentence end in a cut-off "...": show the first question's sentence instead. */
+private fun displayChatTitle(chat: com.wizaird.app.data.ChatData): String {
+    if (!chat.isPractice || !chat.title.endsWith("...")) return chat.title
+    val question = chat.messages.firstOrNull { it.sender == com.wizaird.app.data.MessageSender.AI }?.text ?: return chat.title
+    val origin = chat.origin ?: return chat.title
+    return com.wizaird.app.data.practiceTitle(origin, question)
+}
+
+enum class ChatListFilter(val label: String) { ALL("All"), CHATS("Chats"), PRACTICE("Practice") }
+enum class ChatListSort(val label: String) {
+    NEWEST("Date created (newest first)"),
+    OLDEST("Date created (oldest first)"),
+    ALPHABETICAL("Alphabetical (A-Z)")
+}
+
+/** Search bar, filter dropdown and sort button in one row — Concepts and Chats tabs. */
+@Composable
+fun ListSearchRow(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    filterLabel: String,
+    onFilterClick: () -> Unit,
+    onSortClick: () -> Unit
+) {
+    val colors = LocalWizairdColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .padding(start = 12.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Search bar
+        PixelBox(
+            modifier = Modifier.weight(1f),
+            fillColor = colors.tertiarySurface,
+            borderColor = Color.Transparent,
+            cornerStyle = PixelCornerStyle.Rounded8
+        ) {
+            androidx.compose.foundation.text.BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                textStyle = minecraftStyle(12, colors.textHigh),
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                decorationBox = { innerTextField ->
+                    if (query.isEmpty()) {
+                        Text("Search", style = minecraftStyle(12, colors.textXLow))
+                    }
+                    innerTextField()
+                }
+            )
+        }
+
+        // Filter — opens a bottom sheet like sort
+        val filterInteraction = remember { MutableInteractionSource() }
+        PixelBox(
+            modifier = Modifier
+                .fillMaxHeight()
+                .pixelRounded8Clickable(interactionSource = filterInteraction, onClick = onFilterClick),
+            fillColor = colors.secondaryButton,
+            borderColor = Color.Transparent,
+            cornerStyle = PixelCornerStyle.Rounded8
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(filterLabel, style = minecraftStyle(12, colors.secondaryIcon))
+                androidx.compose.foundation.Image(
+                    painter = painterResource(id = com.wizaird.app.R.drawable.ic_chevron_down),
+                    contentDescription = "Filter",
+                    colorFilter = ColorFilter.tint(colors.secondaryIcon),
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+
+        // Sort button
+        val sortInteraction = remember { MutableInteractionSource() }
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(36.dp)
+                .pixelRounded8ClickableOversize(interactionSource = sortInteraction, onClick = onSortClick),
+            contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data("file:///android_asset/pixelarticons/arrow-down-wide-narrow.svg")
+                    .build(),
+                imageLoader = rememberSvgLoader(),
+                contentDescription = "Sort",
+                colorFilter = ColorFilter.tint(colors.secondaryIconSoft),
+                modifier = Modifier.size(20.dp)
             )
         }
     }
@@ -1529,6 +1642,12 @@ fun InsightListItem(
                                         .padding(4.dp),
                                     verticalArrangement = Arrangement.spacedBy(0.dp)
                                 ) {
+                                    // Practice option
+                                    PixelOptionsMenuItem("Practice", iconAsset = "target.svg", onClick = {
+                                        showMenu = false
+                                        PracticeLauncher.request(insight.projectId, com.wizaird.app.data.originFromInsight(insight))
+                                    })
+
                                     // Manage concept links option
                                     PixelOptionsMenuItem("Manage concept links", iconAsset = "link.svg", onClick = {
                                         showMenu = false
@@ -1682,7 +1801,6 @@ fun InsightPreviewOverlay(
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
     
     var copied by remember { mutableStateOf(false) }
-    var noteSaved by remember { mutableStateOf(false) }
     var showThinking by remember { mutableStateOf(false) }
     var showToast by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf("") }
@@ -1854,60 +1972,6 @@ fun InsightPreviewOverlay(
                                 }
                         )
 
-                        // Create note icon
-                        val noteInteraction = remember { MutableInteractionSource() }
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data("file:///android_asset/pixelarticons/sticky-note-text.svg")
-                                .build(),
-                            imageLoader = svgLoader,
-                            contentDescription = "Save to note",
-                            colorFilter = ColorFilter.tint(if (noteSaved) colors.textHigh else colors.textXLow),
-                            modifier = Modifier
-                                .size(20.dp)
-                                .pixelRounded8ClickableOversize(
-                                    interactionSource = noteInteraction
-                                ) {
-                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                        // Create a new note with the insight text
-                                        val note = com.wizaird.app.data.newNote(insight.projectId).copy(
-                                            body = insight.text
-                                        )
-                                        com.wizaird.app.data.upsertNote(context, note)
-                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                            noteSaved = true
-                                            toastMessage = "NOTE CREATED"
-                                            showToast = true
-                                            scope.launch {
-                                                kotlinx.coroutines.delay(2000)
-                                                noteSaved = false
-                                            }
-                                        }
-                                    }
-                                }
-                        )
-                        
-                        // Concept extraction icon
-                        ExtractConceptsIcon(insight = insight, ui = extraction)
-
-                        // Chat icon
-                        val chatInteraction = remember { MutableInteractionSource() }
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data("file:///android_asset/pixelarticons/message.svg")
-                                .build(),
-                            imageLoader = svgLoader,
-                            contentDescription = "Start chat",
-                            colorFilter = ColorFilter.tint(colors.textXLow),
-                            modifier = Modifier
-                                .size(20.dp)
-                                .pixelRounded8ClickableOversize(
-                                    interactionSource = chatInteraction
-                                ) {
-                                    onChatClick()
-                                }
-                        )
-
                         // Thinking icon — only interactive when thinking content exists
                         val hasThinking = insight.thinkingContent != null
                         val thinkingInteraction = remember { MutableInteractionSource() }
@@ -1930,6 +1994,34 @@ fun InsightPreviewOverlay(
                                     else Modifier
                                 )
                         )
+
+                        // Chat icon
+                        val chatInteraction = remember { MutableInteractionSource() }
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data("file:///android_asset/pixelarticons/message.svg")
+                                .build(),
+                            imageLoader = svgLoader,
+                            contentDescription = "Start chat",
+                            colorFilter = ColorFilter.tint(colors.textXLow),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .pixelRounded8ClickableOversize(
+                                    interactionSource = chatInteraction
+                                ) {
+                                    onChatClick()
+                                }
+                        )
+
+                        // Practice icon — the type sheet lives at the app root, so close this dialog first
+                        PracticeIcon(onClick = {
+                            onDismiss()
+                            PracticeLauncher.request(insight.projectId, com.wizaird.app.data.originFromInsight(insight))
+                        })
+
+                        // Concept extraction icon
+                        ExtractConceptsIcon(insight = insight, ui = extraction)
+
                     }
                 }
             }
@@ -2336,7 +2428,7 @@ fun ConceptListItem(
 @Composable
 fun PixelBottomSheet(
     onDismiss: () -> Unit,
-    fillColor: Color? = null,  // null = secondaryButton (sort/filter sheets)
+    fillColor: Color? = null,  // null = app background (same surface as the screens)
     content: @Composable ColumnScope.() -> Unit
 ) {
     // System Back closes the sheet instead of leaving the screen
@@ -2366,7 +2458,7 @@ fun PixelBottomSheet(
                     val p = PixelSize.toPx()
                     val w = size.width
                     val h = size.height
-                    val fill = fillColor ?: colors.secondaryButton
+                    val fill = fillColor ?: colors.background
 
                     // Fill the sheet
                     drawRect(fill)
@@ -2412,9 +2504,10 @@ fun PixelBottomSheet(
 @Composable
 fun PixelOptionsBottomSheet(
     options: List<String>,
-    selectedIndex: Int,
+    selectedIndex: Int,  // -1 = no check (a list of actions)
     onSelect: (Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    title: String? = null
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -2422,6 +2515,15 @@ fun PixelOptionsBottomSheet(
         ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
     }
     PixelBottomSheet(onDismiss = onDismiss) {
+        if (title != null) {
+            Text(
+                text = title,
+                style = pixelStyle(10, colors.textXLow),
+                modifier = Modifier
+                    .padding(start = 12.dp, top = 8.dp, bottom = 4.dp)
+                    .offset(y = (-2).dp)
+            )
+        }
         options.forEachIndexed { index, label ->
             val optionInteraction = remember { MutableInteractionSource() }
             Box(

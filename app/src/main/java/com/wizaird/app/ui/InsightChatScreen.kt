@@ -139,6 +139,7 @@ fun InsightChatScreen(
                         projectId = projectId,
                         insightId = insightId,
                         onRegenerate = null,
+                        onPractice = { PracticeLauncher.request(insight!!.projectId, com.wizaird.app.data.originFromInsight(insight!!)) },
                         onEdit = {},
                         onDelete = {},
                         onShowToast = { msg ->

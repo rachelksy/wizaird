@@ -39,6 +39,7 @@ import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.wizaird.app.data.Concept
+import com.wizaird.app.data.canPractice
 import com.wizaird.app.data.ConceptSource
 import com.wizaird.app.data.ConceptSourceType
 import com.wizaird.app.data.ConceptGeneration
@@ -854,6 +855,12 @@ fun ConceptPageScreen(
                                 PixelOptionsMenuItem("Regenerate", iconAsset = "reload.svg", onClick = {
                                     showMenu = false
                                     showRegenerateDialog = true
+                                })
+                            }
+                            if (concept.canPractice) {
+                                PixelOptionsMenuItem("Practice", iconAsset = "target.svg", onClick = {
+                                    showMenu = false
+                                    PracticeLauncher.request(concept.projectId, com.wizaird.app.data.originFromConcept(concept))
                                 })
                             }
                             PixelOptionsMenuItem("Copy to", iconAsset = "copy.svg", onClick = {

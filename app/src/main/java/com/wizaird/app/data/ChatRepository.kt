@@ -22,8 +22,49 @@ data class ChatMessage(
     val sender: MessageSender,
     val text: String,
     val thinkingContent: String? = null,  // AI reasoning chain, only present on thinking-model responses
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val verdict: PracticeVerdict? = null,  // practice chats: the verdict this AI reply gave the user's answer
+    val practiceRole: PracticeRole? = null  // practice chats: question or feedback (null = not split)
 )
+
+/** What a chat was started from. [text] is a copy of the source taken when the chat was made, so it still works if the source is edited or deleted. */
+enum class ChatOriginType { INSIGHT, CONCEPT, CHAT_MESSAGE }
+
+data class ChatOrigin(
+    val type: ChatOriginType,
+    val insightId: String? = null,
+    val conceptId: String? = null,
+    val chatId: String? = null,     // CHAT_MESSAGE: the chat the message is in
+    val messageId: String? = null,  // CHAT_MESSAGE: the AI reply
+    val label: String? = null,      // concept name or chat title, for the tag
+    val text: String? = null
+) {
+    /** Same source as [other] (practice history is collected per source). */
+    fun sameSourceAs(other: ChatOrigin?): Boolean = other != null && type == other.type && when (type) {
+        ChatOriginType.INSIGHT -> insightId == other.insightId
+        ChatOriginType.CONCEPT -> conceptId == other.conceptId
+        ChatOriginType.CHAT_MESSAGE -> messageId == other.messageId
+    }
+}
+
+/** Practice question types. SURPRISE lets the AI pick (never QUICK_CHECK). */
+enum class PracticeType(val label: String) {
+    SURPRISE("Surprise me"),
+    EXPLAIN("Explain it"),
+    APPLY("Apply it"),
+    SPOT_THE_PROBLEM("Spot the flaw"),
+    COMPARE("Compare"),
+    PREDICT("Predict"),
+    QUICK_CHECK("Quick check")
+}
+
+enum class PracticeVerdict(val label: String) { CORRECT("Correct"), PARTIAL("Partially correct"), INCORRECT("Incorrect") }
+
+/** Practice chats: an AI message is either a question or the feedback on an answer. */
+enum class PracticeRole { QUESTION, FEEDBACK }
+
+/** Set on practice chats. */
+data class PracticeInfo(val type: PracticeType? = null)
 
 data class ChatData(
     val id: String = UUID.randomUUID().toString(),
@@ -33,8 +74,12 @@ data class ChatData(
     val createdAt: Long = System.currentTimeMillis(),
     val insightId: String? = null,  // Link to the insight that started this chat
     val contextWindowSize: Int = 50,  // Number of last messages to send to AI for context
-    val conceptExtraction: ConceptExtraction? = null  // set once concepts have been extracted from this chat
+    val conceptExtraction: ConceptExtraction? = null,  // set once concepts have been extracted from this chat
+    val origin: ChatOrigin? = null,     // what the chat was started from (older chats: see resolveChatOrigin)
+    val practice: PracticeInfo? = null  // set = practice chat
 ) {
+    val isPractice: Boolean get() = practice != null
+
     /** Date only, e.g. "Oct 15, 2025" (chat cards). */
     fun formattedCreatedDate(): String =
         SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(createdAt))

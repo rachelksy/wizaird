@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,6 +36,7 @@ import com.wizaird.app.ui.NewProjectScreen
 import com.wizaird.app.ui.ConceptEditScreen
 import com.wizaird.app.ui.ConceptPageScreen
 import com.wizaird.app.ui.NoteScreen
+import com.wizaird.app.ui.PracticeLauncherHost
 import com.wizaird.app.ui.ProjectScreen
 import com.wizaird.app.ui.ProjectSettingsScreen
 import com.wizaird.app.ui.ProjectTab
@@ -75,6 +77,7 @@ class MainActivity : ComponentActivity() {
                 val nav = rememberNavController()
                 val fastFadeIn  = fadeIn(tween(200))
                 val fastFadeOut = fadeOut(tween(200))
+                Box(modifier = Modifier.fillMaxSize()) {
                 NavHost(
                     navController = nav,
                     startDestination = "home",
@@ -312,6 +315,9 @@ class MainActivity : ComponentActivity() {
                             chatId    = chatId,
                             onBack    = { nav.popBackStack() },
                             onSettingsClick = { nav.navigate("chat_settings/${projectId}/${chatId}") },
+                            onOpenChat = { otherChatId -> nav.navigate("chat/${projectId}/${otherChatId}") },
+                            onOpenConcept = { conceptId -> nav.navigate("concept/${projectId}/${conceptId}") },
+                            onInsightChatClick = { insightId -> nav.navigate("chat/${projectId}/insight/${insightId}") },
                             onNewConceptClick = {
                                 nav.navigate("project/${projectId}/concepts") {
                                     popUpTo("chat/${projectId}/${chatId}") { inclusive = false }
@@ -330,6 +336,9 @@ class MainActivity : ComponentActivity() {
                             onConceptClick = { conceptId -> nav.navigate("concept/${projectId}/${conceptId}") }
                         )
                     }
+                }
+                // Practice question-type sheet, opened from anywhere via PracticeLauncher
+                PracticeLauncherHost(onChatCreated = { projectId, chatId -> nav.navigate("chat/${projectId}/${chatId}") })
                 }
             }
         }

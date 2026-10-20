@@ -55,6 +55,15 @@ import com.wizaird.app.data.projectsFlow
 import com.wizaird.app.data.settingsFlow
 import com.wizaird.app.data.AiSettings
 import com.wizaird.app.data.generateChatTitle
+import com.wizaird.app.data.buildPracticeChatSystemPrompt
+import com.wizaird.app.data.buildPracticeQuestionPrompt
+import com.wizaird.app.data.earlierPracticeQuestions
+import com.wizaird.app.data.originFromInsight
+import com.wizaird.app.data.originFromMessage
+import com.wizaird.app.data.parseVerdict
+import com.wizaird.app.data.practiceTitle
+import com.wizaird.app.data.resolveChatOrigin
+import com.wizaird.app.data.storedInsightsFlow
 
 import com.wizaird.app.data.upsertChat
 import kotlinx.coroutines.flow.first
@@ -70,7 +79,10 @@ fun ExistingChatScreen(
     chatId: String,
     onBack: () -> Unit,
     onSettingsClick: () -> Unit = {},
-    onNewConceptClick: () -> Unit = {}
+    onNewConceptClick: () -> Unit = {},
+    onOpenChat: (String) -> Unit = {},          // origin tag → "Open chat"
+    onOpenConcept: (String) -> Unit = {},       // origin tag → "Open concept"
+    onInsightChatClick: (String) -> Unit = {}   // origin insight preview → chat icon
 ) {
     val context = LocalContext.current
     val colors = LocalWizairdColors.current
@@ -85,6 +97,20 @@ fun ExistingChatScreen(
 
     // Load chat from repository
     val chat by chatFlow(context, chatId).collectAsState(initial = null)
+
+    // Where the chat came from (sticky tag under the header). Older insight chats are matched by text.
+    val projectInsights by storedInsightsFlow(context, projectId).collectAsState(initial = emptyList())
+    val origin = chat?.let { resolveChatOrigin(it, projectInsights) }
+    var showOriginPreview by remember { mutableStateOf(false) }
+
+    // A practice chat whose question never arrived is removed on the way out, so it doesn't sit empty in the list
+    val leave: () -> Unit = {
+        val c = chat
+        if (c != null && c.isPractice && c.messages.isEmpty()) {
+            scope.launch { deleteChat(context, c.id); onBack() }
+        } else onBack()
+    }
+    androidx.activity.compose.BackHandler(enabled = chat?.isPractice == true && chat?.messages.isNullOrEmpty()) { leave() }
     
     // Optimistic messages that are added to local state immediately on send,
     // before the DataStore round-trip completes. Once DataStore emits and its
@@ -175,6 +201,73 @@ fun ExistingChatScreen(
         }
     }
     
+    // Practice questions: the first one is asked when the chat is empty (right after it's created,
+    // or after it's regenerated); later ones when the user taps NEXT QUESTION or regenerates one.
+    var replacedQuestions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var nextQuestionRequested by remember { mutableStateOf(false) }
+    val needsQuestion = chat?.isPractice == true && (messages.isEmpty() || nextQuestionRequested)
+    LaunchedEffect(chat?.id, needsQuestion, isGeneratingResponse, responseError == null, project != null, settings.apiKey.isNotBlank()) {
+        val c = chat ?: return@LaunchedEffect
+        val practiceOrigin = c.origin ?: return@LaunchedEffect
+        val type = c.practice?.type ?: return@LaunchedEffect
+        if (!needsQuestion || isGeneratingResponse ||
+            responseError != null || project == null || settings.apiKey.isBlank()) return@LaunchedEffect
+
+        val snapshotMessages = messages
+        val isFirst = snapshotMessages.isEmpty()
+        isGeneratingResponse = true
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val response = if (isFirst) {
+                    val earlier = earlierPracticeQuestions(context, practiceOrigin, c.id) + replacedQuestions
+                    val prompt = buildPracticeQuestionPrompt(project, practiceOrigin, type, earlier)
+                    println("=== PRACTICE QUESTION PROMPT ===\n$prompt")
+                    askAiWithThinking(settings, prompt, "Ask the practice question.")
+                } else {
+                    val history = snapshotMessages.takeLast(c.contextWindowSize).joinToString("\n") { msg ->
+                        "${if (msg.sender == MessageSender.USER) "User" else "Assistant"}: ${msg.text}"
+                    }
+                    askAiWithThinking(
+                        settings,
+                        buildPracticeChatSystemPrompt(project, practiceOrigin, type),
+                        com.wizaird.app.data.buildNextQuestionRequest(history, replacedQuestions)
+                    )
+                }
+                // In case the model still added a marker, keep only what follows it
+                val raw = com.wizaird.app.data.splitPracticeReply(response.answer).let { (before, after) -> after ?: before }
+                val question = com.wizaird.app.data.formatPracticeQuestion(raw)
+                if (question.isBlank() || question == "No response." || question.startsWith("API Error")) {
+                    throw Exception(question.ifBlank { "Empty response" })
+                }
+                val questionMessage = ChatMessage(
+                    sender = MessageSender.AI,
+                    text = question,
+                    thinkingContent = response.thinkingContent,
+                    practiceRole = com.wizaird.app.data.PracticeRole.QUESTION
+                )
+                // Shown right away, so the chat never looks unanswered (and asks again) before the save arrives
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    optimisticMessages = optimisticMessages + questionMessage
+                }
+                addMessageToChat(context, c.id, questionMessage)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { nextQuestionRequested = false }
+                if (isFirst) {
+                    chatFlow(context, c.id).first()?.let {
+                        upsertChat(context, it.copy(title = practiceTitle(practiceOrigin, question)))
+                    }
+                }
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    responseError = "Failed to get a practice question: ${e.message}"
+                }
+            } finally {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    isGeneratingResponse = false
+                }
+            }
+        }
+    }
+
     // Auto-generate AI response when last message is from user.
     // Capture the snapshot of messages at effect-entry time so the IO coroutine
     // works on a stable list even if recomposition happens mid-flight.
@@ -197,7 +290,17 @@ fun ExistingChatScreen(
                     println("User message: ${snapshotMessages.last().text}")
                     println("Total messages in chat: ${snapshotMessages.size}")
                     
-                    val systemPrompt = buildChatSystemPrompt(project)
+                    val practiceOrigin = chat?.origin?.takeIf { chat?.isPractice == true }
+                    val practiceType = chat?.practice?.type ?: com.wizaird.app.data.PracticeType.SURPRISE
+                    // A question is open if the latest question came after the latest feedback
+                    // (the opening question of older practice chats has no role, so it counts too)
+                    val questionOpen = practiceOrigin != null && snapshotMessages.dropLast(1).let { earlier ->
+                        val lastMarked = earlier.lastOrNull { it.sender == MessageSender.AI && it.practiceRole != null }
+                        lastMarked?.practiceRole == com.wizaird.app.data.PracticeRole.QUESTION ||
+                            (lastMarked == null && earlier.firstOrNull()?.sender == MessageSender.AI)
+                    }
+                    val systemPrompt = if (practiceOrigin != null) buildPracticeChatSystemPrompt(project, practiceOrigin, practiceType)
+                        else buildChatSystemPrompt(project)
                     println("System prompt built (${systemPrompt.length} chars)")
                     println("--- SYSTEM PROMPT START ---")
                     println(systemPrompt)
@@ -210,7 +313,7 @@ fun ExistingChatScreen(
                     
                     val conversationHistory = messagesToSend.joinToString("\n") { msg ->
                         "${if (msg.sender == MessageSender.USER) "User" else "Assistant"}: ${msg.text}"
-                    }
+                    } + (if (practiceOrigin != null) com.wizaird.app.data.practiceTurnInstruction(questionOpen) else "")
                     println("--- CONVERSATION HISTORY START ---")
                     println(conversationHistory)
                     println("--- CONVERSATION HISTORY END ---")
@@ -230,17 +333,38 @@ fun ExistingChatScreen(
                         println("--- THINKING CONTENT (${aiResponse.thinkingContent.length} chars) ---")
                     }
                     
-                    val aiMessage = ChatMessage(
-                        sender = MessageSender.AI,
-                        text = aiResponse.answer,
-                        thinkingContent = aiResponse.thinkingContent
-                    )
-                    addMessageToChat(context, chatId, aiMessage)
+                    if (practiceOrigin != null && !aiResponse.answer.startsWith("API Error") && aiResponse.answer != "No response.") {
+                        // Practice: a reply with a verdict is feedback (it closes the question);
+                        // discussion replies have no role. If the model still added a next question
+                        // after the marker, it becomes its own question bubble.
+                        val (feedback, nextQuestion) = com.wizaird.app.data.splitPracticeReply(aiResponse.answer)
+                        val verdict = if (questionOpen) parseVerdict(feedback) else null
+                        addMessageToChat(context, chatId, ChatMessage(
+                            sender = MessageSender.AI,
+                            text = com.wizaird.app.data.formatPracticeQuestion(feedback),
+                            thinkingContent = aiResponse.thinkingContent,
+                            verdict = verdict,
+                            practiceRole = if (verdict != null) com.wizaird.app.data.PracticeRole.FEEDBACK else null
+                        ))
+                        if (nextQuestion != null) {
+                            addMessageToChat(context, chatId, ChatMessage(
+                                sender = MessageSender.AI,
+                                text = com.wizaird.app.data.formatPracticeQuestion(nextQuestion),
+                                practiceRole = com.wizaird.app.data.PracticeRole.QUESTION
+                            ))
+                        }
+                    } else {
+                        addMessageToChat(context, chatId, ChatMessage(
+                            sender = MessageSender.AI,
+                            text = aiResponse.answer,
+                            thinkingContent = aiResponse.thinkingContent
+                        ))
+                    }
                     
                     println("=== CHAT AI RESPONSE SUCCESS ===")
                     
                     // Generate title from the user's first message (no API call needed)
-                    if (chat?.title == "Generated Title" && snapshotMessages.size <= 2) {
+                    if (chat?.title == "Generated Title" && snapshotMessages.size <= 2 && practiceOrigin == null) {
                         val firstUserMessage = snapshotMessages.firstOrNull { it.sender == MessageSender.USER }?.text ?: ""
                         val title = generateChatTitle(firstUserMessage)
                         println("Generated title: $title")
@@ -309,7 +433,7 @@ fun ExistingChatScreen(
                         borderColor = androidx.compose.ui.graphics.Color.Transparent,
                         cutColor    = colors.background
                     )
-                    .pixelCircleClickable(interactionSource = backInteraction) { onBack() },
+                    .pixelCircleClickable(interactionSource = backInteraction) { leave() },
                 contentAlignment = Alignment.Center
             ) {
                 Box(
@@ -555,6 +679,18 @@ fun ExistingChatScreen(
             }
         } // end header Box
 
+        // ── Origin tag (sticky: stays put while the messages scroll) ──────────
+        if (origin != null) {
+            ChatOriginTag(
+                origin = origin,
+                isPractice = chat?.isPractice == true,
+                insight = origin.insightId?.let { id -> projectInsights.firstOrNull { it.id == id } },
+                onClick = { showOriginPreview = true },
+                modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp),
+                verdicts = messages.mapNotNull { it.verdict }
+            )
+        }
+
         // ── Message list ──────────────────────────────────────────────────────
         LazyColumn(
             state = listState,
@@ -578,8 +714,26 @@ fun ExistingChatScreen(
                     chatId = chatId,
                     onRegenerate = if (isLastAiMessage) {
                         {
+                            // Regenerating the practice question: keep the old one out of the next question
+                            if (chat?.isPractice == true && (messages.size == 1 || message.practiceRole == com.wizaird.app.data.PracticeRole.QUESTION)) {
+                                replacedQuestions = replacedQuestions + message.text
+                                // A later question is asked again by the next-question path, not as a reply
+                                if (messages.size > 1) nextQuestionRequested = true
+                            }
+                            optimisticMessages = optimisticMessages.filter { it.id != message.id }
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 removeLastAiMessage(context, chatId)
+                            }
+                        }
+                    } else null,
+                    onPractice = if (chat?.isPractice != true && message.sender == MessageSender.AI &&
+                        !message.text.startsWith("API Error") && message.text != "No response.") {
+                        {
+                            chat?.let { c ->
+                                // The first bubble of an insight chat is the insight itself: practise the insight
+                                val isTheInsight = origin?.type == com.wizaird.app.data.ChatOriginType.INSIGHT &&
+                                    messages.firstOrNull()?.id == message.id && origin.text?.trim() == message.text.trim()
+                                PracticeLauncher.request(projectId, if (isTheInsight) origin!! else originFromMessage(c, message))
                             }
                         }
                     } else null,
@@ -604,6 +758,22 @@ fun ExistingChatScreen(
                 )
             }
             
+            // Practice: NEXT QUESTION under the latest reply once no question is waiting
+            val showNextQuestion = chat?.isPractice == true && !isGeneratingResponse && responseError == null &&
+                messages.lastOrNull()?.let { it.sender == MessageSender.AI && it.practiceRole != com.wizaird.app.data.PracticeRole.QUESTION && messages.size > 1 } == true
+            if (showNextQuestion) {
+                item(key = "next-question") {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        PixelButtonSmall(
+                            label = "NEXT QUESTION",
+                            primary = false,
+                            cutColor = colors.background,
+                            onClick = { nextQuestionRequested = true }
+                        )
+                    }
+                }
+            }
+
             // Show loading indicator when generating response
             if (isGeneratingResponse) {
                 item {
@@ -653,7 +823,7 @@ fun ExistingChatScreen(
                                     val retryInteraction = remember { MutableInteractionSource() }
                                     AsyncImage(
                                         model = ImageRequest.Builder(context)
-                                            .data("file:///android_asset/pixelarticons/zap.svg")
+                                            .data("file:///android_asset/pixelarticons/refresh.svg")
                                             .build(),
                                         imageLoader = svgLoader,
                                         contentDescription = "Retry",
@@ -817,6 +987,18 @@ fun ExistingChatScreen(
             })
         }
 
+        if (showOriginPreview && origin != null) {
+            ChatOriginPreview(
+                origin = origin,
+                insight = origin.insightId?.let { id -> projectInsights.firstOrNull { it.id == id } },
+                onDismiss = { showOriginPreview = false },
+                onOpenChat = { id -> showOriginPreview = false; onOpenChat(id) },
+                onOpenConcept = { id -> showOriginPreview = false; onOpenConcept(id) },
+                onInsightChatClick = { id -> showOriginPreview = false; onInsightChatClick(id) },
+                onNewConceptClick = onNewConceptClick
+            )
+        }
+
         // Toast overlay
         PixelToast(
             message = toastMessage,
@@ -856,6 +1038,7 @@ fun ChatBubble(
     chatId: String? = null,     // set for stored chats, so concepts can link back to the message
     insightId: String? = null,  // set when the bubble shows a stored insight
     onRegenerate: (() -> Unit)? = null,
+    onPractice: (() -> Unit)? = null,  // AI replies: practise this answer (null = no practice icon)
     onEdit: () -> Unit = {},
     onDelete: () -> Unit = {},
     onShowToast: (String) -> Unit = {},
@@ -1102,7 +1285,7 @@ fun ChatBubble(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Left side: Copy, Note, Regenerate icons
+                            // Left side: Copy, Thinking, Note, Practice, Regenerate — every action row uses this order; regenerate/new is always last
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -1128,6 +1311,29 @@ fun ChatBubble(
                                                 copied = false
                                             }
                                         }
+                                )
+
+                                // Thinking icon — only interactive when thinking content exists
+                                val hasThinking = message.thinkingContent != null
+                                val thinkingInteraction = remember { MutableInteractionSource() }
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data("file:///android_asset/pixelarticons/ai-app-mac.svg")
+                                        .build(),
+                                    imageLoader = svgLoader,
+                                    contentDescription = if (hasThinking) "View AI reasoning" else "No thought process captured",
+                                    colorFilter = ColorFilter.tint(
+                                        if (hasThinking) colors.textXLow
+                                        else colors.textXLow.copy(alpha = 0.35f)
+                                    ),
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .then(
+                                            if (hasThinking) Modifier.pixelRounded8ClickableOversize(
+                                                interactionSource = thinkingInteraction
+                                            ) { showThinking = true }
+                                            else Modifier
+                                        )
                                 )
 
                                 val noteInteraction = remember { MutableInteractionSource() }
@@ -1162,12 +1368,17 @@ fun ChatBubble(
                                         }
                                 )
                                 
+                                // Practice icon — practise what this reply explained
+                                if (onPractice != null) {
+                                    PracticeIcon(onClick = onPractice)
+                                }
+
                                 // Regenerate icon — only on last AI message
                                 if (onRegenerate != null) {
                                     val regenInteraction = remember { MutableInteractionSource() }
                                     AsyncImage(
                                         model = ImageRequest.Builder(context)
-                                            .data("file:///android_asset/pixelarticons/zap.svg")
+                                            .data("file:///android_asset/pixelarticons/refresh.svg")
                                             .build(),
                                         imageLoader = svgLoader,
                                         contentDescription = "Regenerate",
@@ -1180,28 +1391,6 @@ fun ChatBubble(
                                     )
                                 }
 
-                                // Thinking icon — only interactive when thinking content exists
-                                val hasThinking = message.thinkingContent != null
-                                val thinkingInteraction = remember { MutableInteractionSource() }
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data("file:///android_asset/pixelarticons/ai-app-mac.svg")
-                                        .build(),
-                                    imageLoader = svgLoader,
-                                    contentDescription = if (hasThinking) "View AI reasoning" else "No thought process captured",
-                                    colorFilter = ColorFilter.tint(
-                                        if (hasThinking) colors.textXLow
-                                        else colors.textXLow.copy(alpha = 0.35f)
-                                    ),
-                                    modifier = Modifier
-                                        .size(20.dp)
-                                        .then(
-                                            if (hasThinking) Modifier.pixelRounded8ClickableOversize(
-                                                interactionSource = thinkingInteraction
-                                            ) { showThinking = true }
-                                            else Modifier
-                                        )
-                                )
                             }
                             
                             // Right side: Options icon - wrapped in Box for popover positioning

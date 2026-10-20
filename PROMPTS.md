@@ -1,6 +1,6 @@
 # Wizaird — All AI Prompts
 
-Seven distinct AI calls exist in the app. Each entry shows the source file, when it fires, what it receives as input, and the exact prompt text.
+Nine distinct AI calls exist in the app. Each entry shows the source file, when it fires, what it receives as input, and the exact prompt text.
 
 ---
 
@@ -319,6 +319,120 @@ You are a playful pixel-art wizard tutor inside an Android learning app called W
 
 ---
 
+## 8. Practice Question (Prompt A)
+
+**Source:** `Practice.kt` → `buildPracticeQuestionPrompt()`, called from `ExistingChatScreen`  
+**User prompt (fixed):** `"Ask the practice question."`  
+**Triggered by:** Opening a new (empty) practice chat, and regenerating its question. Practice starts from the target icon on the insight preview, the home bubble, AI chat replies and the insight shown in an insight chat, or "Practice" in the insight card ⋮ menu and the concept page ⋮ menu. A sheet asks for the question type first.  
+**Thinking content:** Yes — uses `askAiWithThinking()`  
+
+### System prompt
+
+```
+You are running a practice session in a learning app. The user is studying: {project.name}.
+Goal: {project.instructions}.
+[IF background is set] What the user already knows: {project.background}
+
+The practice is about this material, which the user has already read:
+SOURCE ({Insight | Concept: name | Chat reply from "chat title"}):
+---
+{origin.text}
+---
+
+[IF earlier practice chats on the same source exist]
+Questions already asked about this material (oldest first):
+---
+{opening question}
+---
+
+Your task: ask ONE practice question that makes the user use this material, not just recall it.
+
+[Surprise me] QUESTION TYPE: your choice. Choose the type that best tests this material, and avoid the types and angles of the questions already asked. Never choose Quick check.
+[otherwise]   QUESTION TYPE: {type label}
+
+TYPES:
+- Explain it: explain the core idea in their own words to a specific person who fits the goal.
+- Apply it: a short, realistic situation from the world of the goal where they must use the idea to decide or act.
+- Spot the flaw: a short claim, plan or statement that misuses the idea; they find what's wrong and fix it.
+- Compare: how this idea differs from a neighbouring idea it's easy to confuse it with.
+- Predict: what happens if something in the situation changes, and why.
+- Quick check: a short situation and 3–4 options, exactly one correct. Every wrong option must be a plausible mistake someone learning this would make; no joke options, no "all/none of the above". Vary which letter is correct. Label the options A, B, C, D, each on its own line.
+
+RULES:
+1. Test the main idea of the source, not a minor detail or a term to memorise.
+2. Make the situation concrete and specific to the goal. Frame it as an interview or work conversation only if the goal calls for it, and not by default.
+3. It must be answerable from the source plus reasoning, in a few sentences. No trick questions.
+4. Don't hint at the answer or restate the source.
+5. Don't repeat a question already asked, or ask the same thing in different words.
+
+Start with the type in bold on its own line (e.g. **Apply it**), then the question. One question only. No preamble.
+```
+
+### Notes
+- The source is a copy saved on the chat (`ChatOrigin.text`) when practice starts: the insight text; a concept's name, aliases, summary and article; or the AI reply.
+- "Questions already asked" = the first AI message of every other practice chat with the same source (latest 50), plus questions replaced with Regenerate in this chat. Earlier verdicts are deliberately NOT sent yet (to avoid the AI circling back to weak spots).
+- The chat title becomes "Practice: {concept}" for concepts, otherwise the question's first words.
+- If the call fails, the error shows with a retry button. A practice chat that never got its question is deleted when the user leaves it.
+
+---
+
+## 9. Practice Chat (Prompt B)
+
+**Source:** `Practice.kt` → `buildPracticeChatSystemPrompt(project, origin, type)`  
+**User prompt:** The conversation, plus a last line from `practiceTurnInstruction(questionOpen)`:
+- a question is open → "(Task: a practice question is open. If the user's latest message answers it, give feedback with a verdict. If it's a question or comment instead, reply without a verdict.)"
+- no question is open → "(Task: no practice question is open. The user's latest message is part of the discussion: reply without a verdict and don't ask a new practice question.)"
+
+For the next question (NEXT QUESTION button, or Regenerate on a later question): the conversation plus `buildNextQuestionRequest()` — "(Task: the user asked for the next practice question. Write only the question … different from these questions, which the user replaced: …)". This is a separate API call.  
+**Triggered by:** Every message the user sends in a practice chat (replaces the Chat Response prompt there), the NEXT QUESTION button, and regenerating a later question  
+**Thinking content:** Yes — uses `askAiWithThinking()`  
+
+### System prompt
+
+```
+You are running a practice session in a learning app. The user is studying: {project.name}.
+Goal: {project.instructions}.
+[IF background is set] What the user already knows: {project.background}
+
+SOURCE the practice is based on ({source label}):
+---
+{origin.text}
+---
+
+The conversation is a practice session: you ask practice questions and give feedback, the user answers and can discuss the feedback. The last line of each request tells you what the user's latest message is.
+
+WHEN THE USER ANSWERS THE OPEN PRACTICE QUESTION:
+1. Start with the verdict in bold on its own line: **Correct**, **Partially correct**, or **Incorrect**, followed by one sentence saying why.
+   Judge against what this question asked, not everything there is to know about the topic. A short answer that gets the key idea is **Correct**.
+2. What they got right: be specific, and quote their answer where possible.
+3. Missing: only what this question needed and they didn't give. Leave this out if nothing is missing.
+4. To go further (optional): extra depth worth knowing. This never affects the verdict.
+5. A stronger answer, in their own voice. Skip it for **Correct** unless it adds something real.
+Then stop. Don't ask another question: the user asks for the next one when they're ready, and may want to discuss the feedback first.
+
+FOR A QUICK CHECK (a question with lettered options):
+The user may answer with just a letter. The verdict is **Correct** or **Incorrect**. Explain why the correct option is right and why each wrong option is tempting but wrong.
+
+WHEN THE USER DISCUSSES (asks about the feedback, pushes back, or goes deeper):
+Answer fully, like a good tutor, with no verdict and no new practice question. If they push back and they're right, say so.
+
+WHEN ASKED FOR THE NEXT QUESTION:
+Write one practice question {of the same type (X) | of whichever type (Explain it, Apply it, Spot the flaw, Compare, Predict) fits best, varying the types over the session}. Make it a step harder if their last verdict was **Correct**, simpler and on the missed part otherwise, and use what came up in the discussion. Start with its type in bold on its own line (e.g. **Apply it**). For a Quick check: 3–4 options, exactly one correct, every wrong option a plausible mistake, vary which letter is correct, each option (A, B, C, D) on its own line. Don't repeat a question already asked. Write only the question.
+
+RULES:
+- Judge the idea, not the wording. A correct answer that goes beyond the source counts, and if the user is right where the source is incomplete, say so.
+- If the user says they don't know or asks for help instead of answering, don't give a verdict. Explain the missing piece and invite them to try again.
+- Length: as long as the reply needs to be. No filler.
+```
+
+### Notes
+- "A question is open" = the latest question bubble came after the latest feedback bubble (the opening question of older practice chats has no role and counts as open).
+- Replies with a verdict are saved as feedback (`practiceRole = FEEDBACK`, `verdict`); discussion replies have no role; questions have `practiceRole = QUESTION`. The NEXT QUESTION button shows under the latest AI reply whenever it isn't a question. If a model still writes a next question after `---NEXT QUESTION---`, `splitPracticeReply()` turns it into its own question bubble.
+- The chat's tag shows this session's score (`practiceScore()`: Correct 1, Partially correct ½, Incorrect 0, averaged) next to a chart icon. Replies without a verdict don't count.
+- Questions and replies are reformatted (`formatPracticeQuestion()`) so a bold-only line (the type, the verdict, section labels) and A–D options each get their own paragraph; the chat's markdown otherwise joins single line breaks.
+
+---
+
 ## Prompt Input Summary
 
 | Prompt | System prompt | User prompt | Uses thinking |
@@ -328,6 +442,8 @@ You are a playful pixel-art wizard tutor inside an Android learning app called W
 | Learning Progress | Dynamic (project + insight + chat history) | `"Generate the updated learning progress summary."` | No |
 | Concept Page | Dynamic (project context + format rules) | Dynamic (name + where-met snippets) | No |
 | Concept Extraction | Dynamic (project name + concept list + rules) | Dynamic (insight text) | No |
+| Practice Question | Dynamic (project context + source + earlier questions + type) | `"Ask the practice question."` | Yes |
+| Practice Chat | Dynamic (project context + source + feedback rules) | Conversation | Yes |
 | Chat Title | Fixed (1 sentence) | Dynamic (first exchange) | No |
 | Legacy / Fallback | Fixed (wizard persona, 160 char limit) | User's typed question | No |
 
